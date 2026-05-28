@@ -1,0 +1,37 @@
+{
+   "checksum": "a5addf762c6cb5c929a18f23b9bdc4af",
+   "roots": {
+      "bookmark_bar": {
+         "children": [  ],
+         "date_added": "13423485608484765",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "0bc5d13f-2cba-5d74-951f-3f233fe6c908",
+         "id": "1",
+         "name": "书签栏",
+         "type": "folder"
+      },
+      "other": {
+         "children": [  ],
+         "date_added": "13423485608484765",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "82b081ec-3dd3-529c-8475-ab6c344590dd",
+         "id": "2",
+         "name": "其他书签",
+         "type": "folder"
+      },
+      "synced": {
+         "children": [  ],
+         "date_added": "13423485608484765",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "4cf2e351-0e85-532b-bb37-df045d8f8d0f",
+         "id": "3",
+         "name": "移动设备书签",
+         "type": "folder"
+      }
+   },
+   "sync_metadata": "Ct8BCr4BCIiBAhK3ASAAkgGjAQqgAQoOY2hyb21lX3N5bmNfYm0SBTUxIWJtGhIJF+RniABSBgARF+RniABSBgAiNAnEjFWIAFIGABADGW8nSSJmX+WzIAEqHDUxIWJtL2ZkOjkxNjM3MjM1NTk0Njg4OTMxNjEiNAnEjFWIAFIGABADGW8nSSJmX+WzIAEqHDUxIWJtL2ZkOjkxNjM3MjM1NTk0Njg4OTMxNjEpkWZoiABSBgDqAQsIhqSm0AYQqKTlbRIAKhhQdUxVcU5abTBBM3RRUGhVamtBSlpBPT1IAxLDAQgDEr4BChxuamdEdTg4ZUNydlhwODZwRDdmSEdjcUZwODg9EmZaOkFEcXRBWnhaUHd6cG0wVVErTEJqY24zRmkrbXpYNFFmY1dvc2hCdUZpS0tSWThIQXVOeStWQlFOTzVUTkVvL2hONDlFVGVtRC9OcmU0dmF4VTR3a1BLbjRXWEFEWStsMnV3PT0YACAAKAAwsqHBzp6ykgM4AEAAShx5ek5CMDFjbjU0QTdjUlUwdVQrL1BnbVR0VW89WgBlAAAAABLDAQgCEr4BChxZY1NUb252RVNQd3FDczRMMmNyVmh2NjhMOTg9EmZaOkFEcXRBWnloeVZFWG9yZ3Q4V0ZtOUI2a3hOSk5ULzY2dEJOQWFJMEFlZ2dkN0hDM3h4bDFSM2lGaDlhOWlZOXBjYTY3OHYwUFkwNWZ5QTA5dE1VU21RdVczM2hSNmJFK1J3PT0YACAAKAAwsqHBzp6ykgM4AEAAShxvUFZraHdCUmJWNjVLQ1dSMitJT05IV29PdTg9WgBlAAAAABKrAQgBEqYBChx5eEovNmZ2a2VjcjdrcDVFUXpCNHRXTHBkYkU9Ek5aOkFEcXRBWnpNUTFaQzRFT1k3N2NjT00rQUMyczZyRnJHRlBtT2haS3o1Y0dUMjNuVFpwYVlFUmhtODlUdHFEMXBCRkFtcWFIZ1dJZXcYACAAKAAwsqHBzp6ykgM4AEAAShxhUkNXTGdoRjliNUlucUtJRHZ1Si9qdlFrRmM9WgBlAAAAADABOAA=",
+   "version": 1
+}

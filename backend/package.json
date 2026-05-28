@@ -1,0 +1,23 @@
+{
+  "name": "aflodit-pet-copilot-backend",
+  "version": "0.6.0",
+  "description": "Local backend for AFlodit Pet Copilot.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test": "npm run test:normalizer && npm run test:input && npm run test:llm",
+    "test:normalizer": "node scripts/testResponseNormalizer.js",
+    "test:input": "node scripts/testInputNormalizer.js",
+    "test:llm": "node scripts/testLlmRuntime.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  }
+}

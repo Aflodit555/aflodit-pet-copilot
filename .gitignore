@@ -1,0 +1,7 @@
+.env
+.env.local
+backend/.env
+backend/.env.local
+private-models/
+*.key
+node_modules/
