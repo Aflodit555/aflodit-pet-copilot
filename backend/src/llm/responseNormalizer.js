@@ -13,6 +13,12 @@ function stripCodeFence(text) {
   return match ? match[1].trim() : trimmed;
 }
 
+function previewText(value, maxLength = 600) {
+  const text = String(value || "");
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}... [truncated ${text.length - maxLength} chars]`;
+}
+
 function findJsonObject(text) {
   const source = String(text || "");
   let start = -1;
@@ -58,34 +64,52 @@ function findJsonObject(text) {
 }
 
 function parseObject(rawText, warnings) {
-  if (rawText && typeof rawText === "object" && !Array.isArray(rawText)) return rawText;
+  if (rawText && typeof rawText === "object" && !Array.isArray(rawText)) {
+    return { object: rawText, parseResult: "object_input" };
+  }
 
   const text = stripCodeFence(rawText);
   if (!text) {
     warnings.push("Model output was empty.");
-    return null;
+    return { object: null, parseResult: "empty_output" };
   }
 
   try {
     const parsed = JSON.parse(text);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return { object: parsed, parseResult: "parsed_direct_json" };
+    }
     warnings.push("Model JSON was not an object.");
-    return null;
+    return { object: null, parseResult: "json_not_object" };
   } catch {
     const candidate = findJsonObject(text);
     if (!candidate) {
       warnings.push("No JSON object found in model output.");
-      return null;
+      return { object: null, parseResult: "no_json_object" };
     }
 
     try {
       const parsed = JSON.parse(candidate);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return {
+          object: parsed,
+          parseResult: "parsed_extracted_json",
+          extractedJsonPreview: previewText(candidate)
+        };
+      }
       warnings.push("Extracted JSON was not an object.");
-      return null;
+      return {
+        object: null,
+        parseResult: "extracted_json_not_object",
+        extractedJsonPreview: previewText(candidate)
+      };
     } catch {
       warnings.push("Extracted JSON object could not be parsed.");
-      return null;
+      return {
+        object: null,
+        parseResult: "extracted_json_parse_failed",
+        extractedJsonPreview: previewText(candidate)
+      };
     }
   }
 }
@@ -108,11 +132,12 @@ function normalizeConfidence(value, warnings) {
 
 function normalizeModelResponse(rawText, options = {}) {
   const warnings = [];
-  const parsed = parseObject(rawText, warnings);
+  const parsedResult = parseObject(rawText, warnings);
+  const parsed = parsedResult.object;
   let fallbackUsed = !parsed;
   const source = parsed || {
     reply: DEFAULT_RESPONSE.reply,
-    emotion: "error",
+    emotion: "neutral",
     motion: "idle",
     bubble_type: "error",
     confidence: 0.3
@@ -130,7 +155,7 @@ function normalizeModelResponse(rawText, options = {}) {
   if (!reply) {
     warnings.push("Empty reply; used model failure message.");
     fallbackUsed = true;
-    response.emotion = "error";
+    response.emotion = "neutral";
     response.motion = "idle";
     response.bubble_type = "error";
     response.confidence = 0.3;
@@ -154,6 +179,9 @@ function normalizeModelResponse(rawText, options = {}) {
   response.debug = {
     warnings,
     fallbackUsed,
+    parseResult: parsedResult.parseResult,
+    extractedJsonPreview: parsedResult.extractedJsonPreview,
+    parsedObject: options.includeParsedObject ? parsed : undefined,
     rawTextAvailable: typeof rawText === "string" && rawText.length > 0
   };
 

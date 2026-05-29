@@ -12,15 +12,25 @@ function toBool(value, fallback = false) {
   return ["1", "true", "yes", "on"].includes(String(value).trim().toLowerCase());
 }
 
+const configuredModelProvider = process.env.MODEL_PROVIDER || "mock";
+const normalizedConfiguredProvider = String(configuredModelProvider).trim().toLowerCase();
+const configuredModelName = process.env.MODEL_NAME || (normalizedConfiguredProvider === "mock" ? "mock" : "");
+
 const Config = Object.freeze({
-  version: "0.6.0",
+  appName: "AFlodit Pet Copilot",
+  version: "0.6.2",
+  runtimeName: "difyless-llm-runtime",
+  runtimeType: "local-provider-llm-runtime",
   host: process.env.HOST || "127.0.0.1",
   port: Number(process.env.PORT || 3001),
   maxReplyChars: Number(process.env.MAX_REPLY_CHARS || 0),
   debugLog: toBool(process.env.DEBUG_LOG ?? process.env.DEBUG, false),
   llmDebug: toBool(process.env.LLM_DEBUG, false),
-  modelProvider: process.env.MODEL_PROVIDER || "mock",
-  modelName: process.env.MODEL_NAME || "mock",
+  modelProvider: configuredModelProvider,
+  modelName: configuredModelName,
+  modelBaseUrl: process.env.MODEL_BASE_URL || "",
+  modelResponseFormat: process.env.MODEL_RESPONSE_FORMAT || "",
+  modelApiKeyPresent: Boolean(String(process.env.MODEL_API_KEY || "").trim()),
   modelTimeoutMs: Number(process.env.MODEL_TIMEOUT_MS || 20000),
   rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60000),
   rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 30),
@@ -38,10 +48,99 @@ const Logger = {
 function safeResponse(message, bubbleType = "error", confidence = 0.3) {
   return {
     reply: message,
-    emotion: bubbleType === "error" ? "error" : "confused",
+    emotion: bubbleType === "error" ? "neutral" : "confused",
     motion: "idle",
     bubble_type: bubbleType,
     confidence
+  };
+}
+
+function safeUrlInfo(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return { configured: false };
+
+  try {
+    const url = new URL(raw);
+    return {
+      configured: true,
+      origin: url.origin,
+      pathname: url.pathname,
+      has_query: Boolean(url.search),
+      has_hash: Boolean(url.hash)
+    };
+  } catch {
+    return {
+      configured: true,
+      invalid: true
+    };
+  }
+}
+
+function getModelConfigStatus() {
+  const provider = String(Config.modelProvider || "mock").trim().toLowerCase();
+  const missing = [];
+
+  if (provider === "mock") {
+    return {
+      present: true,
+      missing,
+      required: []
+    };
+  }
+
+  if (provider === "openai-compatible" || provider === "openai_compatible" || provider === "openai") {
+    if (!String(Config.modelBaseUrl || "").trim()) missing.push("MODEL_BASE_URL");
+    if (!Config.modelApiKeyPresent) missing.push("MODEL_API_KEY");
+    if (!String(Config.modelName || "").trim()) missing.push("MODEL_NAME");
+    return {
+      present: missing.length === 0,
+      missing,
+      required: ["MODEL_BASE_URL", "MODEL_API_KEY", "MODEL_NAME"]
+    };
+  }
+
+  return {
+    present: false,
+    missing: [`unsupported provider: ${provider || "empty"}`],
+    required: ["MODEL_PROVIDER"]
+  };
+}
+
+function runtimeStatus() {
+  const modelConfig = getModelConfigStatus();
+
+  return {
+    ok: true,
+    backend_status: "running",
+    app: {
+      name: Config.appName,
+      version: Config.version
+    },
+    runtime: {
+      name: Config.runtimeName,
+      type: Config.runtimeType
+    },
+    config_source: "environment",
+    provider: {
+      name: Config.modelProvider || "mock",
+      model: Config.modelName || "",
+      response_format: Config.modelResponseFormat || "",
+      base_url: safeUrlInfo(Config.modelBaseUrl),
+      api_key_present: Config.modelApiKeyPresent,
+      required_config_present: modelConfig.present,
+      missing_config: modelConfig.missing,
+      required_config: modelConfig.required
+    },
+    llm_debug: Config.llmDebug,
+    timeout_ms: Config.modelTimeoutMs,
+    server: {
+      host: Config.host,
+      port: Config.port,
+      uptime_seconds: Math.round(process.uptime()),
+      timestamp: new Date().toISOString()
+    },
+    rate_limit: { window_ms: Config.rateLimitWindowMs, max: Config.rateLimitMax },
+    actions: Object.values(ACTIONS)
   };
 }
 
@@ -130,8 +229,7 @@ app.post("/api/pet", async (req, res) => {
   const startedAt = Date.now();
 
   try {
-    Logger.debug("Received extension request", JSON.stringify(req.body || {}, null, 2));
-    const result = await runPetLlm(req.body, { includeDebug: true });
+    const result = await runPetLlm(req.body, { includeDebug: true, logger: console });
     const limited = applyReplyLimit(result);
 
     if (limited.debug) {
@@ -148,26 +246,13 @@ app.post("/api/pet", async (req, res) => {
     return res.json(limited);
   } catch (err) {
     Logger.error("Backend error:", err);
-    return res.status(500).json(safeResponse("本地后端异常，请查看终端报错。", "error", 0.3));
+    return res.status(200).json(safeResponse("模型暂时没有返回有效结果，请稍后再试。", "error", 0.3));
   }
 });
 
-app.get("/health", (req, res) => {
-  res.json({
-    ok: true,
-    service: "aflodit-pet-copilot-local-server",
-    version: Config.version,
-    host: Config.host,
-    port: Config.port,
-    debug_log: Config.debugLog,
-    llm_debug: Config.llmDebug,
-    model_provider: Config.modelProvider,
-    model: Config.modelName,
-    model_timeout_ms: Config.modelTimeoutMs,
-    rate_limit: { window_ms: Config.rateLimitWindowMs, max: Config.rateLimitMax },
-    actions: Object.values(ACTIONS)
-  });
-});
+app.get("/api/runtime-status", (req, res) => res.json(runtimeStatus()));
+app.get("/api/health", (req, res) => res.json(runtimeStatus()));
+app.get("/health", (req, res) => res.json(runtimeStatus()));
 
 app.listen(Config.port, Config.host, () => {
   Logger.info(`AFlodit Pet backend running at http://${Config.host}:${Config.port}`);

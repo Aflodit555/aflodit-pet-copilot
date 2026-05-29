@@ -1,6 +1,6 @@
 {
   "name": "aflodit-pet-copilot-backend",
-  "version": "0.6.0",
+  "version": "0.6.2",
   "description": "Local backend for AFlodit Pet Copilot.",
   "main": "server.js",
   "scripts": {

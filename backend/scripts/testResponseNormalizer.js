@@ -79,8 +79,8 @@ test("invalid bubble_type falls back to normal", () => {
 
 test("empty reply uses model failure fallback", () => {
   const result = normalizeModelResponse("{\"reply\":\"   \",\"confidence\":0.9}");
-  assert.strictEqual(result.reply, "模型暂时没有返回有效结果。");
-  assert.strictEqual(result.emotion, "error");
+  assert.ok(result.reply.includes("请稍后再试"));
+  assert.strictEqual(result.emotion, "neutral");
   assert.strictEqual(result.bubble_type, "error");
   assert.strictEqual(result.confidence, 0.3);
   assert.strictEqual(result.debug.fallbackUsed, true);
@@ -88,8 +88,8 @@ test("empty reply uses model failure fallback", () => {
 
 test("invalid model output uses model failure fallback", () => {
   const result = normalizeModelResponse("not json");
-  assert.strictEqual(result.reply, "模型暂时没有返回有效结果。");
-  assert.strictEqual(result.emotion, "error");
+  assert.ok(result.reply.includes("请稍后再试"));
+  assert.strictEqual(result.emotion, "neutral");
   assert.strictEqual(result.bubble_type, "error");
   assert.strictEqual(result.confidence, 0.3);
   assert.strictEqual(result.debug.fallbackUsed, true);

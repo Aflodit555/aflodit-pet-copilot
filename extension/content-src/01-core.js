@@ -27,7 +27,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   });
 
   const CONFIG = Object.freeze({
-    version: "0.5.7",
+    version: "0.6.2",
     backendUrl: "http://127.0.0.1:3001/api/pet",
     localClientToken: "aflodit-pet-local-dev",
     debug: false,

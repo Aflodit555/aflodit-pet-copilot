@@ -25,7 +25,7 @@ const MOTIONS = Object.freeze(["idle", "nod", "shake", "jump", "think"]);
 const BUBBLE_TYPES = Object.freeze(["normal", "info", "warning", "error"]);
 
 const DEFAULT_RESPONSE = Object.freeze({
-  reply: "模型暂时没有返回有效结果。",
+  reply: "模型暂时没有返回有效结果，请稍后再试。",
   emotion: "neutral",
   motion: "idle",
   bubble_type: "normal",

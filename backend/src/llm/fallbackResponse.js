@@ -25,8 +25,8 @@ const FALLBACKS = Object.freeze({
     confidence: 0.4
   }),
   modelFailure: Object.freeze({
-    reply: "模型暂时没有返回有效结果。",
-    emotion: "error",
+    reply: "模型暂时没有返回有效结果，请稍后再试。",
+    emotion: "neutral",
     motion: "idle",
     bubble_type: "error",
     confidence: 0.3

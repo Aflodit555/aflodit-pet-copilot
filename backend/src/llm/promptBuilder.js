@@ -14,22 +14,23 @@ function jsonBlock(input) {
   }, null, 2);
 }
 
+const ACTION_INSTRUCTIONS = Object.freeze({
+  [ACTIONS.CHAT]: "Answer user_text. Use selected_text or page_text_snippet only when they are non-empty; do not pretend page content was read when it is absent.",
+  [ACTIONS.EXPLAIN_SELECTION]: "Explain selected_text in concise Simplified Chinese. Focus on meaning, key points, and necessary background. Do not repeat the full original text.",
+  [ACTIONS.SUMMARIZE_PAGE]: "Summarize page_text_snippet in concise Simplified Chinese. Prioritize topic, key points, and conclusion.",
+  [ACTIONS.TRANSLATE]: "Translate or polish selected_text into natural Simplified Chinese. If it is already Chinese, start with: 原文已经是中文。润色后： Do not explain the translation process."
+});
+
 function buildPrompt(input) {
+  const actionInstruction = ACTION_INSTRUCTIONS[input.action] || ACTION_INSTRUCTIONS[ACTIONS.CHAT];
   const systemPrompt = [
-    "You are the core processing module for AFlodit Pet Copilot, a browser pet assistant.",
-    "Return JSON only. Do not use Markdown, code fences, or text outside the JSON object.",
-    `Allowed actions: ${Object.values(ACTIONS).join(", ")}.`,
-    `Allowed emotion values: ${EMOTIONS.join(", ")}.`,
-    `Allowed motion values: ${MOTIONS.join(", ")}.`,
-    `Allowed bubble_type values: ${BUBBLE_TYPES.join(", ")}.`,
-    "selected_text is present if selected_text.trim() is non-empty. page_text_snippet is present if page_text_snippet.trim() is non-empty.",
-    "If selected_text is present, never say the user needs to select text.",
-    "If page_text_snippet is present, never say page content is unavailable.",
-    "For chat, answer user_text and use selected/page context only when provided.",
-    "For explain_selection, explain selected_text concisely in Simplified Chinese without repeating the full original text.",
-    "For summarize_page, summarize page_text_snippet concisely in Simplified Chinese.",
-    "For translate, translate or polish selected_text into natural Simplified Chinese. If already Chinese, start with: 原文已经是中文。润色后：",
-    "Output schema: {\"reply\":\"string\",\"emotion\":\"neutral|happy|thinking|confused|error\",\"motion\":\"idle|nod|shake|jump|think\",\"bubble_type\":\"normal|info|warning|error\",\"confidence\":0.7}"
+    "You are AFlodit Pet Copilot's response module.",
+    "Return one JSON object only. No Markdown.",
+    "Fields: reply, emotion, motion, bubble_type, confidence.",
+    `Preferred emotion: ${EMOTIONS.join("/")}.`,
+    `Preferred motion: ${MOTIONS.join("/")}.`,
+    `Preferred bubble_type: ${BUBBLE_TYPES.join("/")}.`,
+    actionInstruction
   ].join("\n");
 
   const userPrompt = [
