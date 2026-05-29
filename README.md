@@ -2,13 +2,23 @@
 
 AFlodit Pet Copilot is a lightweight browser pet assistant extension. It injects a floating pet UI into web pages, reads user chat, selected text, and page context, then sends requests to a local Node.js backend at `POST /api/pet`.
 
-Current target: `v0.6.3 Experimental Streaming Response`. The backend uses a local/provider LLM runtime implemented in this repository. Dify is no longer required at runtime; mentions of Dify are migration history only.
+Current target: `v0.6.5 Public Extension Foundation`. The backend uses a local/provider LLM runtime implemented in this repository. Dify is no longer required at runtime; mentions of Dify are migration history only.
+
+## v0.6.5 Public Extension Foundation
+
+- `POST /api/pet` remains the stable runtime path and keeps the existing response contract.
+- `POST /api/pet-stream` remains experimental.
+- Contribution, security, development, architecture, and command-design docs were added for public collaboration.
+- A minimal `@Command` parser/registry foundation exists under `extension/content-src/commands`, but no command is wired into the UI yet.
+- `@陪读` and full reading companion mode are not implemented in this release.
+- Runtime third-party plugin loading and remote JavaScript loading are not allowed.
 
 ## Project Layout
 
 - `extension/`: Manifest V3 browser extension, content script, and pet UI styles.
 - `backend/`: Local Express backend and model runtime.
 - `backend/src/llm/`: Input normalization, action-specific prompt building, provider calls, response normalization, timing/debug metadata, and fallbacks.
+- `docs/`: Architecture, development, and future `@Command` design notes.
 
 ## Quick Start: Mock Mode
 
@@ -82,9 +92,9 @@ Set this only for local debugging:
 LLM_DEBUG=true
 ```
 
-When enabled, terminal logs include normalized request previews, input lengths, truncation flags, prompt previews, prompt character counts, raw model response preview, raw response length, JSON parse result, fallback/normalization result, timing fields, and final frontend response. Long text is truncated. Secrets, API keys, local tokens, and authorization headers are not logged.
+When enabled, terminal logs include normalized request previews, input lengths, truncation flags, prompt previews, prompt character counts, raw model response preview, raw response length, JSON parse result, fallback/normalization result, timing fields, and final frontend response. `/api/pet` and `/api/pet-stream` may also include debug metadata. Long text is truncated. Secrets, API keys, local tokens, and authorization headers are not logged.
 
-When `LLM_DEBUG=false`, logs stay quiet except startup and meaningful errors.
+When `LLM_DEBUG=false`, logs stay quiet except startup and meaningful errors, and API responses do not expose detailed debug/provider metadata.
 
 ## Load The Extension
 
@@ -137,15 +147,15 @@ Allowed enum values:
 
 ## Experimental Streaming
 
-`POST /api/pet-stream` is experimental in `v0.6.3`. It keeps the same request payload as `/api/pet`, but returns newline-delimited JSON events over the response body so a Manifest V3 content script can consume it with `fetch()` and `ReadableStream`.
+`POST /api/pet-stream` is experimental in `v0.6.5`. It keeps the same request payload as `/api/pet`, but returns newline-delimited JSON events over the response body so a Manifest V3 content script can consume it with `fetch()` and `ReadableStream`.
 
 Event format:
 
 ```json
-{ "type": "start", "action": "translate" }
-{ "type": "delta", "text": "partial reply text" }
-{ "type": "final", "data": { "reply": "complete reply", "emotion": "thinking", "motion": "think", "bubble_type": "info", "confidence": 0.75 } }
-{ "type": "error", "data": { "reply": "模型暂时没有返回有效结果。", "emotion": "error", "motion": "shake", "bubble_type": "error", "confidence": 0.3 } }
+{ "streamExperimental": true, "type": "start", "action": "translate" }
+{ "streamExperimental": true, "type": "delta", "text": "partial reply text" }
+{ "streamExperimental": true, "type": "final", "data": { "reply": "complete reply", "emotion": "thinking", "motion": "think", "bubble_type": "info", "confidence": 0.75 } }
+{ "streamExperimental": true, "type": "error", "data": { "reply": "模型暂时没有返回有效结果。", "emotion": "error", "motion": "shake", "bubble_type": "error", "confidence": 0.3 } }
 ```
 
 The stream sends only user-facing reply text in `delta` events. Raw JSON model output is not streamed to users. At the end, the backend builds a complete response object, runs it through the existing response normalizer via JSON serialization, and sends that validated object in the `final` event. Metadata is applied only after the final event.
@@ -163,9 +173,9 @@ The normalizer handles plain JSON, Markdown-wrapped JSON, extra text around JSON
 
 ## Latency Notes
 
-v0.6.3 keeps the stable frontend response contract unchanged for `/api/pet` and adds an isolated experimental streaming path. The prompt slimming from `v0.6.2` remains: prompts use a compact base system prompt plus only the active action instruction for `chat`, `explain_selection`, `translate`, or `summarize_page`.
+v0.6.5 keeps the stable frontend response contract unchanged for `/api/pet` and keeps `/api/pet-stream` isolated as experimental. Provider first-token latency may still dominate perceived speed. The prompt slimming from `v0.6.2` remains: prompts use a compact base system prompt plus only the active action instruction for `chat`, `explain_selection`, `translate`, or `summarize_page`.
 
-Runtime debug metadata includes:
+When `LLM_DEBUG=true`, runtime debug metadata may include:
 
 - `timing.totalMs`
 - `timing.inputNormalizeMs`

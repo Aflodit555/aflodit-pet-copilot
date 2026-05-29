@@ -40,6 +40,18 @@ function assertResponseShape(result) {
     assert.strictEqual(result.debug.action, "chat");
   });
 
+  await test("normal public response can omit debug", async () => {
+    const result = await runPetLlm({ action: "chat", user_text: "hello" }, { env, includeDebug: false });
+    assertResponseShape(result);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(result, "debug"), false);
+  });
+
+  await test("debug response remains available when requested", async () => {
+    const result = await runPetLlm({ action: "chat", user_text: "hello" }, { env, includeDebug: true });
+    assertResponseShape(result);
+    assert.strictEqual(result.debug.action, "chat");
+  });
+
   await test("chat with page_text_snippet context", async () => {
     const result = await runPetLlm({ action: "chat", user_text: "what is this page", page_text_snippet: "page context" }, { env });
     assertResponseShape(result);
@@ -94,6 +106,16 @@ function assertResponseShape(result) {
     assert.ok(result.debug.warnings.some((warning) => warning.includes("Action alias")));
   });
 
+  await test("provider failure returns safe fallback shape", async () => {
+    const result = await runPetLlm(
+      { action: "chat", user_text: "hello" },
+      { env: { MODEL_PROVIDER: "unsupported-provider", LLM_DEBUG: "false" }, includeDebug: false }
+    );
+    assertResponseShape(result);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(result, "debug"), false);
+    assert.strictEqual(result.bubble_type, "error");
+  });
+
   await test("mock streaming returns deltas and final object", async () => {
     const events = [];
     const result = await runPetLlmStream(
@@ -107,5 +129,18 @@ function assertResponseShape(result) {
     assert.ok(events.some((event) => event.type === "final" && event.data?.reply));
     assert.strictEqual(result.debug.metrics.deltaCount > 0, true);
     assert.strictEqual(result.debug.metrics.replyChars, result.reply.length);
+  });
+
+  await test("mock streaming can omit debug", async () => {
+    const events = [];
+    const result = await runPetLlmStream(
+      { action: "chat", user_text: "hello" },
+      { env, includeDebug: false, onEvent: (event) => events.push(event) }
+    );
+
+    assertResponseShape(result);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(result, "debug"), false);
+    assert.ok(events.some((event) => event.type === "delta" && event.text));
+    assert.ok(events.some((event) => event.type === "final" && event.data?.reply && !event.debug));
   });
 })();

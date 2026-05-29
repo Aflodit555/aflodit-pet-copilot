@@ -18,7 +18,7 @@ const configuredModelName = process.env.MODEL_NAME || (normalizedConfiguredProvi
 
 const Config = Object.freeze({
   appName: "AFlodit Pet Copilot",
-  version: "0.6.3",
+  version: "0.6.5",
   runtimeName: "difyless-llm-runtime",
   runtimeType: "local-provider-llm-runtime",
   host: process.env.HOST || "127.0.0.1",
@@ -140,7 +140,10 @@ function runtimeStatus() {
       timestamp: new Date().toISOString()
     },
     rate_limit: { window_ms: Config.rateLimitWindowMs, max: Config.rateLimitMax },
-    actions: Object.values(ACTIONS)
+    actions: Object.values(ACTIONS),
+    experimental: {
+      pet_stream: true
+    }
   };
 }
 
@@ -233,7 +236,7 @@ app.post("/api/pet", async (req, res) => {
   const startedAt = Date.now();
 
   try {
-    const result = await runPetLlm(req.body, { includeDebug: true, logger: console });
+    const result = await runPetLlm(req.body, { includeDebug: Config.llmDebug, logger: console });
     const limited = applyReplyLimit(result);
 
     if (limited.debug) {
@@ -256,7 +259,7 @@ app.post("/api/pet", async (req, res) => {
 
 function writeStreamEvent(res, event) {
   if (res.writableEnded || res.destroyed) return;
-  const safeEvent = { ...event };
+  const safeEvent = { streamExperimental: true, ...event };
   if ((safeEvent.type === "final" || safeEvent.type === "error") && safeEvent.data) {
     safeEvent.data = applyReplyLimit(safeEvent.data);
   }

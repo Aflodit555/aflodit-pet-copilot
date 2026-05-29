@@ -5,3 +5,11 @@ backend/.env.local
 private-models/
 *.key
 node_modules/
+*.log
+logs/
+.cache/
+cache/
+tmp/
+temp/
+debug-output/
+local-output/
