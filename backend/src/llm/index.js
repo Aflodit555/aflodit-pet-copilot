@@ -1,10 +1,11 @@
 "use strict";
 
 const { normalizeInput } = require("./inputNormalizer");
-const { buildPrompt } = require("./promptBuilder");
-const { callModel, getProviderName } = require("./modelClient");
+const { buildPrompt, buildStreamingPrompt } = require("./promptBuilder");
+const { callModel, callModelStream, getProviderName } = require("./modelClient");
 const { normalizeModelResponse } = require("./responseNormalizer");
 const { getInputFallback, modelFailureResponse } = require("./fallbackResponse");
+const { ACTIONS } = require("./llmSchemas");
 
 function toBool(value, fallback = false) {
   if (value === undefined || value === null || value === "") return fallback;
@@ -94,6 +95,46 @@ function attachDebug(response, debug, includeRawText) {
 
   if (includeRawText && rawModelText) publicResponse.debug.rawModelText = rawModelText;
   return publicResponse;
+}
+
+function streamDefaultsForAction(action, reply) {
+  if (action === ACTIONS.CHAT) {
+    const looksHappy = /[!！]|谢谢|太好了|great|nice|happy/i.test(reply);
+    return {
+      emotion: looksHappy ? "happy" : "neutral",
+      motion: looksHappy ? "nod" : "idle",
+      bubble_type: "normal",
+      confidence: 0.75
+    };
+  }
+
+  if ([ACTIONS.TRANSLATE, ACTIONS.EXPLAIN_SELECTION, ACTIONS.SUMMARIZE_PAGE].includes(action)) {
+    return {
+      emotion: "thinking",
+      motion: "think",
+      bubble_type: "info",
+      confidence: 0.75
+    };
+  }
+
+  return {
+    emotion: "neutral",
+    motion: "idle",
+    bubble_type: "normal",
+    confidence: 0.7
+  };
+}
+
+function splitEventDebug(response, includeDebug) {
+  const { debug, ...data } = response;
+  return includeDebug && debug ? { data, debug } : { data };
+}
+
+function normalizeFinalObject(finalObject, includeRawText, llmDebug) {
+  return normalizeModelResponse(JSON.stringify(finalObject), {
+    includeRawText,
+    includeParsedObject: llmDebug
+  });
 }
 
 async function runPetLlm(body, options = {}) {
@@ -236,9 +277,191 @@ async function runPetLlm(body, options = {}) {
   }
 }
 
+async function runPetLlmStream(body, options = {}) {
+  const totalStartedAt = Date.now();
+  const env = options.env || process.env;
+  const includeDebug = options.includeDebug ?? false;
+  const includeRawText = toBool(env.LLM_DEBUG, false);
+  const llmDebug = toBool(env.LLM_DEBUG, false);
+  const logger = options.logger || console;
+  const emit = typeof options.onEvent === "function" ? options.onEvent : () => {};
+  const inputStartedAt = Date.now();
+  const { input, debug: inputDebug } = normalizeInput(body);
+  const inputNormalizeMs = Date.now() - inputStartedAt;
+  const provider = getProviderName(env);
+
+  const debug = {
+    provider,
+    model: getConfiguredModel(provider, env),
+    action: input.action,
+    inputLengths: inputDebug.inputLengths,
+    truncation: inputDebug.truncation,
+    warnings: [...inputDebug.warnings],
+    providerWarnings: [],
+    fallbackUsed: false,
+    timing: {
+      inputNormalizeMs
+    },
+    metrics: {
+      inputLengths: inputDebug.inputLengths,
+      deltaCount: 0,
+      replyChars: 0
+    }
+  };
+
+  emit({ type: "start", action: input.action });
+
+  if (llmDebug) {
+    logger.log("[LLM_DEBUG] stream normalized request", JSON.stringify({
+      input: previewInput(input),
+      lengths: inputDebug.inputLengths,
+      truncation: inputDebug.truncation,
+      warnings: inputDebug.warnings
+    }, null, 2));
+  }
+
+  const fallbackStartedAt = Date.now();
+  const inputFallback = getInputFallback(input);
+  if (inputFallback) {
+    debug.timing.fallbackMs = Date.now() - fallbackStartedAt;
+    debug.fallbackUsed = true;
+    debug.warnings.push("Input fallback returned before streaming provider call.");
+    const normalizeStartedAt = Date.now();
+    const normalized = normalizeFinalObject(inputFallback, includeRawText, llmDebug);
+    debug.timing.finalNormalizeMs = Date.now() - normalizeStartedAt;
+    debug.timing.streamTotalMs = Date.now() - totalStartedAt;
+    debug.timing.totalMs = debug.timing.streamTotalMs;
+    debug.metrics.replyChars = normalized.reply.length;
+    const finalResponse = includeDebug ? attachDebug(normalized, debug, includeRawText) : {
+      reply: normalized.reply,
+      emotion: normalized.emotion,
+      motion: normalized.motion,
+      bubble_type: normalized.bubble_type,
+      confidence: normalized.confidence
+    };
+    emit({ type: "final", ...splitEventDebug(finalResponse, includeDebug) });
+    return finalResponse;
+  }
+
+  debug.timing.fallbackMs = Date.now() - fallbackStartedAt;
+  const promptStartedAt = Date.now();
+  const prompts = buildStreamingPrompt(input);
+  debug.timing.promptBuildMs = Date.now() - promptStartedAt;
+  debug.metrics.systemPromptChars = prompts.systemPrompt.length;
+  debug.metrics.userPromptChars = prompts.userPrompt.length;
+
+  if (llmDebug) {
+    logger.log("[LLM_DEBUG] stream prompt payload preview", JSON.stringify({
+      ...previewPrompts(prompts),
+      systemPromptChars: debug.metrics.systemPromptChars,
+      userPromptChars: debug.metrics.userPromptChars
+    }, null, 2));
+  }
+
+  let accumulatedText = "";
+  const streamStartedAt = Date.now();
+
+  try {
+    const modelResult = await callModelStream({
+      input,
+      prompts,
+      env,
+      onDelta(text) {
+        const delta = String(text || "");
+        if (!delta) return;
+        if (debug.metrics.deltaCount === 0) {
+          debug.timing.timeToFirstDeltaMs = Date.now() - streamStartedAt;
+        }
+        debug.metrics.deltaCount += 1;
+        accumulatedText += delta;
+        emit({ type: "delta", text: delta });
+      }
+    });
+
+    debug.provider = modelResult.provider;
+    debug.model = modelResult.model;
+    debug.timing.providerStreamMs = modelResult.timing?.providerStreamMs ?? (Date.now() - streamStartedAt);
+    debug.timing.timeToFirstDeltaMs = debug.timing.timeToFirstDeltaMs ?? modelResult.timing?.timeToFirstDeltaMs;
+    if (!accumulatedText && modelResult.text) accumulatedText = modelResult.text;
+    debug.metrics.deltaCount = modelResult.deltaCount ?? debug.metrics.deltaCount;
+
+    const reply = accumulatedText.trim();
+    const defaults = streamDefaultsForAction(input.action, reply);
+    const finalObject = {
+      reply: reply || modelFailureResponse().reply,
+      ...defaults,
+      confidence: reply ? defaults.confidence : 0.3,
+      ...(reply ? {} : { emotion: "error", motion: "shake", bubble_type: "error" })
+    };
+
+    const normalizeStartedAt = Date.now();
+    const normalized = normalizeFinalObject(finalObject, includeRawText, llmDebug);
+    debug.timing.finalNormalizeMs = Date.now() - normalizeStartedAt;
+    debug.timing.streamTotalMs = Date.now() - totalStartedAt;
+    debug.timing.totalMs = debug.timing.streamTotalMs;
+    debug.metrics.replyChars = normalized.reply.length;
+
+    const finalResponse = includeDebug ? attachDebug(normalized, debug, includeRawText) : {
+      reply: normalized.reply,
+      emotion: normalized.emotion,
+      motion: normalized.motion,
+      bubble_type: normalized.bubble_type,
+      confidence: normalized.confidence
+    };
+
+    if (llmDebug) {
+      logger.log("[LLM_DEBUG] stream timing", JSON.stringify(debug.timing, null, 2));
+      logger.log("[LLM_DEBUG] stream metrics", JSON.stringify(debug.metrics, null, 2));
+      logger.log("[LLM_DEBUG] stream final response", JSON.stringify(safeFinalResponse(finalResponse), null, 2));
+    }
+
+    emit({ type: "final", ...splitEventDebug(finalResponse, includeDebug) });
+    return finalResponse;
+  } catch (error) {
+    debug.fallbackUsed = true;
+    debug.providerWarnings.push(error?.message || "Provider stream failed.");
+    const finalObject = {
+      ...modelFailureResponse(),
+      emotion: "error",
+      motion: "shake",
+      bubble_type: "error",
+      confidence: 0.3
+    };
+    const normalizeStartedAt = Date.now();
+    const normalized = normalizeFinalObject(finalObject, includeRawText, llmDebug);
+    debug.timing.finalNormalizeMs = Date.now() - normalizeStartedAt;
+    debug.timing.providerStreamMs = debug.timing.providerStreamMs ?? (Date.now() - streamStartedAt);
+    debug.timing.streamTotalMs = Date.now() - totalStartedAt;
+    debug.timing.totalMs = debug.timing.streamTotalMs;
+    debug.metrics.replyChars = normalized.reply.length;
+    const finalResponse = includeDebug ? attachDebug(normalized, debug, includeRawText) : {
+      reply: normalized.reply,
+      emotion: normalized.emotion,
+      motion: normalized.motion,
+      bubble_type: normalized.bubble_type,
+      confidence: normalized.confidence
+    };
+
+    if (llmDebug) {
+      logger.log("[LLM_DEBUG] stream runtime error", JSON.stringify({
+        provider: debug.provider,
+        model: debug.model,
+        reason: error?.message || "Provider stream failed.",
+        finalResponse: safeFinalResponse(finalResponse)
+      }, null, 2));
+      logger.log("[LLM_DEBUG] stream timing", JSON.stringify(debug.timing, null, 2));
+    }
+
+    emit({ type: "error", ...splitEventDebug(finalResponse, includeDebug) });
+    return finalResponse;
+  }
+}
+
 module.exports = {
   runPetLlm,
+  runPetLlmStream,
   normalizeInput,
   buildPrompt,
+  buildStreamingPrompt,
   normalizeModelResponse
 };

@@ -4,7 +4,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
-const { runPetLlm } = require("./src/llm");
+const { runPetLlm, runPetLlmStream } = require("./src/llm");
 const { ACTIONS } = require("./src/llm/llmSchemas");
 
 function toBool(value, fallback = false) {
@@ -18,7 +18,7 @@ const configuredModelName = process.env.MODEL_NAME || (normalizedConfiguredProvi
 
 const Config = Object.freeze({
   appName: "AFlodit Pet Copilot",
-  version: "0.6.2",
+  version: "0.6.3",
   runtimeName: "difyless-llm-runtime",
   runtimeType: "local-provider-llm-runtime",
   host: process.env.HOST || "127.0.0.1",
@@ -153,6 +153,10 @@ function applyReplyLimit(response) {
   };
 }
 
+function isPetRequestPath(path) {
+  return path === "/api/pet" || path === "/api/pet-stream";
+}
+
 function isAllowedOrigin(origin) {
   if (!origin || Config.corsAllowAll) return true;
   if (Config.corsAllowedOrigins.length > 0) return Config.corsAllowedOrigins.includes(origin);
@@ -166,7 +170,7 @@ function isAllowedOrigin(origin) {
 }
 
 function requireLocalToken(req, res, next) {
-  if (req.path !== "/api/pet" || !Config.localClientToken) return next();
+  if (!isPetRequestPath(req.path) || !Config.localClientToken) return next();
 
   if (req.get("X-Aflodit-Pet-Token") !== Config.localClientToken) {
     Logger.debug("Blocked invalid local token", {
@@ -183,7 +187,7 @@ function rateLimit() {
   const buckets = new Map();
 
   return function rateLimitMiddleware(req, res, next) {
-    if (req.path !== "/api/pet") return next();
+    if (!isPetRequestPath(req.path)) return next();
 
     const now = Date.now();
     const key = req.ip || req.socket?.remoteAddress || "local";
@@ -247,6 +251,48 @@ app.post("/api/pet", async (req, res) => {
   } catch (err) {
     Logger.error("Backend error:", err);
     return res.status(200).json(safeResponse("模型暂时没有返回有效结果，请稍后再试。", "error", 0.3));
+  }
+});
+
+function writeStreamEvent(res, event) {
+  if (res.writableEnded || res.destroyed) return;
+  const safeEvent = { ...event };
+  if ((safeEvent.type === "final" || safeEvent.type === "error") && safeEvent.data) {
+    safeEvent.data = applyReplyLimit(safeEvent.data);
+  }
+  if (safeEvent.debug && !Config.llmDebug) delete safeEvent.debug;
+  res.write(`${JSON.stringify(safeEvent)}\n`);
+}
+
+app.post("/api/pet-stream", async (req, res) => {
+  res.status(200);
+  res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  try {
+    await runPetLlmStream(req.body, {
+      includeDebug: Config.llmDebug,
+      logger: console,
+      onEvent(event) {
+        writeStreamEvent(res, event);
+      }
+    });
+  } catch (err) {
+    Logger.error("Backend stream error:", err);
+    writeStreamEvent(res, {
+      type: "error",
+      data: {
+        reply: "\u6a21\u578b\u6682\u65f6\u6ca1\u6709\u8fd4\u56de\u6709\u6548\u7ed3\u679c\u3002",
+        emotion: "error",
+        motion: "shake",
+        bubble_type: "error",
+        confidence: 0.3
+      }
+    });
+  } finally {
+    if (!res.writableEnded && !res.destroyed) res.end();
   }
 });
 

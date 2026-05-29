@@ -1,7 +1,7 @@
 "use strict";
 
 const assert = require("assert");
-const { runPetLlm } = require("../src/llm");
+const { runPetLlm, runPetLlmStream } = require("../src/llm");
 
 const env = {
   MODEL_PROVIDER: "mock",
@@ -92,5 +92,20 @@ function assertResponseShape(result) {
     const result = await runPetLlm({ action: "summarize", page_text_snippet: "Page body" }, { env });
     assert.strictEqual(result.debug.action, "summarize_page");
     assert.ok(result.debug.warnings.some((warning) => warning.includes("Action alias")));
+  });
+
+  await test("mock streaming returns deltas and final object", async () => {
+    const events = [];
+    const result = await runPetLlmStream(
+      { action: "chat", user_text: "hello" },
+      { env, includeDebug: true, onEvent: (event) => events.push(event) }
+    );
+
+    assertResponseShape(result);
+    assert.ok(events.some((event) => event.type === "start"));
+    assert.ok(events.some((event) => event.type === "delta" && event.text));
+    assert.ok(events.some((event) => event.type === "final" && event.data?.reply));
+    assert.strictEqual(result.debug.metrics.deltaCount > 0, true);
+    assert.strictEqual(result.debug.metrics.replyChars, result.reply.length);
   });
 })();

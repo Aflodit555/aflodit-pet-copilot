@@ -88,11 +88,31 @@
       const config = actionConfig(action);
       dom.status.textContent = config.loading;
       dom.reply.textContent = "思考中...";
+      delete dom.reply.dataset.streaming;
       dom.reply.scrollTop = 0;
       setMeta("thinking", "focus");
       setBubbleType("info");
       LayoutManager.updateFloatingLayout();
       FaceController.startThinkingFace();
+    },
+
+    showStreamingStart(action) {
+      this.showLoading(action);
+      dom.status.textContent = "正在接收流式回复...";
+      dom.reply.textContent = "";
+      dom.reply.dataset.streaming = "true";
+      setMeta("thinking", "think");
+    },
+
+    appendStreamingDelta(delta = "") {
+      if (!delta) return;
+      if (dom.reply.dataset.streaming !== "true") {
+        dom.reply.textContent = "";
+        dom.reply.dataset.streaming = "true";
+      }
+      dom.reply.textContent += delta;
+      dom.reply.scrollTop = dom.reply.scrollHeight;
+      LayoutManager.updateFloatingLayout();
     },
 
     resolveFinalFace(result = {}) {
@@ -107,6 +127,7 @@
       enforceScrollBoxes();
       dom.status.textContent = "本地后端已返回结果。";
       dom.reply.textContent = result.reply || "后端没有返回 reply。";
+      delete dom.reply.dataset.streaming;
       dom.reply.scrollTop = 0;
       setMeta(finalFace.emotion, finalFace.motion);
       setBubbleType(result.bubble_type || "normal");
@@ -123,6 +144,7 @@
       FaceController.stopReplyPeekLoop(true);
       dom.status.textContent = "请求本地后端失败。";
       dom.reply.textContent = String(error?.message || error);
+      delete dom.reply.dataset.streaming;
       dom.reply.scrollTop = 0;
       setMeta("error", "shake");
       setBubbleType("error");

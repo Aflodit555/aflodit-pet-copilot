@@ -2,7 +2,7 @@
 
 AFlodit Pet Copilot is a lightweight browser pet assistant extension. It injects a floating pet UI into web pages, reads user chat, selected text, and page context, then sends requests to a local Node.js backend at `POST /api/pet`.
 
-Current target: `v0.6.2 Latency Trace & Prompt Slimming`. The backend uses a local/provider LLM runtime implemented in this repository. Dify is no longer required at runtime; mentions of Dify are migration history only.
+Current target: `v0.6.3 Experimental Streaming Response`. The backend uses a local/provider LLM runtime implemented in this repository. Dify is no longer required at runtime; mentions of Dify are migration history only.
 
 ## Project Layout
 
@@ -28,6 +28,14 @@ The backend listens on `http://127.0.0.1:3001` by default. The extension calls:
 ```text
 http://127.0.0.1:3001/api/pet
 ```
+
+When `CONFIG.streamEnabled` is enabled in the extension, actions first try the experimental streaming endpoint:
+
+```text
+http://127.0.0.1:3001/api/pet-stream
+```
+
+If streaming fails, the extension falls back to the stable `POST /api/pet` path.
 
 ## Runtime Status
 
@@ -88,7 +96,7 @@ When `LLM_DEBUG=false`, logs stay quiet except startup and meaningful errors.
 
 ## API Contract
 
-`POST /api/pet` accepts the existing snake_case payload:
+`POST /api/pet` is the stable non-streaming endpoint and accepts the existing snake_case payload:
 
 ```json
 {
@@ -127,6 +135,23 @@ Allowed enum values:
 - `motion`: `idle`, `nod`, `shake`, `jump`, `think`
 - `bubble_type`: `normal`, `info`, `warning`, `error`
 
+## Experimental Streaming
+
+`POST /api/pet-stream` is experimental in `v0.6.3`. It keeps the same request payload as `/api/pet`, but returns newline-delimited JSON events over the response body so a Manifest V3 content script can consume it with `fetch()` and `ReadableStream`.
+
+Event format:
+
+```json
+{ "type": "start", "action": "translate" }
+{ "type": "delta", "text": "partial reply text" }
+{ "type": "final", "data": { "reply": "complete reply", "emotion": "thinking", "motion": "think", "bubble_type": "info", "confidence": 0.75 } }
+{ "type": "error", "data": { "reply": "模型暂时没有返回有效结果。", "emotion": "error", "motion": "shake", "bubble_type": "error", "confidence": 0.3 } }
+```
+
+The stream sends only user-facing reply text in `delta` events. Raw JSON model output is not streamed to users. At the end, the backend builds a complete response object, runs it through the existing response normalizer via JSON serialization, and sends that validated object in the `final` event. Metadata is applied only after the final event.
+
+For OpenAI-compatible providers, streaming uses `stream: true` and parses `data:` chunks from `/v1/chat/completions`, ignoring `[DONE]` and accumulating `choices[0].delta.content`. Mock mode also streams deterministic chunks without an API key.
+
 ## Failure Behavior
 
 - Missing selected text for `explain_selection`: `请先选中需要解释的网页文本。`
@@ -138,7 +163,7 @@ The normalizer handles plain JSON, Markdown-wrapped JSON, extra text around JSON
 
 ## Latency Notes
 
-v0.6.2 keeps the frontend response contract unchanged and does not add streaming. It reduces prompt overhead by using a compact base system prompt plus only the active action instruction for `chat`, `explain_selection`, `translate`, or `summarize_page`.
+v0.6.3 keeps the stable frontend response contract unchanged for `/api/pet` and adds an isolated experimental streaming path. The prompt slimming from `v0.6.2` remains: prompts use a compact base system prompt plus only the active action instruction for `chat`, `explain_selection`, `translate`, or `summarize_page`.
 
 Runtime debug metadata includes:
 
@@ -154,6 +179,15 @@ Runtime debug metadata includes:
 - `metrics.rawModelTextChars`
 - `metrics.inputLengths`
 
+Streaming debug metadata is emitted only when `LLM_DEBUG=true` and may include:
+
+- `timing.timeToFirstDeltaMs`
+- `timing.streamTotalMs`
+- `timing.providerStreamMs`
+- `timing.finalNormalizeMs`
+- `metrics.deltaCount`
+- `metrics.replyChars`
+
 ## Validation
 
 Run syntax checks from `backend/`:
@@ -166,6 +200,7 @@ node --check src/llm/promptBuilder.js
 node --check src/llm/responseNormalizer.js
 node --check src/llm/fallbackResponse.js
 node --check src/llm/inputNormalizer.js
+node --check ../extension/content.js
 ```
 
 Existing mock-mode tests are available:

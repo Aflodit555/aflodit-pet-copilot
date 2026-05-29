@@ -56,6 +56,68 @@
       return data;
     },
 
+    handleStreamEventLine(line, handlers) {
+      if (!line.trim()) return null;
+      const event = JSON.parse(line);
+
+      if (event.type === "delta") {
+        handlers.onDelta?.(String(event.text || ""));
+        return null;
+      }
+
+      if (event.type === "final") {
+        return event.data || null;
+      }
+
+      if (event.type === "error") {
+        return event.data || null;
+      }
+
+      return null;
+    },
+
+    async callStreamingBackend(payload, handlers = {}) {
+      const response = await fetch(CONFIG.streamUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Aflodit-Pet-Token": CONFIG.localClientToken
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`流式后端请求失败：${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalData = null;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+        const lines = buffer.split(/\r?\n/);
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const result = this.handleStreamEventLine(line, handlers);
+          if (result) finalData = result;
+        }
+
+        if (done) break;
+      }
+
+      if (buffer.trim()) {
+        const result = this.handleStreamEventLine(buffer, handlers);
+        if (result) finalData = result;
+      }
+
+      if (!finalData) throw new Error("流式后端没有返回 final 事件。");
+      return finalData;
+    },
+
     async runAction(action, userText = "") {
       if (state.running) return;
 
@@ -73,7 +135,26 @@
 
       try {
         log("request", payload);
-        const result = await this.callBackend(payload);
+        let result;
+        if (CONFIG.streamEnabled) {
+          try {
+            UIController.showStreamingStart(action);
+            result = await this.callStreamingBackend(payload, {
+              onDelta(delta) {
+                if (requestId === state.requestId && state.ui === UI.PANEL) {
+                  UIController.appendStreamingDelta(delta);
+                }
+              }
+            });
+          } catch (streamError) {
+            log("stream fallback", streamError);
+            if (requestId !== state.requestId || state.ui !== UI.PANEL) return;
+            UIController.showLoading(action);
+            result = await this.callBackend(payload);
+          }
+        } else {
+          result = await this.callBackend(payload);
+        }
         if (requestId !== state.requestId || state.ui !== UI.PANEL) return;
         log("response", result);
         UIController.showResult(result);

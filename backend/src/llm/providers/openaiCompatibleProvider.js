@@ -101,7 +101,117 @@ async function callOpenAICompatibleProvider({ prompts, env = process.env }) {
   };
 }
 
+async function callOpenAICompatibleProviderStream({ prompts, env = process.env, onDelta }) {
+  const baseUrl = buildChatCompletionsUrl(env.MODEL_BASE_URL);
+  const apiKey = String(env.MODEL_API_KEY || "").trim();
+  const model = String(env.MODEL_NAME || "").trim();
+  const timeoutMs = numberFromEnv(env.MODEL_TIMEOUT_MS, 20000);
+  const temperature = numberFromEnv(env.MODEL_TEMPERATURE, 0.3);
+  const maxTokens = numberFromEnv(env.MODEL_MAX_TOKENS, 512);
+
+  if (!baseUrl) throw new Error("MODEL_BASE_URL is required for openai-compatible provider.");
+  if (!apiKey) throw new Error("MODEL_API_KEY is required for openai-compatible provider.");
+  if (!model) throw new Error("MODEL_NAME is required for openai-compatible provider.");
+
+  const requestBody = {
+    model,
+    messages: [
+      { role: "system", content: prompts.systemPrompt },
+      { role: "user", content: prompts.userPrompt }
+    ],
+    temperature,
+    max_tokens: maxTokens,
+    stream: true
+  };
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const streamStartedAt = Date.now();
+  let response;
+  let firstDeltaAt = null;
+  let deltaCount = 0;
+  let text = "";
+
+  try {
+    response = await fetch(baseUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      await response.text().catch(() => "");
+      throw new Error(`OpenAI-compatible provider returned HTTP ${response.status}.`);
+    }
+
+    if (!response.body) throw new Error("OpenAI-compatible provider did not return a readable stream.");
+
+    const decoder = new TextDecoder();
+    const reader = response.body.getReader();
+    let buffer = "";
+    let done = false;
+
+    while (!done) {
+      const read = await reader.read();
+      done = read.done;
+      buffer += decoder.decode(read.value || new Uint8Array(), { stream: !done });
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || "";
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith(":")) continue;
+        if (!line.startsWith("data:")) continue;
+
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+
+        let chunk;
+        try {
+          chunk = JSON.parse(payload);
+        } catch {
+          throw new Error("OpenAI-compatible provider returned malformed stream JSON.");
+        }
+
+        const delta = chunk?.choices?.[0]?.delta?.content;
+        if (typeof delta !== "string" || !delta) continue;
+
+        if (firstDeltaAt === null) firstDeltaAt = Date.now();
+        deltaCount += 1;
+        text += delta;
+        onDelta?.(delta);
+      }
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`Provider stream timed out after ${timeoutMs} ms.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+
+  return {
+    provider: "openai-compatible",
+    model,
+    text,
+    deltaCount,
+    timing: {
+      providerStreamMs: Date.now() - streamStartedAt,
+      timeToFirstDeltaMs: firstDeltaAt === null ? undefined : firstDeltaAt - streamStartedAt
+    },
+    request: {
+      responseFormat: "reply_text_stream"
+    }
+  };
+}
+
 module.exports = {
   callOpenAICompatibleProvider,
+  callOpenAICompatibleProviderStream,
   buildChatCompletionsUrl
 };

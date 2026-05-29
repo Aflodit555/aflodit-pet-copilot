@@ -42,6 +42,26 @@ function buildPrompt(input) {
   return { systemPrompt, userPrompt };
 }
 
+function buildStreamingPrompt(input) {
+  const actionInstruction = ACTION_INSTRUCTIONS[input.action] || ACTION_INSTRUCTIONS[ACTIONS.CHAT];
+  const systemPrompt = [
+    "You are AFlodit Pet Copilot's streaming response module.",
+    "Output only the final user-facing reply text.",
+    "Do not output JSON, Markdown fences, labels, metadata, or explanations about the format.",
+    actionInstruction
+  ].join("\n");
+
+  const userPrompt = [
+    "Process this sanitized browser-extension request.",
+    "Return only the reply text that should be shown to the user.",
+    "Input:",
+    jsonBlock(input)
+  ].join("\n");
+
+  return { systemPrompt, userPrompt };
+}
+
 module.exports = {
-  buildPrompt
+  buildPrompt,
+  buildStreamingPrompt
 };

@@ -43,6 +43,44 @@ async function callMockProvider({ input }) {
   };
 }
 
+function getMockStreamingReply(input) {
+  const responses = {
+    [ACTIONS.CHAT]: "Mock streaming reply is working. The local backend can send partial text before the final object.",
+    [ACTIONS.EXPLAIN_SELECTION]: "这是 mock 流式解释：选中文本的核心含义会在这里用简洁中文说明。",
+    [ACTIONS.SUMMARIZE_PAGE]: "这是 mock 流式总结：页面主题、关键点和结论会逐步返回。",
+    [ACTIONS.TRANSLATE]: input.selectedText && /[\u4e00-\u9fff]/.test(input.selectedText) && !/[A-Za-z]/.test(input.selectedText)
+      ? "原文已经是中文。润色后：这是 mock 流式中文润色结果。"
+      : "这是 mock 流式翻译：选中的英文内容会被翻译成自然的简体中文。"
+  };
+
+  return responses[input.action] || responses[ACTIONS.CHAT];
+}
+
+async function callMockProviderStream({ input, onDelta }) {
+  const reply = getMockStreamingReply(input);
+  const chunkSize = 8;
+  const streamStartedAt = Date.now();
+  let deltaCount = 0;
+
+  for (let index = 0; index < reply.length; index += chunkSize) {
+    const text = reply.slice(index, index + chunkSize);
+    deltaCount += 1;
+    await Promise.resolve();
+    onDelta?.(text);
+  }
+
+  return {
+    provider: "mock",
+    model: "mock",
+    text: reply,
+    deltaCount,
+    timing: {
+      providerStreamMs: Date.now() - streamStartedAt
+    }
+  };
+}
+
 module.exports = {
-  callMockProvider
+  callMockProvider,
+  callMockProviderStream
 };
