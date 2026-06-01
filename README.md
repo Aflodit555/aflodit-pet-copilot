@@ -2,9 +2,17 @@
 
 AFlodit Pet Copilot is a lightweight browser pet assistant extension. It injects a floating pet UI into web pages, reads user chat, selected text, and page context, then sends requests to a local Node.js backend at `POST /api/pet`.
 
-Current target: `v0.6.5 Public Extension Foundation`. The backend uses a local/provider LLM runtime implemented in this repository. Dify is no longer required at runtime; mentions of Dify are migration history only.
+Current target: `v0.6.7 Settings Entry UI`. The backend uses a local/provider LLM runtime implemented in this repository. Dify is no longer required at runtime; mentions of Dify are migration history only.
 
-## v0.6.5 Public Extension Foundation
+## v0.6.7 Settings Entry UI
+
+- The pet card title bar includes a new `⚙` settings entry next to the existing help button and mode chip.
+- The settings menu includes a model configuration entry.
+- The model configuration UI is currently a frontend placeholder only.
+- It does not save API keys, write `.env`, or call a backend settings API.
+- Real save and connection-test behavior will be added after a safe settings interface exists.
+
+## v0.6.5 Public Extension Foundation (historical)
 
 - `POST /api/pet` remains the stable runtime path and keeps the existing response contract.
 - `POST /api/pet-stream` remains experimental.

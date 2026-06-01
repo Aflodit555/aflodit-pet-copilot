@@ -25,8 +25,49 @@
           <div class="pet-title-row">
             <div class="pet-title">AFlodit Pet Copilot <span class="pet-version">${CONFIG.version}</span></div>
             <div class="pet-title-actions">
+              <button id="aflodit-pet-settings-button" class="pet-icon-button" title="插件设置 / 模型配置入口">⚙</button>
               <button id="aflodit-pet-help-button" class="pet-help-button" title="快捷说明">?</button>
               <div id="aflodit-pet-mode" class="pet-mode-tag">Chat</div>
+            </div>
+          </div>
+
+          <div id="aflodit-pet-settings" class="pet-settings-panel hidden">
+            <div id="aflodit-pet-settings-menu" class="pet-settings-view">
+              <div class="pet-settings-title">插件设置</div>
+              <button class="pet-settings-menu-item" data-settings-view="model">模型配置</button>
+              <button class="pet-settings-menu-item" disabled>显示与位置 <span>Coming soon</span></button>
+              <button class="pet-settings-menu-item" disabled>快捷命令 <span>Coming soon</span></button>
+              <button class="pet-settings-menu-item" disabled>关于 <span>Coming soon</span></button>
+            </div>
+
+            <div id="aflodit-pet-settings-model" class="pet-settings-view hidden">
+              <div class="pet-settings-title">模型配置</div>
+              <label class="pet-settings-field">
+                <span>Provider</span>
+                <select id="aflodit-pet-settings-provider">
+                  <option value="mock">mock</option>
+                  <option value="openai-compatible">openai-compatible</option>
+                </select>
+              </label>
+              <label class="pet-settings-field">
+                <span>Base URL</span>
+                <input id="aflodit-pet-settings-base-url" type="text" autocomplete="off" />
+              </label>
+              <label class="pet-settings-field">
+                <span>Model</span>
+                <input id="aflodit-pet-settings-model-name" type="text" autocomplete="off" />
+              </label>
+              <label class="pet-settings-field">
+                <span>API Key</span>
+                <input id="aflodit-pet-settings-api-key" type="password" autocomplete="off" />
+              </label>
+              <div id="aflodit-pet-settings-message" class="pet-settings-message" aria-live="polite"></div>
+              <div class="pet-settings-actions">
+                <button id="aflodit-pet-settings-test" class="pet-secondary-button">Test Connection</button>
+                <button id="aflodit-pet-settings-save" class="pet-primary-button">Save</button>
+                <button id="aflodit-pet-settings-back" class="pet-secondary-button">Back</button>
+                <button id="aflodit-pet-settings-cancel" class="pet-secondary-button">Cancel</button>
+              </div>
             </div>
           </div>
 
@@ -340,7 +381,17 @@
       menu: root.querySelector("#aflodit-pet-menu"),
       panel: root.querySelector("#aflodit-pet-panel"),
       help: root.querySelector("#aflodit-pet-help"),
+      settingsButton: root.querySelector("#aflodit-pet-settings-button"),
       helpButton: root.querySelector("#aflodit-pet-help-button"),
+      settings: root.querySelector("#aflodit-pet-settings"),
+      settingsMenu: root.querySelector("#aflodit-pet-settings-menu"),
+      settingsModel: root.querySelector("#aflodit-pet-settings-model"),
+      settingsModelEntry: root.querySelector("[data-settings-view='model']"),
+      settingsMessage: root.querySelector("#aflodit-pet-settings-message"),
+      settingsTest: root.querySelector("#aflodit-pet-settings-test"),
+      settingsSave: root.querySelector("#aflodit-pet-settings-save"),
+      settingsBack: root.querySelector("#aflodit-pet-settings-back"),
+      settingsCancel: root.querySelector("#aflodit-pet-settings-cancel"),
       mode: root.querySelector("#aflodit-pet-mode"),
       status: root.querySelector("#aflodit-pet-status"),
       contextBlock: root.querySelector("#aflodit-pet-context-block"),

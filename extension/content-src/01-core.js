@@ -27,7 +27,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   });
 
   const CONFIG = Object.freeze({
-    version: "0.6.6.2",
+    version: "0.6.7",
     backendUrl: "http://127.0.0.1:3001/api/pet",
     streamUrl: "http://127.0.0.1:3001/api/pet-stream",
     streamEnabled: true,

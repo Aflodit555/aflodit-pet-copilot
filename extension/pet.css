@@ -1,4 +1,4 @@
-/* AFlodit Pet Copilot v0.6.6.2
+/* AFlodit Pet Copilot v0.6.7
    分层：tokens -> layout -> avatar -> quick menu -> panel -> text/scroll -> controls -> states -> animations -> overrides
 */
 
@@ -231,15 +231,22 @@
 }
 
 .pet-title {
+  flex: 1;
+  min-width: 0;
   font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #aflodit-pet-root .pet-title-actions {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 8px;
 }
 
+#aflodit-pet-root .pet-icon-button,
 #aflodit-pet-root .pet-help-button {
   width: 24px;
   height: 24px;
@@ -257,6 +264,7 @@
   padding: 0;
 }
 
+#aflodit-pet-root .pet-icon-button:hover,
 #aflodit-pet-root .pet-help-button:hover {
   background: #e5e5e5;
 }
@@ -282,6 +290,129 @@
   color: var(--pet-muted);
   font-size: 12px;
   margin-bottom: 10px;
+}
+
+/* 5.0 Settings entry */
+#aflodit-pet-root .pet-settings-panel {
+  margin: 4px 0 10px;
+  padding: 10px;
+  border: 1px solid var(--pet-border);
+  border-radius: var(--pet-radius-md);
+  background: #fafafa;
+  max-height: 260px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+#aflodit-pet-root .pet-settings-title {
+  font-weight: bold;
+  color: #444;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+#aflodit-pet-root .pet-settings-menu-item {
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  background: var(--pet-white);
+  color: var(--pet-text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  margin-top: 6px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+#aflodit-pet-root .pet-settings-menu-item:hover:not(:disabled) {
+  background: #f1f1f1;
+}
+
+#aflodit-pet-root .pet-settings-menu-item:disabled {
+  cursor: not-allowed;
+  color: #999;
+  background: #f4f4f4;
+}
+
+#aflodit-pet-root .pet-settings-menu-item span {
+  color: #999;
+  font-size: 11px;
+}
+
+#aflodit-pet-root .pet-settings-field {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #444;
+}
+
+#aflodit-pet-root .pet-settings-field span {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+#aflodit-pet-root .pet-settings-field input,
+#aflodit-pet-root .pet-settings-field select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 7px 9px;
+  background: var(--pet-white);
+  color: var(--pet-text);
+  font-size: 13px;
+  outline: none;
+}
+
+#aflodit-pet-root .pet-settings-field input:focus,
+#aflodit-pet-root .pet-settings-field select:focus {
+  border-color: #888;
+}
+
+#aflodit-pet-root .pet-settings-message {
+  min-height: 18px;
+  margin-top: 8px;
+  color: var(--pet-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+#aflodit-pet-root .pet-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+#aflodit-pet-root .pet-primary-button,
+#aflodit-pet-root .pet-secondary-button {
+  border: none;
+  border-radius: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#aflodit-pet-root .pet-primary-button {
+  background: var(--pet-black);
+  color: var(--pet-white);
+}
+
+#aflodit-pet-root .pet-primary-button:hover {
+  background: #444;
+}
+
+#aflodit-pet-root .pet-secondary-button {
+  background: #f1f1f1;
+  color: #444;
+}
+
+#aflodit-pet-root .pet-secondary-button:hover {
+  background: #e5e5e5;
 }
 
 .pet-section-title {

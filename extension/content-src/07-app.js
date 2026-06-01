@@ -21,9 +21,53 @@
       dom.panel.classList.add("hidden");
       dom.refresh.classList.add("hidden");
       dom.help.classList.add("hidden");
+      this.closeSettings();
+    },
+
+    closeSettings() {
+      dom.settings.classList.add("hidden");
+      dom.settingsMenu.classList.remove("hidden");
+      dom.settingsModel.classList.add("hidden");
+      dom.settingsMessage.textContent = "";
+    },
+
+    toggleSettings() {
+      const willOpen = dom.settings.classList.contains("hidden");
+      if (!willOpen) {
+        this.closeSettings();
+        LayoutManager.updateFloatingLayout();
+        return;
+      }
+
+      dom.help.classList.add("hidden");
+      dom.settings.classList.remove("hidden");
+      dom.settingsMenu.classList.remove("hidden");
+      dom.settingsModel.classList.add("hidden");
+      dom.settingsMessage.textContent = "";
+      LayoutManager.updateFloatingLayout();
+    },
+
+    openModelSettings() {
+      dom.settingsMenu.classList.add("hidden");
+      dom.settingsModel.classList.remove("hidden");
+      dom.settingsMessage.textContent = "";
+      LayoutManager.updateFloatingLayout();
+    },
+
+    backToSettingsMenu() {
+      dom.settingsModel.classList.add("hidden");
+      dom.settingsMenu.classList.remove("hidden");
+      dom.settingsMessage.textContent = "";
+      LayoutManager.updateFloatingLayout();
+    },
+
+    showSettingsNotice(message) {
+      dom.settingsMessage.textContent = message;
+      LayoutManager.updateFloatingLayout();
     },
 
     toggleHelp() {
+      this.closeSettings();
       const willOpen = dom.help.classList.contains("hidden");
       if (willOpen) {
         dom.help.style.visibility = "hidden";
@@ -295,10 +339,42 @@
     on(dom.menu, "click", (event) => event.stopPropagation());
     on(dom.panel, "click", (event) => event.stopPropagation());
     on(dom.help, "click", (event) => event.stopPropagation());
+    on(dom.settings, "click", (event) => event.stopPropagation());
+
+    on(dom.settingsButton, "click", (event) => {
+      event.stopPropagation();
+      UIController.toggleSettings();
+    });
 
     on(dom.helpButton, "click", (event) => {
       event.stopPropagation();
       UIController.toggleHelp();
+    });
+
+    on(dom.settingsModelEntry, "click", (event) => {
+      event.stopPropagation();
+      UIController.openModelSettings();
+    });
+
+    on(dom.settingsTest, "click", (event) => {
+      event.stopPropagation();
+      UIController.showSettingsNotice("连接测试将在安全设置接口完成后启用。");
+    });
+
+    on(dom.settingsSave, "click", (event) => {
+      event.stopPropagation();
+      UIController.showSettingsNotice("模型配置保存功能将在安全设置接口完成后启用。");
+    });
+
+    on(dom.settingsBack, "click", (event) => {
+      event.stopPropagation();
+      UIController.backToSettingsMenu();
+    });
+
+    on(dom.settingsCancel, "click", (event) => {
+      event.stopPropagation();
+      UIController.closeSettings();
+      LayoutManager.updateFloatingLayout();
     });
 
     dom.quickButtons.forEach((button) => {
