@@ -201,7 +201,7 @@
           setActivity(ACTIVITY.OBSERVING);
           this.setEmotion(Math.random() < 0.25 ? "happy" : "neutral");
 
-          const choices = [dom.panel, dom.menu, dom.reply, dom.help].filter((el) => el && !el.classList.contains("hidden"));
+          const choices = [dom.panel, dom.menu, dom.reply].filter((el) => el && !el.classList.contains("hidden"));
           const target = choices[Math.floor(Math.random() * choices.length)] || dom.avatar;
           if (target === dom.avatar) this.setLookCenter();
           else this.lookAtElement(target);

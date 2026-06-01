@@ -27,7 +27,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   });
 
   const CONFIG = Object.freeze({
-    version: "0.6.8",
+    version: "0.6.9",
     backendUrl: "http://127.0.0.1:3001/api/pet",
     streamUrl: "http://127.0.0.1:3001/api/pet-stream",
     settingsUrl: "http://127.0.0.1:3001/api/settings",
@@ -71,11 +71,9 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       dockMargin: 24,
       dragThreshold: 4,
       panelGap: 20,
-      helpGap: 10,
       menuWidth: 240,
       menuHeight: 190,
-      floatingWidth: 360,
-      helpHeight: 132
+      floatingWidth: 360
     })
   });
 

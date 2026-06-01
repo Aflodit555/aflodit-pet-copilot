@@ -445,61 +445,9 @@
       Geometry.setAbsolutePosition(dom.panel, next.left, next.top);
     },
 
-    getHelpCandidates(size, anchorRect, avatarRect) {
-      const gap = CONFIG.drag.helpGap;
-      return [
-        { name: "above", left: anchorRect.left, top: anchorRect.top - size.height - gap },
-        { name: "below", left: anchorRect.left, top: anchorRect.bottom + gap },
-        { name: "right", left: anchorRect.right + gap, top: anchorRect.top },
-        { name: "left", left: anchorRect.left - size.width - gap, top: anchorRect.top }
-      ].map((item) => {
-        const clamped = Geometry.clampFloating(item.left, item.top, size.width, size.height);
-        const rect = {
-          left: clamped.left,
-          top: clamped.top,
-          right: clamped.left + size.width,
-          bottom: clamped.top + size.height,
-          width: size.width,
-          height: size.height
-        };
-        const overlapAvatar = Geometry.rectsOverlap(rect, Geometry.expandRect(avatarRect, 10));
-        return { ...item, ...clamped, rect, overlapAvatar };
-      });
-    },
-
-    updateHelpLayout() {
-      if (!dom.help || dom.help.classList.contains("hidden")) return;
-
-      const size = Geometry.getFloatingSize(dom.help, CONFIG.drag.floatingWidth, CONFIG.drag.helpHeight);
-      const panelVisible = dom.panel && !dom.panel.classList.contains("hidden");
-      const avatarRect = Geometry.getAvatarRect();
-      const anchorRect = panelVisible ? dom.panel.getBoundingClientRect() : avatarRect;
-      const candidates = this.getHelpCandidates(size, anchorRect, avatarRect);
-
-      let ordered = candidates;
-
-      if (panelVisible) {
-        // help 要和 panel 站在同一侧，更远离 avatar，避免被笑脸切到。
-        const ax = (avatarRect.left + avatarRect.right) / 2;
-        const ay = (avatarRect.top + avatarRect.bottom) / 2;
-        const px = (anchorRect.left + anchorRect.right) / 2;
-        const py = (anchorRect.top + anchorRect.bottom) / 2;
-
-        const preferred = Math.abs(px - ax) > Math.abs(py - ay)
-          ? (px >= ax ? ["right", "above", "below", "left"] : ["left", "above", "below", "right"])
-          : (py >= ay ? ["below", "right", "left", "above"] : ["above", "right", "left", "below"]);
-
-        ordered = preferred.flatMap((name) => candidates.filter((item) => item.name === name));
-      }
-
-      const best = ordered.find((item) => !item.overlapAvatar) || ordered[0];
-      Geometry.setAbsolutePosition(dom.help, best.left, best.top);
-    },
-
     updateFloatingLayout() {
       if (!dom.root) return;
       this.updateMenuLayout();
       this.updatePanelLayout();
-      this.updateHelpLayout();
     }
   };

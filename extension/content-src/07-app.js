@@ -20,7 +20,6 @@
     closePanel() {
       dom.panel.classList.add("hidden");
       dom.refresh.classList.add("hidden");
-      dom.help.classList.add("hidden");
       this.closeSettings();
     },
 
@@ -28,6 +27,7 @@
       dom.settings.classList.add("hidden");
       dom.settingsMenu.classList.remove("hidden");
       dom.settingsModel.classList.add("hidden");
+      dom.settingsCommands.classList.add("hidden");
       dom.settingsMessage.textContent = "";
     },
 
@@ -39,10 +39,10 @@
         return;
       }
 
-      dom.help.classList.add("hidden");
       dom.settings.classList.remove("hidden");
       dom.settingsMenu.classList.remove("hidden");
       dom.settingsModel.classList.add("hidden");
+      dom.settingsCommands.classList.add("hidden");
       dom.settingsMessage.textContent = "";
       LayoutManager.updateFloatingLayout();
       SettingsManager.load();
@@ -51,13 +51,23 @@
     openModelSettings() {
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.remove("hidden");
+      dom.settingsCommands.classList.add("hidden");
       dom.settingsMessage.textContent = "";
       LayoutManager.updateFloatingLayout();
       SettingsManager.load();
     },
 
+    openCommandHelp() {
+      dom.settingsMenu.classList.add("hidden");
+      dom.settingsModel.classList.add("hidden");
+      dom.settingsCommands.classList.remove("hidden");
+      dom.settingsMessage.textContent = "";
+      LayoutManager.updateFloatingLayout();
+    },
+
     backToSettingsMenu() {
       dom.settingsModel.classList.add("hidden");
+      dom.settingsCommands.classList.add("hidden");
       dom.settingsMenu.classList.remove("hidden");
       dom.settingsMessage.textContent = "";
       LayoutManager.updateFloatingLayout();
@@ -68,29 +78,16 @@
       LayoutManager.updateFloatingLayout();
     },
 
-    toggleHelp() {
-      this.closeSettings();
-      const willOpen = dom.help.classList.contains("hidden");
-      if (willOpen) {
-        dom.help.style.visibility = "hidden";
-        dom.help.classList.remove("hidden");
-        LayoutManager.updateFloatingLayout();
-        window.requestAnimationFrame(() => { dom.help.style.visibility = ""; });
-        return;
-      }
-      dom.help.classList.add("hidden");
-    },
-
     openPanel(action) {
       const config = actionConfig(action);
       state.action = action;
       Extractor.updateSelectedText();
       this.closeMenu(true);
+      this.closeSettings();
       enforceScrollBoxes();
 
       state.ui = UI.PANEL;
       dom.panel.classList.remove("hidden");
-      dom.help.classList.add("hidden");
       dom.mode.textContent = config.label;
       dom.status.textContent = config.idle;
       dom.reply.textContent = "暂无回复。";
@@ -442,7 +439,57 @@
 // =========================
   // 13. 事件绑定
   // =========================
+
+  const ScrollGuard = {
+    isScrollable(element, axis) {
+      if (!element || element === document || element === window) return false;
+      const style = window.getComputedStyle(element);
+      const overflow = axis === "x" ? style.overflowX : style.overflowY;
+      if (!/(auto|scroll|overlay)/i.test(overflow)) return false;
+      return axis === "x"
+        ? element.scrollWidth > element.clientWidth + 1
+        : element.scrollHeight > element.clientHeight + 1;
+    },
+
+    findScrollable(target, axis) {
+      let node = target;
+      while (node && node !== dom.root) {
+        if (node.nodeType === Node.ELEMENT_NODE && this.isScrollable(node, axis)) return node;
+        node = node.parentElement;
+      }
+      return this.isScrollable(dom.root, axis) ? dom.root : null;
+    },
+
+    canScroll(element, axis, delta) {
+      if (!element) return false;
+      if (axis === "x") {
+        if (delta < 0) return element.scrollLeft > 0;
+        if (delta > 0) return element.scrollLeft + element.clientWidth < element.scrollWidth - 1;
+        return false;
+      }
+      if (delta < 0) return element.scrollTop > 0;
+      if (delta > 0) return element.scrollTop + element.clientHeight < element.scrollHeight - 1;
+      return false;
+    },
+
+    handleWheel(event) {
+      if (!dom.root?.contains(event.target)) return;
+
+      const axis = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? "x" : "y";
+      const delta = axis === "x" ? event.deltaX : event.deltaY;
+      const scrollable = this.findScrollable(event.target, axis);
+
+      if (scrollable && this.canScroll(scrollable, axis, delta)) {
+        event.stopPropagation();
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
   function bindEvents() {
+    on(dom.root, "wheel", (event) => ScrollGuard.handleWheel(event), { capture: true, passive: false });
     on(document, "selectionchange", () => Extractor.updateSelectedText());
     on(document, "mousemove", (event) => FaceController.handleReadingMouseMove(event), { passive: true });
     on(window, "resize", () => LayoutManager.handleViewportResize());
@@ -473,7 +520,6 @@
 
     on(dom.menu, "click", (event) => event.stopPropagation());
     on(dom.panel, "click", (event) => event.stopPropagation());
-    on(dom.help, "click", (event) => event.stopPropagation());
     on(dom.settings, "click", (event) => event.stopPropagation());
 
     on(dom.settingsButton, "click", (event) => {
@@ -481,14 +527,14 @@
       UIController.toggleSettings();
     });
 
-    on(dom.helpButton, "click", (event) => {
-      event.stopPropagation();
-      UIController.toggleHelp();
-    });
-
     on(dom.settingsModelEntry, "click", (event) => {
       event.stopPropagation();
       UIController.openModelSettings();
+    });
+
+    on(dom.settingsCommandsEntry, "click", (event) => {
+      event.stopPropagation();
+      UIController.openCommandHelp();
     });
 
     on(dom.settingsTest, "click", (event) => {
@@ -507,6 +553,17 @@
     });
 
     on(dom.settingsCancel, "click", (event) => {
+      event.stopPropagation();
+      UIController.closeSettings();
+      LayoutManager.updateFloatingLayout();
+    });
+
+    on(dom.commandsBack, "click", (event) => {
+      event.stopPropagation();
+      UIController.backToSettingsMenu();
+    });
+
+    on(dom.commandsClose, "click", (event) => {
       event.stopPropagation();
       UIController.closeSettings();
       LayoutManager.updateFloatingLayout();

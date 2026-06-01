@@ -10,23 +10,11 @@
           <button class="pet-quick-action" data-action="${ACTION.SUMMARY}">summarize</button>
         </div>
 
-        <div id="aflodit-pet-help" class="pet-floating-help hidden">
-          <div class="pet-help-title">快捷说明</div>
-          <div class="pet-help-line"><b>Enter</b>：发送 Chat</div>
-          <div class="pet-help-line"><b>Esc</b>：关闭面板</div>
-          <div class="pet-help-line"><b>@选区</b>：引用当前选中文本</div>
-          <div class="pet-help-line"><b>@页面</b>：引用当前页面正文</div>
-          <div class="pet-help-line"><b>@陪读</b>：进入陪读模式</div>
-          <div class="pet-help-line pet-help-muted">例：@选区 解释这段话</div>
-          <div class="pet-help-line pet-help-muted">例：@页面 这页主要讲什么</div>
-        </div>
-
         <div id="aflodit-pet-panel" class="hidden bubble-type-normal">
           <div class="pet-title-row">
             <div class="pet-title">AFlodit Pet Copilot <span class="pet-version">${CONFIG.version}</span></div>
             <div class="pet-title-actions">
-              <button id="aflodit-pet-settings-button" class="pet-icon-button" title="插件设置 / 模型配置入口">⚙</button>
-              <button id="aflodit-pet-help-button" class="pet-help-button" title="快捷说明">?</button>
+              <button id="aflodit-pet-settings-button" class="pet-icon-button" title="插件设置 / 模型配置">⚙</button>
               <div id="aflodit-pet-mode" class="pet-mode-tag">Chat</div>
             </div>
           </div>
@@ -36,7 +24,7 @@
               <div class="pet-settings-title">插件设置</div>
               <button class="pet-settings-menu-item" data-settings-view="model">模型配置</button>
               <button class="pet-settings-menu-item" disabled>显示与位置 <span>Coming soon</span></button>
-              <button class="pet-settings-menu-item" disabled>快捷命令 <span>Coming soon</span></button>
+              <button class="pet-settings-menu-item" data-settings-view="commands">快捷命令</button>
               <button class="pet-settings-menu-item" disabled>关于 <span>Coming soon</span></button>
             </div>
 
@@ -71,6 +59,22 @@
                 <button id="aflodit-pet-settings-save" class="pet-primary-button">Save</button>
                 <button id="aflodit-pet-settings-back" class="pet-secondary-button">Back</button>
                 <button id="aflodit-pet-settings-cancel" class="pet-secondary-button">Cancel</button>
+              </div>
+            </div>
+
+            <div id="aflodit-pet-settings-commands" class="pet-settings-view hidden">
+              <div class="pet-settings-title">快捷命令</div>
+              <div class="pet-help-line"><b>Enter</b>：发送 Chat</div>
+              <div class="pet-help-line"><b>Esc</b>：关闭面板</div>
+              <div class="pet-help-line"><b>@选区</b>：引用当前选中文本</div>
+              <div class="pet-help-line"><b>@页面</b>：引用当前页面正文</div>
+              <div class="pet-help-line"><b>@陪读</b>：进入陪读模式</div>
+              <div class="pet-help-line"><b>@退出陪读</b>：退出陪读模式</div>
+              <div class="pet-help-line pet-help-muted">示例：@选区 解释这段话</div>
+              <div class="pet-help-line pet-help-muted">示例：@页面 这页主要讲什么</div>
+              <div class="pet-settings-actions">
+                <button id="aflodit-pet-commands-back" class="pet-secondary-button">Back</button>
+                <button id="aflodit-pet-commands-close" class="pet-secondary-button">Close</button>
               </div>
             </div>
           </div>
@@ -384,13 +388,13 @@
       avatar: root.querySelector("#aflodit-pet-avatar"),
       menu: root.querySelector("#aflodit-pet-menu"),
       panel: root.querySelector("#aflodit-pet-panel"),
-      help: root.querySelector("#aflodit-pet-help"),
       settingsButton: root.querySelector("#aflodit-pet-settings-button"),
-      helpButton: root.querySelector("#aflodit-pet-help-button"),
       settings: root.querySelector("#aflodit-pet-settings"),
       settingsMenu: root.querySelector("#aflodit-pet-settings-menu"),
       settingsModel: root.querySelector("#aflodit-pet-settings-model"),
+      settingsCommands: root.querySelector("#aflodit-pet-settings-commands"),
       settingsModelEntry: root.querySelector("[data-settings-view='model']"),
+      settingsCommandsEntry: root.querySelector("[data-settings-view='commands']"),
       settingsProvider: root.querySelector("#aflodit-pet-settings-provider"),
       settingsBaseUrl: root.querySelector("#aflodit-pet-settings-base-url"),
       settingsModelName: root.querySelector("#aflodit-pet-settings-model-name"),
@@ -401,6 +405,8 @@
       settingsSave: root.querySelector("#aflodit-pet-settings-save"),
       settingsBack: root.querySelector("#aflodit-pet-settings-back"),
       settingsCancel: root.querySelector("#aflodit-pet-settings-cancel"),
+      commandsBack: root.querySelector("#aflodit-pet-commands-back"),
+      commandsClose: root.querySelector("#aflodit-pet-commands-close"),
       mode: root.querySelector("#aflodit-pet-mode"),
       status: root.querySelector("#aflodit-pet-status"),
       contextBlock: root.querySelector("#aflodit-pet-context-block"),

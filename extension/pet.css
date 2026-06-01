@@ -1,4 +1,4 @@
-/* AFlodit Pet Copilot v0.6.8
+/* AFlodit Pet Copilot v0.6.9
    分层：tokens -> layout -> avatar -> quick menu -> panel -> text/scroll -> controls -> states -> animations -> overrides
 */
 
@@ -215,6 +215,7 @@
   color: var(--pet-text);
   box-shadow: var(--pet-panel-shadow);
   font-size: 14px;
+  overscroll-behavior: contain;
 }
 
 .pet-title-row,
@@ -246,8 +247,7 @@
   gap: 8px;
 }
 
-#aflodit-pet-root .pet-icon-button,
-#aflodit-pet-root .pet-help-button {
+#aflodit-pet-root .pet-icon-button {
   width: 24px;
   height: 24px;
   border: none;
@@ -264,8 +264,7 @@
   padding: 0;
 }
 
-#aflodit-pet-root .pet-icon-button:hover,
-#aflodit-pet-root .pet-help-button:hover {
+#aflodit-pet-root .pet-icon-button:hover {
   background: #e5e5e5;
 }
 
@@ -294,14 +293,22 @@
 
 /* 5.0 Settings entry */
 #aflodit-pet-root .pet-settings-panel {
-  margin: 4px 0 10px;
-  padding: 10px;
+  position: absolute;
+  z-index: 55;
+  left: 0;
+  bottom: calc(100% + 10px);
+  width: 100%;
+  margin: 0;
+  padding: 12px 14px;
   border: 1px solid var(--pet-border);
-  border-radius: var(--pet-radius-md);
-  background: #fafafa;
+  border-radius: var(--pet-radius-lg);
+  background: var(--pet-white);
+  box-shadow: var(--pet-panel-shadow);
   max-height: 260px;
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 #aflodit-pet-root .pet-settings-title {
@@ -438,36 +445,6 @@
   margin-top: 10px;
 }
 
-/* 5.1 Floating help panel */
-#aflodit-pet-root .pet-floating-help {
-  position: absolute;
-  z-index: 50;
-  left: 0;
-  top: 0;
-  right: auto;
-  bottom: auto;
-  width: 360px;
-  max-width: calc(100vw - 24px);
-  height: 132px;
-  padding: 12px 14px;
-  border-radius: var(--pet-radius-lg);
-  background: var(--pet-white);
-  color: var(--pet-text);
-  box-shadow: var(--pet-panel-shadow);
-  font-size: 13px;
-  line-height: 1.6;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-}
-
-#aflodit-pet-root .pet-help-title {
-  font-weight: bold;
-  color: #444;
-  margin-bottom: 6px;
-}
-
 #aflodit-pet-root .pet-help-line {
   margin: 2px 0;
 }
@@ -476,16 +453,16 @@
   color: var(--pet-muted);
 }
 
-#aflodit-pet-root .pet-floating-help::-webkit-scrollbar {
+#aflodit-pet-root .pet-settings-panel::-webkit-scrollbar {
   width: 8px;
 }
 
-#aflodit-pet-root .pet-floating-help::-webkit-scrollbar-thumb {
+#aflodit-pet-root .pet-settings-panel::-webkit-scrollbar-thumb {
   background: var(--pet-scroll-thumb);
   border-radius: 999px;
 }
 
-#aflodit-pet-root .pet-floating-help::-webkit-scrollbar-track {
+#aflodit-pet-root .pet-settings-panel::-webkit-scrollbar-track {
   background: transparent;
 }
 
