@@ -9,8 +9,8 @@ Current target: `v0.6.5 Public Extension Foundation`. The backend uses a local/p
 - `POST /api/pet` remains the stable runtime path and keeps the existing response contract.
 - `POST /api/pet-stream` remains experimental.
 - Contribution, security, development, architecture, and command-design docs were added for public collaboration.
-- A minimal `@Command` parser/registry foundation exists under `extension/content-src/commands`, but no command is wired into the UI yet.
-- `@陪读` and full reading companion mode are not implemented in this release.
+- A minimal `@Command` parser/registry foundation exists under `extension/content-src/commands` for source-level extension.
+- Built-in commands currently cover chat context tags (`@选区`, `@页面`) and the existing local reading-mode toggles.
 - Runtime third-party plugin loading and remote JavaScript loading are not allowed.
 
 ## Project Layout
@@ -18,7 +18,7 @@ Current target: `v0.6.5 Public Extension Foundation`. The backend uses a local/p
 - `extension/`: Manifest V3 browser extension, content script, and pet UI styles.
 - `backend/`: Local Express backend and model runtime.
 - `backend/src/llm/`: Input normalization, action-specific prompt building, provider calls, response normalization, timing/debug metadata, and fallbacks.
-- `docs/`: Architecture, development, and future `@Command` design notes.
+- `docs/`: Architecture, development, and `@Command` design notes.
 
 ## Quick Start: Mock Mode
 
@@ -219,6 +219,7 @@ Existing mock-mode tests are available:
 npm run test:normalizer
 npm run test:input
 npm run test:llm
+npm run test:commands
 ```
 
 ## Troubleshooting

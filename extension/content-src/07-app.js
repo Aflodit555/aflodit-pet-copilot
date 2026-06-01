@@ -238,8 +238,8 @@
       LayoutManager.setRootPosition({
         x: state.drag.originX + dx,
         y: state.drag.originY + dy,
-        snapEdge: "free"
-      }, { snap: false });
+        mode: "free"
+      }, { snap: false, persist: false });
 
       event.preventDefault();
     },

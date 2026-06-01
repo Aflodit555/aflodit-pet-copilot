@@ -27,12 +27,15 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   });
 
   const CONFIG = Object.freeze({
-    version: "0.6.5",
+    version: "0.6.6.2",
     backendUrl: "http://127.0.0.1:3001/api/pet",
     streamUrl: "http://127.0.0.1:3001/api/pet-stream",
     streamEnabled: true,
     localClientToken: "aflodit-pet-local-dev",
     debug: false,
+    storage: Object.freeze({
+      positionKey: "aflodit_pet_position"
+    }),
     limits: Object.freeze({
       action: 32,
       userText: 1000,
@@ -63,7 +66,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       avatarSize: 64,
       initialOffset: 24,
       viewportMargin: 12,
-      snapDistance: 78,
+      dockSnapThreshold: 48,
+      dockMargin: 24,
       dragThreshold: 4,
       panelGap: 20,
       helpGap: 10,
@@ -177,7 +181,16 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     readingTimer: null,
     ideaTimer: null,
     lastMouseAt: 0,
-    position: { x: 0, y: 0, snapEdge: "free" },
+    position: {
+      mode: "docked",
+      dockX: "right",
+      dockY: "bottom",
+      offsetX: CONFIG.drag.initialOffset,
+      offsetY: CONFIG.drag.initialOffset,
+      x: 0,
+      y: 0,
+      updatedAt: 0
+    },
     layout: {
       menuVariant: "br",
       panelPlacement: "top"

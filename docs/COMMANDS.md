@@ -1,8 +1,15 @@
 # Future @Command Design
 
-`@Command` support is a planned source-level extension point for local shortcut behavior. It is not a runtime plugin system.
+`@Command` support is a source-level extension point for local shortcut behavior. It is not a runtime plugin system.
 
-v0.6.5 adds only a minimal parser and registry foundation. It does not implement `@陪读`, full reading companion mode, or any new visible command behavior.
+v0.6.5 keeps command definitions centralized under `extension/content-src/commands/` and builds them into `extension/content.js` through the explicit allowlist in `extension/build-content.js`.
+
+Current built-in commands are intentionally small:
+
+- `@选区` / `@selection`: include selected text in the next chat request.
+- `@页面` / `@page`: include readable page text in the next chat request.
+- `@陪读` / `@reading` / `@read`: enter the existing local reading mode.
+- `@退出陪读` / `@exit_reading` / `@normal`: exit reading mode.
 
 ## Principles
 
@@ -13,22 +20,24 @@ v0.6.5 adds only a minimal parser and registry foundation. It does not implement
 - Disabled commands must not execute.
 - Unknown commands should fail locally and safely.
 
-## Proposed Command Shape
+## Command Shape
 
 ```json
 {
-  "name": "reading",
-  "aliases": ["@陪读", "陪读", "@reading"],
+  "id": "reading",
+  "aliases": ["@陪读", "@reading"],
   "description": "Enter reading companion mode",
-  "requiresSelection": false,
-  "requiresPageContext": false,
-  "modeTransition": "reading",
-  "action": "enter_reading_mode",
+  "inputMode": "local",
+  "contextMode": "none",
+  "handler": {
+    "type": "local_action",
+    "action": "enter_reading"
+  },
   "enabled": true
 }
 ```
 
-In v0.6.5, the built-in reading command definition is future-only and disabled.
+Every command must define `id`, `aliases`, `description`, `inputMode`, `contextMode`, and `handler`. Aliases are normalized and must be unique across all registered commands.
 
 ## Contribution Flow
 
@@ -36,9 +45,10 @@ In v0.6.5, the built-in reading command definition is future-only and disabled.
 2. Add a handler in the appropriate source module.
 3. Add parser, registry, and handler tests.
 4. Update command and user-facing docs.
-5. Submit a focused PR.
+5. Add the command source to the explicit build order if a new file is required.
+6. Submit a focused PR.
 
-Do not combine command additions with unrelated UI rewrites or backend migrations.
+Do not combine command additions with unrelated UI rewrites, backend migrations, settings APIs, or Native Messaging changes.
 
 ## Parser Result Shape
 
@@ -48,7 +58,7 @@ Matched command:
 {
   "matched": true,
   "executable": true,
-  "command": { "name": "sample" },
+  "command": { "id": "sample" },
   "args": "remaining text",
   "reason": "matched_alias"
 }

@@ -6,10 +6,11 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "npm run test:normalizer && npm run test:input && npm run test:llm",
+    "test": "npm run test:normalizer && npm run test:input && npm run test:llm && npm run test:commands",
     "test:normalizer": "node scripts/testResponseNormalizer.js",
     "test:input": "node scripts/testInputNormalizer.js",
-    "test:llm": "node scripts/testLlmRuntime.js"
+    "test:llm": "node scripts/testLlmRuntime.js",
+    "test:commands": "node ../extension/content-src/commands/commandParser.test.js"
   },
   "keywords": [],
   "author": "",

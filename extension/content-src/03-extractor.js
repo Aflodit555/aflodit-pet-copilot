@@ -4,23 +4,22 @@
   const Extractor = {
     parseChatInput(raw = "") {
       const input = text(raw);
-      const useSelection = /(^|\s)@(选区|selection)(?=\s|$)/i.test(input);
-      const usePage = /(^|\s)@(页面|page)(?=\s|$)/i.test(input);
-
-      const userText = input
-        .replace(/(^|\s)@(选区|selection)(?=\s|$)/ig, " ")
-        .replace(/(^|\s)@(页面|page)(?=\s|$)/ig, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-      return { userText, useSelection, usePage };
+      const parsed = AFloditCommandRegistry.extractChatContextDirectives(input);
+      return {
+        userText: parsed.userText,
+        useSelection: parsed.useSelection,
+        usePage: parsed.usePage
+      };
     },
 
     parseLocalCommand(raw = "") {
-      const input = text(raw);
-      if (/^@?(陪读|reading|read)$/i.test(input)) return { type: "enter_reading" };
-      if (/^@?(退出陪读|exit_reading|normal)$/i.test(input)) return { type: "exit_reading" };
-      return null;
+      const result = AFloditCommandRegistry.findCommand(text(raw));
+      if (!result.matched || !result.executable || result.command?.handler?.type !== "local_action") return null;
+      return {
+        type: result.command.handler.action,
+        commandId: result.command.id,
+        args: result.args
+      };
     },
 
     getSelectedText() {
