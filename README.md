@@ -1,37 +1,65 @@
 # AFlodit Pet Copilot
 
-AFlodit Pet Copilot is a lightweight browser pet assistant extension. It injects a floating pet UI into web pages, reads user chat, selected text, and page context, then sends requests to a local Node.js backend at `POST /api/pet`.
+## 项目简介
 
-Current target: `v0.6.8 Safe Local Settings API`. The backend uses a local/provider LLM runtime implemented in this repository. Dify is no longer required at runtime; mentions of Dify are migration history only.
+AFlodit Pet Copilot 是一个轻量级浏览器宠物助手扩展。它会在网页上注入一个悬浮宠物 UI，帮助你和当前网页内容互动。
 
-## v0.6.8 Safe Local Settings API
+它目前支持：
 
-- The pet card title bar includes a new `⚙` settings entry next to the existing help button and mode chip.
-- The settings menu includes a model configuration entry.
-- The model configuration panel loads, saves, and tests settings through the local backend.
-- Local settings are stored in `backend/.local/settings.local.json`, which is gitignored.
-- API keys are never stored in extension storage and are never returned raw.
-- Saved local settings override env defaults for later `/api/pet` and `/api/pet-stream` requests without a rebuild.
+- 普通 Chat 对话
+- 解释网页中选中的文本
+- 翻译或润色网页中选中的文本
+- 总结当前网页内容
+- 在扩展设置面板中配置自己的模型服务
 
-## v0.6.5 Public Extension Foundation (historical)
+扩展本身不直接调用模型 API。浏览器扩展会把用户输入、选中文本和页面上下文发送到本地 Node.js 后端：
 
-- `POST /api/pet` remains the stable runtime path and keeps the existing response contract.
-- `POST /api/pet-stream` remains experimental.
-- Contribution, security, development, architecture, and command-design docs were added for public collaboration.
-- A minimal `@Command` parser/registry foundation exists under `extension/content-src/commands` for source-level extension.
-- Built-in commands currently cover chat context tags (`@选区`, `@页面`) and the existing local reading-mode toggles.
-- Runtime third-party plugin loading and remote JavaScript loading are not allowed.
+```text
+content.js -> http://127.0.0.1:3001/api/pet -> Local Backend -> LLM Runtime
+```
 
-## Project Layout
+Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输入整理、Prompt 构建、模型调用、JSON 解析、响应归一化和安全 fallback。
 
-- `extension/`: Manifest V3 browser extension, content script, and pet UI styles.
-- `backend/`: Local Express backend and model runtime.
-- `backend/src/llm/`: Input normalization, action-specific prompt building, provider calls, response normalization, timing/debug metadata, and fallbacks.
-- `docs/`: Architecture, development, and `@Command` design notes.
+## 当前版本
 
-## Quick Start: Mock Mode
+当前实现是 `v0.6.8 Safe Local Settings API`。
 
-Mock mode needs no API key and is the recommended first run.
+这个版本重点加入了安全的本地模型设置能力：
+
+- Settings 面板可以读取、保存、测试模型配置。
+- 新增 `GET /api/settings`、`PUT /api/settings`、`POST /api/settings/test`。
+- 本地设置保存在 `backend/.local/settings.local.json`。
+- API Key 不会保存到扩展的 `localStorage` 或 `chrome.storage`。
+- API Key 不会通过 `GET /api/settings` 原样返回，只返回 `apiKeySet` 和 `apiKeyPreview`。
+- 已保存的本地设置会覆盖 `.env` 默认值，并影响之后的 `/api/pet` 和 `/api/pet-stream` 请求。
+
+## 功能概览
+
+- **Floating Pet UI**：网页右下角的悬浮宠物入口。
+- **Chat**：向宠物发送普通问题或指令。
+- **Explain Selected Text**：选中网页文本后，让宠物用简洁中文解释。
+- **Translate Selected Text**：选中网页文本后，翻译或润色为自然的简体中文。
+- **Summarize Current Page**：提取当前页面可读内容并总结。
+- **Settings Panel**：在 UI 中配置 Provider、Base URL、Model、API Key、Timeout。
+- **Mock Mode**：无需 API Key 的本地演示模式，适合首次运行和测试。
+- **OpenAI-Compatible Provider**：支持标准 `/v1/chat/completions` 风格的模型服务。
+- **Experimental Streaming**：实验性 `/api/pet-stream` 流式回复。
+- **@Command foundation**：源码级命令解析基础，当前包含内置上下文命令。
+- **Pet Positioning**：支持 docked/free 位置、边缘吸附、窗口 resize 后位置约束。
+
+## 快速开始
+
+### 1. 准备环境
+
+你需要：
+
+- Node.js
+- Chromium 系浏览器，例如 Chrome、Edge
+- 浏览器扩展开发者模式，用于加载 unpacked extension
+
+### 2. 启动后端
+
+推荐先用 Mock Mode 启动，不需要任何 API Key。
 
 ```bash
 cd backend
@@ -40,42 +68,62 @@ copy .env.example .env
 npm run dev
 ```
 
-Keep `MODEL_PROVIDER=mock` in `.env`.
+在 macOS 或 Linux 上可以把 `copy` 换成：
 
-The backend listens on `http://127.0.0.1:3001` by default. The extension calls:
-
-```text
-http://127.0.0.1:3001/api/pet
+```bash
+cp .env.example .env
 ```
 
-When `CONFIG.streamEnabled` is enabled in the extension, actions first try the experimental streaming endpoint:
+默认后端地址是：
 
 ```text
-http://127.0.0.1:3001/api/pet-stream
+http://127.0.0.1:3001
 ```
 
-If streaming fails, the extension falls back to the stable `POST /api/pet` path.
-
-## Runtime Status
-
-Check safe runtime status:
+扩展默认会调用：
 
 ```text
-GET http://127.0.0.1:3001/api/runtime-status
+POST http://127.0.0.1:3001/api/pet
 ```
 
-Aliases:
+### 3. 加载浏览器扩展
 
-```text
-GET http://127.0.0.1:3001/api/health
-GET http://127.0.0.1:3001/health
+1. 打开 Chrome 或 Edge 的扩展管理页面。
+2. 开启开发者模式。
+3. 选择“加载已解压的扩展程序”。
+4. 选择本仓库中的 `extension/` 目录。
+5. 打开一个普通网页，点击悬浮宠物开始使用。
+
+### 4. 使用 Mock Mode
+
+Mock Mode 是首次运行推荐模式。
+
+确认 `backend/.env` 中保留：
+
+```env
+MODEL_PROVIDER=mock
+MODEL_NAME=mock
 ```
 
-The status response includes version, runtime name/type, provider name, configured model name, optional response format, safe base URL info, whether required config appears present, `LLM_DEBUG`, timeout, uptime, timestamp, backend status, and supported actions. It does not expose API keys or authorization headers.
+Mock Mode 不需要 API Key，也不会访问真实模型服务。它会返回确定性的结构化回复，适合确认扩展、后端和 UI 链路是否正常。
 
-## OpenAI-Compatible Mode
+### 5. 配置真实模型
 
-Set these values in `backend/.env`:
+你可以通过两种方式配置 OpenAI-Compatible 模型。
+
+#### 方式 A：通过 Settings UI
+
+1. 启动本地后端。
+2. 打开网页上的宠物面板。
+3. 点击标题栏里的设置按钮。
+4. 进入模型配置。
+5. 填写 Provider、Base URL、Model、API Key、Timeout。
+6. 点击 Save。
+7. 点击 Test Connection。
+
+如果 API Key 输入框留空，保存时会保留已有的本地 Key。API Key 不会回填到输入框中。
+
+#### 方式 B：通过 `backend/.env`
 
 ```env
 MODEL_PROVIDER=openai-compatible
@@ -89,17 +137,87 @@ MODEL_RESPONSE_FORMAT=
 LLM_DEBUG=false
 ```
 
-`MODEL_BASE_URL` may point to either `/v1` or `/v1/chat/completions`. API keys stay in the local backend and are never stored in extension code.
+`MODEL_BASE_URL` 可以指向 `/v1`，也可以直接指向 `/v1/chat/completions`。
 
-Optional: set `MODEL_RESPONSE_FORMAT=json_object` only if your OpenAI-compatible provider supports `response_format: { "type": "json_object" }`. It is disabled by default.
+不要提交真实 API Key。`.env`、`backend/.env`、`backend/.local/` 和 `*.local.json` 都应该保持为本地文件。
 
-You can also configure the same provider from the extension settings panel while the local backend is running. Leaving the API key input blank preserves the saved local key. The backend supports `apiKey="__CLEAR__"` for clearing a saved local key, though the current UI keeps key controls minimal.
+后端支持通过 `apiKey="__CLEAR__"` 清除已保存的本地 Key；当前 UI 保持简洁，没有单独暴露清除按钮。
 
-## Local Settings API
+## 使用手册
 
-All settings routes require the local token, either as `Authorization: Bearer <LOCAL_CLIENT_TOKEN>`, `X-Aflodit-Token`, or `X-Aflodit-Pet-Token`.
+### 普通聊天
 
-Routes:
+点击悬浮宠物打开面板，进入 Chat，输入问题后发送。普通 Chat 会优先回答你的输入；如果你用 `@选区` 或 `@页面` 引用了上下文，后端会把对应文本一起发送给模型。
+
+### 解释选中文本
+
+1. 在网页中选中一段文本。
+2. 点击宠物快捷菜单中的 explain。
+3. 宠物会用简洁的简体中文说明含义、重点和必要背景。
+
+如果没有选中文本，系统会提示你先选中需要解释的网页文本。
+
+### 翻译选中文本
+
+1. 在网页中选中一段文本。
+2. 点击 translate。
+3. 宠物会把选中文本翻译或润色为自然的简体中文。
+
+如果选中文本已经是中文，后端不会说“无法翻译”，而是提供更自然的中文润色版本。
+
+### 总结当前网页
+
+点击 summarize 后，扩展会尝试提取当前网页的可读正文，并发送给本地后端总结。
+
+页面总结质量取决于网页结构。有些网页正文清晰，效果会更好；有些页面包含大量导航、弹窗或动态内容，提取质量可能下降。
+
+### 设置模型
+
+打开设置按钮，进入模型配置：
+
+- Save：保存到 `backend/.local/settings.local.json`。
+- Test Connection：测试当前表单配置或已保存配置。
+- 测试成功时会显示 `Connected. <latency>ms.`。
+- 常见失败会显示简短原因，例如认证失败、请求超时、模型设置无效。
+
+### 宠物位置
+
+宠物支持 docked/free 两种位置状态：
+
+- docked：靠近页面边缘停靠。
+- free：拖动后自由放置。
+- edge snap：拖动结束后可吸附到边缘。
+- resize clamp：窗口尺寸变化后会尽量把宠物限制在可见区域内。
+
+### @Command
+
+项目中已有源码级 `@Command` 基础，位于 `extension/content-src/commands/`。
+
+当前内置命令主要用于 Chat 上下文和本地阅读模式，例如：
+
+- `@选区`
+- `@页面`
+- 本地阅读模式切换命令
+
+运行时不允许第三方插件加载，也不允许远程 JavaScript 加载。扩展能力应通过源码内的命令注册机制逐步扩展。
+
+## 安全说明
+
+本项目采用 local-first 的安全边界，但不声称是生产级账户安全系统。
+
+- 后端默认绑定到 `127.0.0.1`。
+- Settings API 需要本地 token。
+- API Key 保存在 `backend/.local/settings.local.json`。
+- `backend/.local/` 和 `*.local.json` 已加入 `.gitignore`。
+- `GET /api/settings` 只返回 `apiKeySet` 和 `apiKeyPreview`。
+- API Key 不会保存在扩展的 `localStorage` 或 `chrome.storage`。
+- 后端日志不应该输出完整 API Key 或 Authorization header。
+- 不要把后端绑定到 `0.0.0.0`，除非你明确理解网络暴露风险。
+- 不要提交 `.env`、本地 settings 文件、私有 endpoint 或任何真实密钥。
+
+## 本地 Settings API
+
+Settings API 用于本机保存和测试模型配置。
 
 ```text
 GET  /api/settings
@@ -107,7 +225,15 @@ PUT  /api/settings
 POST /api/settings/test
 ```
 
-Settings shape:
+所有 settings 路由都需要本地 token。支持的请求头：
+
+```text
+Authorization: Bearer <LOCAL_CLIENT_TOKEN>
+X-Aflodit-Token: <LOCAL_CLIENT_TOKEN>
+X-Aflodit-Pet-Token: <LOCAL_CLIENT_TOKEN>
+```
+
+配置形状：
 
 ```json
 {
@@ -121,31 +247,34 @@ Settings shape:
 }
 ```
 
-`GET /api/settings` returns sanitized settings only, replacing the raw key with `apiKeySet` and `apiKeyPreview`. `POST /api/settings/test` returns `ok`, `provider`, `model`, `latencyMs`, and a safe message. Failures use normalized codes such as `MODEL_AUTH_FAILED`, `MODEL_TIMEOUT`, `MODEL_NETWORK_ERROR`, `MODEL_BAD_RESPONSE`, and `MODEL_CONFIG_INVALID`.
+`GET /api/settings` 返回的是脱敏结果，例如：
 
-## Debug Logging
-
-Set this only for local debugging:
-
-```env
-LLM_DEBUG=true
+```json
+{
+  "settings": {
+    "model": {
+      "provider": "openai-compatible",
+      "baseUrl": "https://api.openai.com/v1",
+      "model": "gpt-4o-mini",
+      "timeoutMs": 30000,
+      "apiKeySet": true,
+      "apiKeyPreview": "sk-...abcd"
+    }
+  }
+}
 ```
 
-When enabled, terminal logs include normalized request previews, input lengths, truncation flags, prompt previews, prompt character counts, raw model response preview, raw response length, JSON parse result, fallback/normalization result, timing fields, and final frontend response. `/api/pet` and `/api/pet-stream` may also include debug metadata. Long text is truncated. Secrets, API keys, local tokens, and authorization headers are not logged.
+`POST /api/settings/test` 会返回 `ok`、`provider`、`model`、`latencyMs` 和安全的人类可读消息。失败时会使用规范化错误码，例如：
 
-When `LLM_DEBUG=false`, logs stay quiet except startup and meaningful errors, and API responses do not expose detailed debug/provider metadata.
-
-## Load The Extension
-
-1. Open your Chromium extension manager.
-2. Enable developer mode.
-3. Load unpacked extension from `extension/`.
-4. Start the backend with `npm run dev` from `backend/`.
-5. Open a normal webpage and click the floating pet.
+- `MODEL_AUTH_FAILED`
+- `MODEL_TIMEOUT`
+- `MODEL_NETWORK_ERROR`
+- `MODEL_BAD_RESPONSE`
+- `MODEL_CONFIG_INVALID`
 
 ## API Contract
 
-`POST /api/pet` is the stable non-streaming endpoint and accepts the existing snake_case payload:
+`POST /api/pet` 是稳定的非流式接口。请求字段保持 snake_case，用于兼容浏览器扩展和早期输入约定。
 
 ```json
 {
@@ -159,14 +288,14 @@ When `LLM_DEBUG=false`, logs stay quiet except startup and meaningful errors, an
 }
 ```
 
-Supported canonical actions:
+支持的 canonical actions：
 
 - `chat`
 - `explain_selection`
 - `summarize_page`
 - `translate`
 
-The response keeps the frontend-compatible shape:
+后端响应保持前端兼容形状：
 
 ```json
 {
@@ -178,7 +307,7 @@ The response keeps the frontend-compatible shape:
 }
 ```
 
-Allowed enum values:
+允许的枚举值：
 
 - `emotion`: `neutral`, `happy`, `thinking`, `confused`, `error`
 - `motion`: `idle`, `nod`, `shake`, `jump`, `think`
@@ -186,60 +315,23 @@ Allowed enum values:
 
 ## Experimental Streaming
 
-`POST /api/pet-stream` is experimental in `v0.6.5`. It keeps the same request payload as `/api/pet`, but returns newline-delimited JSON events over the response body so a Manifest V3 content script can consume it with `fetch()` and `ReadableStream`.
+`POST /api/pet-stream` 是实验性流式接口。它使用与 `/api/pet` 相同的请求 payload，但返回 newline-delimited JSON events，方便 Manifest V3 content script 通过 `fetch()` 和 `ReadableStream` 读取增量文本。
 
-Event format:
+事件示例：
 
 ```json
 { "streamExperimental": true, "type": "start", "action": "translate" }
 { "streamExperimental": true, "type": "delta", "text": "partial reply text" }
 { "streamExperimental": true, "type": "final", "data": { "reply": "complete reply", "emotion": "thinking", "motion": "think", "bubble_type": "info", "confidence": 0.75 } }
-{ "streamExperimental": true, "type": "error", "data": { "reply": "模型暂时没有返回有效结果。", "emotion": "error", "motion": "shake", "bubble_type": "error", "confidence": 0.3 } }
 ```
 
-The stream sends only user-facing reply text in `delta` events. Raw JSON model output is not streamed to users. At the end, the backend builds a complete response object, runs it through the existing response normalizer via JSON serialization, and sends that validated object in the `final` event. Metadata is applied only after the final event.
+流式接口只在 `delta` 中发送用户可见文本，不会把原始模型 JSON 输出流给用户。扩展当前配置为优先尝试 `/api/pet-stream`，失败后回退到稳定的 `/api/pet`。
 
-For OpenAI-compatible providers, streaming uses `stream: true` and parses `data:` chunks from `/v1/chat/completions`, ignoring `[DONE]` and accumulating `choices[0].delta.content`. Mock mode also streams deterministic chunks without an API key.
+OpenAI-Compatible provider 的流式模式使用 `stream: true`，解析 `/v1/chat/completions` 返回的 `data:` chunks，并忽略 `[DONE]`。Mock Mode 也支持确定性的流式测试。
 
-## Failure Behavior
+## 调试与验证
 
-- Missing selected text for `explain_selection`: `请先选中需要解释的网页文本。`
-- Missing selected text for `translate`: `请先选中需要翻译的网页文本。`
-- Missing page text for `summarize_page`: `当前页面内容不足，无法可靠总结。`
-- Model/provider failure: `模型暂时没有返回有效结果，请稍后再试。`
-
-The normalizer handles plain JSON, Markdown-wrapped JSON, extra text around JSON, missing fields, invalid enums, invalid confidence, empty replies, non-JSON output, malformed JSON, provider errors, and timeouts without breaking the extension response contract.
-
-## Latency Notes
-
-v0.6.5 keeps the stable frontend response contract unchanged for `/api/pet` and keeps `/api/pet-stream` isolated as experimental. Provider first-token latency may still dominate perceived speed. The prompt slimming from `v0.6.2` remains: prompts use a compact base system prompt plus only the active action instruction for `chat`, `explain_selection`, `translate`, or `summarize_page`.
-
-When `LLM_DEBUG=true`, runtime debug metadata may include:
-
-- `timing.totalMs`
-- `timing.inputNormalizeMs`
-- `timing.promptBuildMs`
-- `timing.fallbackMs`
-- `timing.providerRoundTripMs`
-- `timing.providerReadBodyMs` when available
-- `timing.responseNormalizeMs`
-- `metrics.systemPromptChars`
-- `metrics.userPromptChars`
-- `metrics.rawModelTextChars`
-- `metrics.inputLengths`
-
-Streaming debug metadata is emitted only when `LLM_DEBUG=true` and may include:
-
-- `timing.timeToFirstDeltaMs`
-- `timing.streamTotalMs`
-- `timing.providerStreamMs`
-- `timing.finalNormalizeMs`
-- `metrics.deltaCount`
-- `metrics.replyChars`
-
-## Validation
-
-Run syntax checks from `backend/`:
+从 `backend/` 目录运行语法检查：
 
 ```bash
 node --check server.js
@@ -252,7 +344,7 @@ node --check src/llm/inputNormalizer.js
 node --check ../extension/content.js
 ```
 
-Existing mock-mode tests are available:
+Mock Mode 测试：
 
 ```bash
 npm run test:normalizer
@@ -261,17 +353,74 @@ npm run test:llm
 npm run test:commands
 ```
 
-## Troubleshooting
+本地调试模型输出时可以临时设置：
 
-- If the extension cannot connect, confirm the backend is running on `127.0.0.1:3001`.
-- If requests are rejected, confirm `LOCAL_CLIENT_TOKEN` in `.env` matches the token in the extension config.
-- If real-model calls fail, check `/api/runtime-status` for missing `MODEL_BASE_URL`, `MODEL_API_KEY`, or `MODEL_NAME`.
-- If settings save/test requests are rejected, confirm the extension token matches `LOCAL_CLIENT_TOKEN`.
-- If debugging provider output, enable `LLM_DEBUG=true` temporarily and keep logs private.
+```env
+LLM_DEBUG=true
+```
 
-## Known Limitations
+`LLM_DEBUG=true` 可能让 API 响应或终端日志包含更多调试信息。日志仍应保存在本地，不要公开分享包含私有上下文的调试输出。调试结束后建议恢复为 `LLM_DEBUG=false`。
 
-- The local backend is required while using the extension.
-- This backend is not production hardened.
-- Provider compatibility depends on the provider's OpenAI-compatible `/chat/completions` behavior.
-- Page extraction quality depends on the current extension extraction logic.
+## 常见问题
+
+### 扩展连接不上后端
+
+确认后端正在运行，并且地址是 `http://127.0.0.1:3001`。也可以访问：
+
+```text
+GET http://127.0.0.1:3001/api/runtime-status
+```
+
+### Save/Test 被拒绝
+
+确认 `backend/.env` 中的 `LOCAL_CLIENT_TOKEN` 与扩展中的本地 token 一致。Settings API 会拒绝没有本地 token 或 token 不匹配的请求。
+
+### 真实模型测试失败
+
+检查 Provider、Base URL、Model、API Key 和 Timeout。`MODEL_BASE_URL` 可以是 `/v1` 或 `/v1/chat/completions`。如果返回认证失败，优先检查 API Key。
+
+### API Key 保存后没有显示出来
+
+这是预期行为。Settings UI 不会回填真实 API Key，只会显示类似 `Saved: sk-...abcd` 的安全占位信息。
+
+### Mock Mode 正常，真实模型不正常
+
+说明扩展和本地后端链路基本正常。问题通常在模型服务配置、网络、API Key 权限、模型名称或 provider 的 OpenAI-Compatible 兼容性上。
+
+### 页面总结质量不好
+
+页面正文提取依赖当前网页结构。文章页通常效果更好；复杂应用、动态页面、弹窗很多的页面可能会影响提取质量。
+
+### 后端端口冲突
+
+默认端口是 `3001`。如果被占用，可以在 `backend/.env` 中调整：
+
+```env
+PORT=3002
+```
+
+调整后也需要让扩展配置指向相同端口。
+
+### `npm install` 提示 moderate vulnerability
+
+先确认是否影响当前本地开发路径。不要为了消除提示盲目升级依赖导致运行时行为变化。需要升级时应单独检查变更和测试结果。
+
+## 已知限制
+
+- 使用扩展时必须运行本地后端。
+- 后端不是 production hardened 服务。
+- OpenAI-Compatible provider 的兼容性取决于对方 `/chat/completions` 行为。
+- 网页内容提取质量会因网站结构而变化。
+- 真实模型延迟取决于 provider、网络和模型本身。
+
+## 开发者说明
+
+项目主要目录：
+
+- `extension/`：Manifest V3 浏览器扩展、content script 和宠物 UI 样式。
+- `backend/`：本地 Express 后端和模型运行时。
+- `backend/src/llm/`：输入归一化、Prompt 构建、Provider 调用、响应归一化、fallback 和 debug metadata。
+- `backend/src/settings/`：本地 settings 存储、校验、脱敏和 API routes。
+- `docs/`：架构、开发和 `@Command` 设计说明。
+
+公共贡献时请保持本地密钥、本地 settings、日志、缓存和浏览器 profile 数据不进入 Git。
