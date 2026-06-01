@@ -31,6 +31,13 @@ async function fetchWithTimeout(url, options, timeoutMs) {
   }
 }
 
+function makeProviderError(code, message, details = {}) {
+  const error = new Error(message);
+  error.code = code;
+  Object.assign(error, details);
+  return error;
+}
+
 async function callOpenAICompatibleProvider({ prompts, env = process.env }) {
   const baseUrl = buildChatCompletionsUrl(env.MODEL_BASE_URL);
   const apiKey = String(env.MODEL_API_KEY || "").trim();
@@ -210,8 +217,69 @@ async function callOpenAICompatibleProviderStream({ prompts, env = process.env, 
   };
 }
 
+async function testOpenAICompatibleProvider({ settings }) {
+  const modelSettings = settings?.model || {};
+  const baseUrl = buildChatCompletionsUrl(modelSettings.baseUrl);
+  const apiKey = String(modelSettings.apiKey || "").trim();
+  const model = String(modelSettings.model || "").trim();
+  const timeoutMs = numberFromEnv(modelSettings.timeoutMs, 10000);
+
+  if (!baseUrl || !apiKey || !model) {
+    throw makeProviderError("MODEL_CONFIG_INVALID", "Missing openai-compatible settings.");
+  }
+
+  const requestBody = {
+    model,
+    messages: [{ role: "user", content: "ping" }],
+    temperature: 0,
+    max_tokens: 1
+  };
+
+  const startedAt = Date.now();
+  let response;
+  try {
+    response = await fetchWithTimeout(baseUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(requestBody)
+    }, Math.min(timeoutMs, 10000));
+  } catch (error) {
+    if (/timed out/i.test(error?.message || "")) {
+      throw makeProviderError("MODEL_TIMEOUT", "Provider request timed out.", { latencyMs: Date.now() - startedAt });
+    }
+    throw makeProviderError("MODEL_NETWORK_ERROR", "Provider network request failed.", { latencyMs: Date.now() - startedAt });
+  }
+
+  const latencyMs = Date.now() - startedAt;
+  const rawResponse = await response.text().catch(() => "");
+
+  if (response.status === 401 || response.status === 403) {
+    throw makeProviderError("MODEL_AUTH_FAILED", "Provider authentication failed.", { latencyMs });
+  }
+  if (!response.ok) {
+    throw makeProviderError("MODEL_BAD_RESPONSE", `Provider returned HTTP ${response.status}.`, { latencyMs });
+  }
+
+  let data;
+  try {
+    data = JSON.parse(rawResponse);
+  } catch {
+    throw makeProviderError("MODEL_BAD_RESPONSE", "Provider returned non-JSON response.", { latencyMs });
+  }
+
+  if (!Array.isArray(data?.choices)) {
+    throw makeProviderError("MODEL_BAD_RESPONSE", "Provider response did not include choices.", { latencyMs });
+  }
+
+  return { ok: true, latencyMs };
+}
+
 module.exports = {
   callOpenAICompatibleProvider,
   callOpenAICompatibleProviderStream,
-  buildChatCompletionsUrl
+  buildChatCompletionsUrl,
+  testOpenAICompatibleProvider
 };

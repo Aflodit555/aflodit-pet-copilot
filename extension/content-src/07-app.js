@@ -45,6 +45,7 @@
       dom.settingsModel.classList.add("hidden");
       dom.settingsMessage.textContent = "";
       LayoutManager.updateFloatingLayout();
+      SettingsManager.load();
     },
 
     openModelSettings() {
@@ -52,6 +53,7 @@
       dom.settingsModel.classList.remove("hidden");
       dom.settingsMessage.textContent = "";
       LayoutManager.updateFloatingLayout();
+      SettingsManager.load();
     },
 
     backToSettingsMenu() {
@@ -248,6 +250,139 @@
     }
   };
 // =========================
+  // 10.1 Settings API
+  // =========================
+  const SettingsManager = {
+    busy: false,
+
+    headers() {
+      return {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${CONFIG.localClientToken}`
+      };
+    },
+
+    setBusy(busy) {
+      this.busy = busy;
+      dom.settingsSave.disabled = busy;
+      dom.settingsTest.disabled = busy;
+    },
+
+    async request(path = "", options = {}) {
+      const response = await fetch(`${CONFIG.settingsUrl}${path}`, {
+        ...options,
+        headers: {
+          ...this.headers(),
+          ...(options.headers || {})
+        }
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = data?.error?.message || data?.message || `Settings request failed: ${response.status}`;
+        const error = new Error(message);
+        error.data = data;
+        throw error;
+      }
+      return data;
+    },
+
+    apiKeyPlaceholder(settings) {
+      const model = settings?.model || {};
+      return model.apiKeySet ? `Saved: ${model.apiKeyPreview || "configured"}` : "Not saved";
+    },
+
+    hydrate(settings) {
+      const model = settings?.model || {};
+      dom.settingsProvider.value = model.provider || "mock";
+      dom.settingsBaseUrl.value = model.baseUrl || "";
+      dom.settingsModelName.value = model.model || "";
+      dom.settingsTimeoutMs.value = String(model.timeoutMs || 30000);
+      dom.settingsApiKey.value = "";
+      dom.settingsApiKey.placeholder = this.apiKeyPlaceholder(settings);
+    },
+
+    readForm() {
+      const timeoutMs = Number(dom.settingsTimeoutMs.value || 30000);
+      const model = {
+        provider: dom.settingsProvider.value,
+        baseUrl: dom.settingsBaseUrl.value.trim(),
+        model: dom.settingsModelName.value.trim(),
+        timeoutMs
+      };
+      const apiKey = dom.settingsApiKey.value.trim();
+      if (apiKey) model.apiKey = apiKey;
+      return { model };
+    },
+
+    userMessageForCode(code, fallback) {
+      const messages = {
+        MODEL_AUTH_FAILED: "Authentication failed. Check your API key.",
+        MODEL_TIMEOUT: "Request timed out.",
+        MODEL_NETWORK_ERROR: "Network error. Check the base URL.",
+        MODEL_BAD_RESPONSE: "Provider returned an invalid response.",
+        MODEL_CONFIG_INVALID: "Invalid model settings.",
+        SETTINGS_AUTH_REQUIRED: "Settings token rejected by local backend."
+      };
+      return messages[code] || fallback || "Settings request failed.";
+    },
+
+    async load() {
+      if (this.busy) return;
+      this.setBusy(true);
+      try {
+        const data = await this.request("");
+        this.hydrate(data.settings);
+      } catch (error) {
+        const code = error?.data?.error?.code || error?.data?.code;
+        UIController.showSettingsNotice(this.userMessageForCode(code, error.message));
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async save() {
+      if (this.busy) return;
+      this.setBusy(true);
+      UIController.showSettingsNotice("Saving...");
+      try {
+        const data = await this.request("", {
+          method: "PUT",
+          body: JSON.stringify(this.readForm())
+        });
+        this.hydrate(data.settings);
+        UIController.showSettingsNotice("Saved locally.");
+      } catch (error) {
+        const code = error?.data?.error?.code || error?.data?.code;
+        UIController.showSettingsNotice(this.userMessageForCode(code, error.message));
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async test() {
+      if (this.busy) return;
+      this.setBusy(true);
+      UIController.showSettingsNotice("Testing...");
+      try {
+        const data = await this.request("/test", {
+          method: "POST",
+          body: JSON.stringify(this.readForm())
+        });
+        if (data.ok) {
+          UIController.showSettingsNotice(`Connected. ${data.latencyMs || 0}ms.`);
+        } else {
+          UIController.showSettingsNotice(this.userMessageForCode(data.code, data.message));
+        }
+      } catch (error) {
+        const code = error?.data?.error?.code || error?.data?.code;
+        UIController.showSettingsNotice(this.userMessageForCode(code, error.message));
+      } finally {
+        this.setBusy(false);
+      }
+    }
+  };
+
+// =========================
   // 12. 拖拽
   // =========================
   const DragManager = {
@@ -358,12 +493,12 @@
 
     on(dom.settingsTest, "click", (event) => {
       event.stopPropagation();
-      UIController.showSettingsNotice("连接测试将在安全设置接口完成后启用。");
+      SettingsManager.test();
     });
 
     on(dom.settingsSave, "click", (event) => {
       event.stopPropagation();
-      UIController.showSettingsNotice("模型配置保存功能将在安全设置接口完成后启用。");
+      SettingsManager.save();
     });
 
     on(dom.settingsBack, "click", (event) => {

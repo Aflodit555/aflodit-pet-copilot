@@ -1,4 +1,4 @@
-/* AFlodit Pet Copilot v0.6.7
+/* AFlodit Pet Copilot v0.6.8
    分层：tokens -> layout -> avatar -> quick menu -> panel -> text/scroll -> controls -> states -> animations -> overrides
 */
 
@@ -597,7 +597,9 @@
 
 .pet-chat-button:disabled,
 .pet-chat-input:disabled,
-.pet-refresh-button:disabled {
+.pet-refresh-button:disabled,
+#aflodit-pet-root .pet-primary-button:disabled,
+#aflodit-pet-root .pet-secondary-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }

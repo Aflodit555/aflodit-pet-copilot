@@ -61,6 +61,10 @@
                 <span>API Key</span>
                 <input id="aflodit-pet-settings-api-key" type="password" autocomplete="off" />
               </label>
+              <label class="pet-settings-field">
+                <span>Timeout (ms)</span>
+                <input id="aflodit-pet-settings-timeout-ms" type="number" min="1000" max="120000" step="1000" autocomplete="off" />
+              </label>
               <div id="aflodit-pet-settings-message" class="pet-settings-message" aria-live="polite"></div>
               <div class="pet-settings-actions">
                 <button id="aflodit-pet-settings-test" class="pet-secondary-button">Test Connection</button>
@@ -387,6 +391,11 @@
       settingsMenu: root.querySelector("#aflodit-pet-settings-menu"),
       settingsModel: root.querySelector("#aflodit-pet-settings-model"),
       settingsModelEntry: root.querySelector("[data-settings-view='model']"),
+      settingsProvider: root.querySelector("#aflodit-pet-settings-provider"),
+      settingsBaseUrl: root.querySelector("#aflodit-pet-settings-base-url"),
+      settingsModelName: root.querySelector("#aflodit-pet-settings-model-name"),
+      settingsApiKey: root.querySelector("#aflodit-pet-settings-api-key"),
+      settingsTimeoutMs: root.querySelector("#aflodit-pet-settings-timeout-ms"),
       settingsMessage: root.querySelector("#aflodit-pet-settings-message"),
       settingsTest: root.querySelector("#aflodit-pet-settings-test"),
       settingsSave: root.querySelector("#aflodit-pet-settings-save"),

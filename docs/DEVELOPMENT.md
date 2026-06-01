@@ -26,6 +26,9 @@ node extension/build-content.js
 
 ```bash
 node --check backend/server.js
+node --check backend/src/settings/settingsStore.js
+node --check backend/src/settings/settingsSchema.js
+node --check backend/src/settings/settingsRoutes.js
 node --check backend/src/llm/index.js
 node --check backend/src/llm/modelClient.js
 node --check backend/src/llm/providers/openaiCompatibleProvider.js
@@ -49,6 +52,9 @@ node extension/content-src/commands/commandParser.test.js
 ## Manual Verification
 
 - `GET http://127.0.0.1:3001/api/runtime-status` reports the expected version.
+- `GET http://127.0.0.1:3001/api/settings` rejects requests without the local token.
+- Settings Save creates `backend/.local/settings.local.json` and never returns the raw API key.
+- Settings Test reports a compact success or normalized failure message.
 - `POST /api/pet` returns the stable response object.
 - `POST /api/pet-stream` returns experimental stream events.
 - `LLM_DEBUG=false` hides detailed debug metadata in API responses.

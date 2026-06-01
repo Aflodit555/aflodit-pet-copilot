@@ -2,15 +2,16 @@
 
 AFlodit Pet Copilot is a lightweight browser pet assistant extension. It injects a floating pet UI into web pages, reads user chat, selected text, and page context, then sends requests to a local Node.js backend at `POST /api/pet`.
 
-Current target: `v0.6.7 Settings Entry UI`. The backend uses a local/provider LLM runtime implemented in this repository. Dify is no longer required at runtime; mentions of Dify are migration history only.
+Current target: `v0.6.8 Safe Local Settings API`. The backend uses a local/provider LLM runtime implemented in this repository. Dify is no longer required at runtime; mentions of Dify are migration history only.
 
-## v0.6.7 Settings Entry UI
+## v0.6.8 Safe Local Settings API
 
 - The pet card title bar includes a new `⚙` settings entry next to the existing help button and mode chip.
 - The settings menu includes a model configuration entry.
-- The model configuration UI is currently a frontend placeholder only.
-- It does not save API keys, write `.env`, or call a backend settings API.
-- Real save and connection-test behavior will be added after a safe settings interface exists.
+- The model configuration panel loads, saves, and tests settings through the local backend.
+- Local settings are stored in `backend/.local/settings.local.json`, which is gitignored.
+- API keys are never stored in extension storage and are never returned raw.
+- Saved local settings override env defaults for later `/api/pet` and `/api/pet-stream` requests without a rebuild.
 
 ## v0.6.5 Public Extension Foundation (historical)
 
@@ -91,6 +92,36 @@ LLM_DEBUG=false
 `MODEL_BASE_URL` may point to either `/v1` or `/v1/chat/completions`. API keys stay in the local backend and are never stored in extension code.
 
 Optional: set `MODEL_RESPONSE_FORMAT=json_object` only if your OpenAI-compatible provider supports `response_format: { "type": "json_object" }`. It is disabled by default.
+
+You can also configure the same provider from the extension settings panel while the local backend is running. Leaving the API key input blank preserves the saved local key. The backend supports `apiKey="__CLEAR__"` for clearing a saved local key, though the current UI keeps key controls minimal.
+
+## Local Settings API
+
+All settings routes require the local token, either as `Authorization: Bearer <LOCAL_CLIENT_TOKEN>`, `X-Aflodit-Token`, or `X-Aflodit-Pet-Token`.
+
+Routes:
+
+```text
+GET  /api/settings
+PUT  /api/settings
+POST /api/settings/test
+```
+
+Settings shape:
+
+```json
+{
+  "model": {
+    "provider": "openai-compatible",
+    "baseUrl": "https://api.openai.com/v1",
+    "model": "gpt-4o-mini",
+    "apiKey": "secret",
+    "timeoutMs": 30000
+  }
+}
+```
+
+`GET /api/settings` returns sanitized settings only, replacing the raw key with `apiKeySet` and `apiKeyPreview`. `POST /api/settings/test` returns `ok`, `provider`, `model`, `latencyMs`, and a safe message. Failures use normalized codes such as `MODEL_AUTH_FAILED`, `MODEL_TIMEOUT`, `MODEL_NETWORK_ERROR`, `MODEL_BAD_RESPONSE`, and `MODEL_CONFIG_INVALID`.
 
 ## Debug Logging
 
@@ -235,6 +266,7 @@ npm run test:commands
 - If the extension cannot connect, confirm the backend is running on `127.0.0.1:3001`.
 - If requests are rejected, confirm `LOCAL_CLIENT_TOKEN` in `.env` matches the token in the extension config.
 - If real-model calls fail, check `/api/runtime-status` for missing `MODEL_BASE_URL`, `MODEL_API_KEY`, or `MODEL_NAME`.
+- If settings save/test requests are rejected, confirm the extension token matches `LOCAL_CLIENT_TOKEN`.
 - If debugging provider output, enable `LLM_DEBUG=true` temporarily and keep logs private.
 
 ## Known Limitations

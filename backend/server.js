@@ -6,6 +6,8 @@ const express = require("express");
 const cors = require("cors");
 const { runPetLlm, runPetLlmStream } = require("./src/llm");
 const { ACTIONS } = require("./src/llm/llmSchemas");
+const { createSettingsRouter } = require("./src/settings/settingsRoutes");
+const { getRuntimeEnv, getEffectiveSettings } = require("./src/settings/settingsStore");
 
 function toBool(value, fallback = false) {
   if (value === undefined || value === null || value === "") return fallback;
@@ -18,7 +20,7 @@ const configuredModelName = process.env.MODEL_NAME || (normalizedConfiguredProvi
 
 const Config = Object.freeze({
   appName: "AFlodit Pet Copilot",
-  version: "0.6.5",
+  version: "0.6.8",
   runtimeName: "difyless-llm-runtime",
   runtimeType: "local-provider-llm-runtime",
   host: process.env.HOST || "127.0.0.1",
@@ -76,8 +78,8 @@ function safeUrlInfo(value) {
   }
 }
 
-function getModelConfigStatus() {
-  const provider = String(Config.modelProvider || "mock").trim().toLowerCase();
+function getModelConfigStatus(modelSettings) {
+  const provider = String(modelSettings?.provider || Config.modelProvider || "mock").trim().toLowerCase();
   const missing = [];
 
   if (provider === "mock") {
@@ -89,9 +91,9 @@ function getModelConfigStatus() {
   }
 
   if (provider === "openai-compatible" || provider === "openai_compatible" || provider === "openai") {
-    if (!String(Config.modelBaseUrl || "").trim()) missing.push("MODEL_BASE_URL");
-    if (!Config.modelApiKeyPresent) missing.push("MODEL_API_KEY");
-    if (!String(Config.modelName || "").trim()) missing.push("MODEL_NAME");
+    if (!String(modelSettings?.baseUrl || "").trim()) missing.push("MODEL_BASE_URL");
+    if (!String(modelSettings?.apiKey || "").trim()) missing.push("MODEL_API_KEY");
+    if (!String(modelSettings?.model || "").trim()) missing.push("MODEL_NAME");
     return {
       present: missing.length === 0,
       missing,
@@ -107,7 +109,9 @@ function getModelConfigStatus() {
 }
 
 function runtimeStatus() {
-  const modelConfig = getModelConfigStatus();
+  const effective = getEffectiveSettings(process.env);
+  const modelSettings = effective.settings.model;
+  const modelConfig = getModelConfigStatus(modelSettings);
 
   return {
     ok: true,
@@ -120,19 +124,19 @@ function runtimeStatus() {
       name: Config.runtimeName,
       type: Config.runtimeType
     },
-    config_source: "environment",
+    config_source: effective.exists ? "local-settings+environment" : "environment",
     provider: {
-      name: Config.modelProvider || "mock",
-      model: Config.modelName || "",
+      name: modelSettings.provider || "mock",
+      model: modelSettings.model || "",
       response_format: Config.modelResponseFormat || "",
-      base_url: safeUrlInfo(Config.modelBaseUrl),
-      api_key_present: Config.modelApiKeyPresent,
+      base_url: safeUrlInfo(modelSettings.baseUrl),
+      api_key_present: Boolean(String(modelSettings.apiKey || "").trim()),
       required_config_present: modelConfig.present,
       missing_config: modelConfig.missing,
       required_config: modelConfig.required
     },
     llm_debug: Config.llmDebug,
-    timeout_ms: Config.modelTimeoutMs,
+    timeout_ms: modelSettings.timeoutMs,
     server: {
       host: Config.host,
       port: Config.port,
@@ -141,6 +145,10 @@ function runtimeStatus() {
     },
     rate_limit: { window_ms: Config.rateLimitWindowMs, max: Config.rateLimitMax },
     actions: Object.values(ACTIONS),
+    settings: {
+      local_file_present: effective.exists,
+      warnings: effective.warnings
+    },
     experimental: {
       pet_stream: true
     }
@@ -223,20 +231,26 @@ app.use(cors({
     Logger.debug("CORS blocked origin:", origin);
     return callback(null, false);
   },
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Aflodit-Pet-Token"],
+  methods: ["GET", "POST", "PUT", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Aflodit-Token", "X-Aflodit-Pet-Token"],
   maxAge: 86400
 }));
 
 app.use(express.json({ limit: "2mb" }));
 app.use(requireLocalToken);
 app.use(rateLimit());
+app.use("/api/settings", createSettingsRouter({
+  localClientToken: Config.localClientToken,
+  env: process.env,
+  logger: Logger
+}));
 
 app.post("/api/pet", async (req, res) => {
   const startedAt = Date.now();
 
   try {
-    const result = await runPetLlm(req.body, { includeDebug: Config.llmDebug, logger: console });
+    const runtime = getRuntimeEnv(process.env);
+    const result = await runPetLlm(req.body, { includeDebug: Config.llmDebug, logger: console, env: runtime.env });
     const limited = applyReplyLimit(result);
 
     if (limited.debug) {
@@ -275,8 +289,10 @@ app.post("/api/pet-stream", async (req, res) => {
   res.flushHeaders?.();
 
   try {
+    const runtime = getRuntimeEnv(process.env);
     await runPetLlmStream(req.body, {
       includeDebug: Config.llmDebug,
+      env: runtime.env,
       logger: console,
       onEvent(event) {
         writeStreamEvent(res, event);
