@@ -23,9 +23,9 @@
             <div id="aflodit-pet-settings-menu" class="pet-settings-view">
               <div class="pet-settings-title">插件设置</div>
               <button class="pet-settings-menu-item" data-settings-view="model">模型配置</button>
-              <button class="pet-settings-menu-item" disabled>显示与位置 <span>Coming soon</span></button>
+              <button class="pet-settings-menu-item" data-settings-view="display">显示与位置</button>
               <button class="pet-settings-menu-item" data-settings-view="commands">快捷命令</button>
-              <button class="pet-settings-menu-item" disabled>关于 <span>Coming soon</span></button>
+              <button class="pet-settings-menu-item" data-settings-view="about">关于</button>
             </div>
 
             <div id="aflodit-pet-settings-model" class="pet-settings-view hidden">
@@ -75,6 +75,57 @@
               <div class="pet-settings-actions">
                 <button id="aflodit-pet-commands-back" class="pet-secondary-button">Back</button>
                 <button id="aflodit-pet-commands-close" class="pet-secondary-button">Close</button>
+              </div>
+            </div>
+
+            <div id="aflodit-pet-settings-display" class="pet-settings-view hidden">
+              <div class="pet-settings-title">显示与位置</div>
+              <label class="pet-settings-field">
+                <span>边缘吸附</span>
+                <select id="aflodit-pet-ui-edge-snap">
+                  <option value="on">On</option>
+                  <option value="off">Off</option>
+                </select>
+              </label>
+              <label class="pet-settings-field">
+                <span>初始位置</span>
+                <select id="aflodit-pet-ui-initial-position">
+                  <option value="bottom-right">右下角</option>
+                  <option value="bottom-left">左下角</option>
+                  <option value="top-right">右上角</option>
+                  <option value="top-left">左上角</option>
+                  <option value="current">当前位置</option>
+                </select>
+              </label>
+              <label class="pet-settings-field">
+                <span>透明度</span>
+                <select id="aflodit-pet-ui-opacity">
+                  <option value="1">100%</option>
+                  <option value="0.8">80%</option>
+                  <option value="0.6">60%</option>
+                </select>
+              </label>
+              <div class="pet-settings-message">显示设置保存在浏览器 chrome.storage.local，不写入后端模型配置。</div>
+              <div class="pet-settings-actions">
+                <button id="aflodit-pet-ui-reset-position" class="pet-secondary-button">重置位置</button>
+                <button id="aflodit-pet-display-back" class="pet-secondary-button">Back</button>
+              </div>
+            </div>
+
+            <div id="aflodit-pet-settings-about" class="pet-settings-view hidden">
+              <div class="pet-settings-title">关于</div>
+              <div class="pet-about-list">
+                <div><b>Project</b>：AFlodit Pet Copilot</div>
+                <div><b>Version</b>：0.6.10.6</div>
+                <div><b>Runtime</b>：Local Backend + Browser Extension</div>
+                <div><b>Backend URL</b>：http://127.0.0.1:3001</div>
+                <div><b>Model modes</b>：Mock / OpenAI-Compatible</div>
+                <div><b>GitHub</b>：https://github.com/AFlodit55/aflodit-pet-copilot</div>
+              </div>
+              <div class="pet-settings-note">AFlodit Pet Copilot 是一个运行在浏览器页面上的轻量 AI 桌宠助手，可以聊天、解释选中文本、翻译选中文本和总结当前网页。</div>
+              <div class="pet-settings-note">API Key 保存在本地后端配置中，不写入扩展代码。不要公开 backend/.env 或 backend/.local/settings.local.json。本项目是本地优先的开发者工具，不是生产级账号系统。</div>
+              <div class="pet-settings-actions">
+                <button id="aflodit-pet-about-back" class="pet-secondary-button">Back</button>
               </div>
             </div>
           </div>
@@ -372,9 +423,24 @@
     injectIdeaMotionStyle();
 
     const root = document.createElement("div");
+    traceLayout("DOM root created", { root });
     root.id = "aflodit-pet-root";
+    root.style.visibility = "hidden";
+    traceLayout("DOM root inline visibility hidden", traceStyleSnapshot(root));
     root.innerHTML = renderTemplate();
+    traceLayout("DOM template rendered before append", {
+      root,
+      card: root.querySelector("#aflodit-pet-panel"),
+      menu: root.querySelector("#aflodit-pet-menu"),
+      avatar: root.querySelector("#aflodit-pet-avatar"),
+      face: root.querySelector("#aflodit-pet-face"),
+      auxiliaryPanel: root.querySelector("#aflodit-pet-settings")
+    });
     document.body.appendChild(root);
+    traceLayout("DOM root appended to document.body", {
+      root,
+      bodyContainsRoot: document.body.contains(root)
+    });
 
     const quickButtons = Array.from(root.querySelectorAll(".pet-quick-action"));
     const quickButtonMap = quickButtons.reduce((acc, button) => {
@@ -393,8 +459,12 @@
       settingsMenu: root.querySelector("#aflodit-pet-settings-menu"),
       settingsModel: root.querySelector("#aflodit-pet-settings-model"),
       settingsCommands: root.querySelector("#aflodit-pet-settings-commands"),
+      settingsDisplay: root.querySelector("#aflodit-pet-settings-display"),
+      settingsAbout: root.querySelector("#aflodit-pet-settings-about"),
       settingsModelEntry: root.querySelector("[data-settings-view='model']"),
       settingsCommandsEntry: root.querySelector("[data-settings-view='commands']"),
+      settingsDisplayEntry: root.querySelector("[data-settings-view='display']"),
+      settingsAboutEntry: root.querySelector("[data-settings-view='about']"),
       settingsProvider: root.querySelector("#aflodit-pet-settings-provider"),
       settingsBaseUrl: root.querySelector("#aflodit-pet-settings-base-url"),
       settingsModelName: root.querySelector("#aflodit-pet-settings-model-name"),
@@ -407,6 +477,12 @@
       settingsCancel: root.querySelector("#aflodit-pet-settings-cancel"),
       commandsBack: root.querySelector("#aflodit-pet-commands-back"),
       commandsClose: root.querySelector("#aflodit-pet-commands-close"),
+      displayBack: root.querySelector("#aflodit-pet-display-back"),
+      aboutBack: root.querySelector("#aflodit-pet-about-back"),
+      uiEdgeSnap: root.querySelector("#aflodit-pet-ui-edge-snap"),
+      uiInitialPosition: root.querySelector("#aflodit-pet-ui-initial-position"),
+      uiOpacity: root.querySelector("#aflodit-pet-ui-opacity"),
+      uiResetPosition: root.querySelector("#aflodit-pet-ui-reset-position"),
       mode: root.querySelector("#aflodit-pet-mode"),
       status: root.querySelector("#aflodit-pet-status"),
       contextBlock: root.querySelector("#aflodit-pet-context-block"),
@@ -426,6 +502,19 @@
       chatSend: root.querySelector("#aflodit-pet-chat-send"),
       quickButtons,
       quickButtonMap
+    });
+
+    traceLayout("DOM refs assigned and containment checked", {
+      root: dom.root,
+      avatar: dom.avatar,
+      face: dom.face,
+      card: dom.panel,
+      auxiliaryPanel: dom.settings,
+      rootContainsAvatar: dom.root.contains(dom.avatar),
+      rootContainsFace: dom.root.contains(dom.face),
+      rootContainsCard: dom.root.contains(dom.panel),
+      rootContainsAuxiliaryPanel: dom.root.contains(dom.settings),
+      afloditElementCount: document.querySelectorAll("[id*='aflodit'], [class*='aflodit']").length
     });
   }
 

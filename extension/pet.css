@@ -1,4 +1,4 @@
-/* AFlodit Pet Copilot v0.6.9
+/* AFlodit Pet Copilot v0.6.10.6
    分层：tokens -> layout -> avatar -> quick menu -> panel -> text/scroll -> controls -> states -> animations -> overrides
 */
 
@@ -29,6 +29,13 @@
   height: 64px;
   z-index: 2147483647;
   font-family: Arial, "Microsoft YaHei", sans-serif;
+  visibility: hidden;
+  transition: none;
+}
+
+#aflodit-pet-root.aflodit-ready {
+  visibility: visible;
+  transition: left 150ms ease, top 150ms ease;
 }
 
 #aflodit-pet-root * {
@@ -72,6 +79,11 @@
 #aflodit-pet-root.pet-dragging #aflodit-pet-avatar {
   cursor: grabbing;
   transform: scale(1.03);
+  transition: none;
+}
+
+#aflodit-pet-root.pet-dragging,
+#aflodit-pet-root.pet-dragging #aflodit-pet-panel {
   transition: none;
 }
 
@@ -202,7 +214,7 @@
 /* 5. Panel */
 #aflodit-pet-panel {
   position: absolute;
-  z-index: 30;
+  z-index: 50;
   left: 0;
   top: 0;
   right: auto;
@@ -216,6 +228,11 @@
   box-shadow: var(--pet-panel-shadow);
   font-size: 14px;
   overscroll-behavior: contain;
+  transition: none;
+}
+
+#aflodit-pet-root.aflodit-ready #aflodit-pet-panel {
+  transition: left 150ms ease, top 150ms ease;
 }
 
 .pet-title-row,
@@ -294,8 +311,10 @@
 /* 5.0 Settings entry */
 #aflodit-pet-root .pet-settings-panel {
   position: absolute;
-  z-index: 55;
+  z-index: 60;
   left: 0;
+  top: auto;
+  right: auto;
   bottom: calc(100% + 10px);
   width: 100%;
   margin: 0;
@@ -386,6 +405,23 @@
   color: var(--pet-muted);
   font-size: 12px;
   line-height: 1.5;
+}
+
+#aflodit-pet-root .pet-settings-note,
+#aflodit-pet-root .pet-about-list {
+  margin-top: 8px;
+  color: #444;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+#aflodit-pet-root .pet-about-list {
+  display: grid;
+  gap: 3px;
+}
+
+#aflodit-pet-root .pet-settings-note {
+  color: var(--pet-muted);
 }
 
 #aflodit-pet-root .pet-settings-actions {

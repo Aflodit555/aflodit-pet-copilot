@@ -217,12 +217,24 @@
       };
     },
 
-    setAbsolutePosition(element, left, top) {
+    setAbsolutePosition(element, left, top, callerLabel = "Geometry.setAbsolutePosition") {
       const rootRect = dom.root.getBoundingClientRect();
       element.style.left = `${Math.round(left - rootRect.left)}px`;
       element.style.top = `${Math.round(top - rootRect.top)}px`;
       element.style.right = "auto";
       element.style.bottom = "auto";
+      traceLayout("Geometry.setAbsolutePosition", {
+        callerLabel,
+        target: traceElementName(element),
+        requested: { left, top },
+        rootRect: {
+          left: rootRect.left,
+          top: rootRect.top,
+          right: rootRect.right,
+          bottom: rootRect.bottom
+        }
+      });
+      tracePositionWrite(callerLabel, element);
     },
 
     getFloatingSize(element, fallbackWidth, fallbackHeight) {
@@ -239,41 +251,15 @@
         a.bottom + margin <= b.top ||
         a.top >= b.bottom + margin
       );
-    },
-
-    expandRect(rect, padding = 0) {
-      return {
-        left: rect.left - padding,
-        top: rect.top - padding,
-        right: rect.right + padding,
-        bottom: rect.bottom + padding,
-        width: rect.width + padding * 2,
-        height: rect.height + padding * 2
-      };
     }
   };
 // =========================
   // 8. 浮层布局系统
   // =========================
   const LayoutManager = {
-    loadStoredPosition() {
-      try {
-        const raw = window.localStorage?.getItem(CONFIG.storage.positionKey);
-        if (!raw) return null;
-        return Geometry.normalizePosition(JSON.parse(raw));
-      } catch (error) {
-        log("Failed to load pet position.", error);
-        return null;
-      }
-    },
-
-    savePosition() {
-      try {
-        window.localStorage?.setItem(CONFIG.storage.positionKey, JSON.stringify(state.position));
-      } catch (error) {
-        log("Failed to save pet position.", error);
-      }
-    },
+    layoutFrame: null,
+    firstLayoutStarted: false,
+    firstLayoutApplied: false,
 
     applyRootPosition(resolved) {
       const dockEdge = resolved.mode === "docked"
@@ -288,12 +274,26 @@
       dom.root.dataset.dockX = resolved.dockX || "";
       dom.root.dataset.dockY = resolved.dockY || "";
       dom.root.dataset.snapEdge = dockEdge || "free";
+      traceLayout("LayoutManager.applyRootPosition", {
+        resolved,
+        dockEdge,
+        target: traceElementName(dom.root)
+      });
+      tracePositionWrite("LayoutManager.applyRootPosition", dom.root);
 
       this.updateFloatingLayout();
     },
 
     setRootPosition(position, { snap = false, persist = true } = {}) {
-      const next = snap ? Geometry.snapPosition(position) : Geometry.resolvePosition(position);
+      traceLayout("LayoutManager.setRootPosition start", {
+        input: position,
+        snap,
+        persist,
+        edgeSnap: state.uiSettings.edgeSnap
+      });
+      const shouldSnap = snap && state.uiSettings.edgeSnap;
+      const next = shouldSnap ? Geometry.snapPosition(position) : Geometry.resolvePosition(position);
+      traceLayout("LayoutManager.setRootPosition resolved", { shouldSnap, next });
       state.position = {
         mode: next.mode,
         dockX: next.dockX,
@@ -306,26 +306,54 @@
       };
 
       this.applyRootPosition(next);
-      if (persist) this.savePosition();
+      if (persist && state.uiSettings.initialPosition === "current") {
+        UiSettingsStore.saveCurrentPosition(next);
+      }
     },
 
-    setInitialPosition() {
+    positionForCorner(corner) {
+      const isLeft = corner === "bottom-left" || corner === "top-left";
+      const isTop = corner === "top-left" || corner === "top-right";
+      const dockX = isLeft ? "left" : "right";
+      const dockY = isTop ? "top" : "bottom";
       const offset = CONFIG.drag.initialOffset;
-      const stored = this.loadStoredPosition();
-      this.setRootPosition(stored || {
+
+      return {
         mode: "docked",
-        dockX: "right",
-        dockY: "bottom",
+        dockX,
+        dockY,
         offsetX: offset,
         offsetY: offset,
         x: 0,
         y: 0,
         updatedAt: Date.now()
-      }, { snap: false });
+      };
+    },
+
+    positionFromUiSettings() {
+      const settings = state.uiSettings;
+      if (settings.initialPosition === "current" && settings.savedPosition) {
+        return {
+          mode: "free",
+          dockX: null,
+          dockY: null,
+          offsetX: 0,
+          offsetY: 0,
+          x: settings.savedPosition.x,
+          y: settings.savedPosition.y,
+          updatedAt: Date.now()
+        };
+      }
+      return this.positionForCorner(settings.initialPosition || "bottom-right");
+    },
+
+    setInitialPosition() {
+      this.setRootPosition(this.positionFromUiSettings(), { snap: false, persist: false });
     },
 
     handleViewportResize() {
       this.applyRootPosition(Geometry.resolvePosition(state.position));
+      this.schedulePetLayout();
     },
 
     getOpenOrientation() {
@@ -367,6 +395,11 @@
       button.style.top = `${Math.round(top - rootRect.top)}px`;
       button.style.right = "auto";
       button.style.bottom = "auto";
+      traceLayout("LayoutManager.applyMenuButtonLayout", {
+        target: traceElementName(button),
+        requested: { left, top }
+      });
+      tracePositionWrite("LayoutManager.applyMenuButtonLayout", button);
     },
 
     applyMenuTailDirection(button) {
@@ -396,7 +429,7 @@
       dom.menu.dataset.variant = orientation.menuVariant;
 
       // 菜单容器只作为按钮承载层，直接锚在 root 上；按钮按真实屏幕坐标计算。
-      Geometry.setAbsolutePosition(dom.menu, rootRect.left, rootRect.top);
+      Geometry.setAbsolutePosition(dom.menu, rootRect.left, rootRect.top, "LayoutManager.updateMenuLayout menu");
 
       this.getMenuButtonPositions(orientation).forEach((item) => {
         const button = dom.quickButtonMap[item.key];
@@ -409,45 +442,215 @@
       });
     },
 
-    updatePanelLayout() {
-      if (!dom.panel || dom.panel.classList.contains("hidden")) return;
+    rectFromPosition(left, top, width, height) {
+      return {
+        left,
+        top,
+        right: left + width,
+        bottom: top + height,
+        width,
+        height
+      };
+    },
 
-      const size = Geometry.getFloatingSize(dom.panel, CONFIG.drag.floatingWidth, 260);
+    unionRects(rects) {
+      const visible = rects.filter(Boolean);
+      if (!visible.length) return null;
+      const left = Math.min(...visible.map((rect) => rect.left));
+      const top = Math.min(...visible.map((rect) => rect.top));
+      const right = Math.max(...visible.map((rect) => rect.right));
+      const bottom = Math.max(...visible.map((rect) => rect.bottom));
+      return { left, top, right, bottom, width: right - left, height: bottom - top };
+    },
+
+    stackOverflowScore(rect, viewport, margin) {
+      return Math.max(0, margin - rect.left)
+        + Math.max(0, margin - rect.top)
+        + Math.max(0, rect.right - (viewport.width - margin))
+        + Math.max(0, rect.bottom - (viewport.height - margin));
+    },
+
+    measurePetParts() {
       const viewport = Geometry.getViewport();
+      const margin = 12;
+      const gap = 12;
       const avatarRect = Geometry.getAvatarRect();
-      const margin = CONFIG.drag.viewportMargin;
-      const gap = CONFIG.drag.panelGap;
+      const panelSize = Geometry.getFloatingSize(dom.panel, CONFIG.drag.floatingWidth, 260);
+      const hasAux = !!dom.settings && !dom.settings.classList.contains("hidden");
+      const auxNaturalHeight = hasAux
+        ? Math.max(48, Math.min(260, dom.settings.scrollHeight || dom.settings.offsetHeight || 260))
+        : 0;
 
-      const roomAbove = avatarRect.top - margin;
-      const roomBelow = viewport.height - avatarRect.bottom - margin;
+      return { viewport, margin, gap, avatarRect, panelSize, hasAux, auxNaturalHeight };
+    },
+
+    panelCandidates(parts) {
+      const { avatarRect, panelSize, viewport, margin, gap } = parts;
+      const centerX = avatarRect.left + avatarRect.width / 2;
+      const centerY = avatarRect.top + avatarRect.height / 2;
+      const alignLeft = centerX > viewport.width / 2 ? avatarRect.right - panelSize.width : avatarRect.left;
+      const clampedAlignLeft = clamp(alignLeft, margin, Math.max(margin, viewport.width - panelSize.width - margin));
+      const clampedCenterTop = clamp(centerY - panelSize.height / 2, margin, Math.max(margin, viewport.height - panelSize.height - margin));
       const roomLeft = avatarRect.left - margin;
       const roomRight = viewport.width - avatarRect.right - margin;
+      const preferLeft = roomLeft >= roomRight;
 
-      const preferVertical = Math.max(roomAbove, roomBelow) >= size.height + gap || Math.min(roomLeft, roomRight) < size.width * 0.4;
-      let desiredLeft = avatarRect.left;
-      let desiredTop = avatarRect.bottom + gap;
+      return [
+        { placement: "top", priority: 0, left: clampedAlignLeft, top: avatarRect.top - panelSize.height - gap },
+        { placement: "bottom", priority: 1, left: clampedAlignLeft, top: avatarRect.bottom + gap },
+        { placement: preferLeft ? "left" : "right", priority: 2, left: preferLeft ? avatarRect.left - panelSize.width - gap : avatarRect.right + gap, top: clampedCenterTop },
+        { placement: preferLeft ? "right" : "left", priority: 3, left: preferLeft ? avatarRect.right + gap : avatarRect.left - panelSize.width - gap, top: clampedCenterTop }
+      ].map((candidate) => ({
+        ...candidate,
+        ...Geometry.clampFloating(candidate.left, candidate.top, panelSize.width, panelSize.height)
+      }));
+    },
 
-      if (preferVertical) {
-        const placeAbove = roomAbove >= size.height + gap || roomAbove >= roomBelow;
-        state.layout.panelPlacement = placeAbove ? "top" : "bottom";
-        desiredTop = placeAbove ? avatarRect.top - size.height - gap : avatarRect.bottom + gap;
-        desiredLeft = (avatarRect.left + avatarRect.right) / 2 > viewport.width / 2
-          ? avatarRect.right - size.width
-          : avatarRect.left;
-      } else {
-        const placeLeft = roomLeft >= size.width + gap || roomLeft >= roomRight;
-        state.layout.panelPlacement = placeLeft ? "left" : "right";
-        desiredLeft = placeLeft ? avatarRect.left - size.width - gap : avatarRect.right + gap;
-        desiredTop = avatarRect.top;
+    auxPlacements(panelRect, parts) {
+      if (!parts.hasAux) return [{ side: "none", height: 0, rect: null, scoreBias: 0 }];
+
+      const { viewport, margin, gap, auxNaturalHeight } = parts;
+      const spaceAbove = panelRect.top - margin - gap;
+      const spaceBelow = viewport.height - panelRect.bottom - margin - gap;
+      const build = (side, available, scoreBias) => {
+        const height = Math.min(auxNaturalHeight, Math.max(48, Math.min(260, Math.max(0, available))));
+        const top = side === "above" ? panelRect.top - gap - height : panelRect.bottom + gap;
+        return {
+          side,
+          height,
+          rect: this.rectFromPosition(panelRect.left, top, panelRect.width, height),
+          scoreBias
+        };
+      };
+      const above = build("above", spaceAbove, 0);
+      const below = build("below", spaceBelow, 20);
+      if (spaceAbove >= auxNaturalHeight) return [above, below];
+      if (spaceBelow >= auxNaturalHeight) return [below, above];
+      return spaceAbove >= spaceBelow ? [above, below] : [below, above];
+    },
+
+    scoreLayoutCandidate(candidate, parts) {
+      const { viewport, margin, avatarRect, panelSize, gap } = parts;
+      const panelRect = this.rectFromPosition(candidate.left, candidate.top, panelSize.width, panelSize.height);
+      const stackRect = this.unionRects([avatarRect, panelRect, candidate.aux?.rect]);
+      const overflowPenalty = this.stackOverflowScore(stackRect, viewport, margin) * 1000;
+      const panelAvatarOverlap = Geometry.rectsOverlap(panelRect, avatarRect, gap) ? 100000 : 0;
+      const auxAvatarOverlap = candidate.aux?.rect && Geometry.rectsOverlap(candidate.aux.rect, avatarRect, gap) ? 50000 : 0;
+      const auxPanelOverlap = candidate.aux?.rect && Geometry.rectsOverlap(candidate.aux.rect, panelRect, 0) ? 100000 : 0;
+      return overflowPenalty
+        + panelAvatarOverlap
+        + auxAvatarOverlap
+        + auxPanelOverlap
+        + candidate.priority * 80
+        + (candidate.aux?.scoreBias || 0);
+    },
+
+    computePetLayout() {
+      if (!dom.panel || dom.panel.classList.contains("hidden")) return null;
+
+      traceLayout("LayoutManager.computePetLayout start", {
+        firstLayoutStarted: this.firstLayoutStarted,
+        panel: traceElementName(dom.panel),
+        auxiliaryHidden: dom.settings?.classList.contains("hidden")
+      });
+      const parts = this.measurePetParts();
+      const candidates = [];
+      this.panelCandidates(parts).forEach((panelCandidate) => {
+        const panelRect = this.rectFromPosition(panelCandidate.left, panelCandidate.top, parts.panelSize.width, parts.panelSize.height);
+        this.auxPlacements(panelRect, parts).forEach((aux) => {
+          candidates.push({ ...panelCandidate, aux });
+        });
+      });
+
+      const layout = candidates.reduce((best, candidate) => (
+        !best || this.scoreLayoutCandidate(candidate, parts) < this.scoreLayoutCandidate(best, parts)
+          ? candidate
+          : best
+      ), null);
+      traceLayout("LayoutManager.computePetLayout result", {
+        candidateCount: candidates.length,
+        layout
+      });
+      return layout;
+    },
+
+    applyPetLayout(layout) {
+      if (!layout || !dom.panel) return;
+
+      traceLayout("LayoutManager.applyPetLayout start", {
+        layout,
+        firstLayoutApplied: this.firstLayoutApplied
+      });
+      Geometry.setAbsolutePosition(dom.panel, layout.left, layout.top, "LayoutManager.applyPetLayout panel");
+      state.layout.panelPlacement = layout.placement;
+
+      if (!dom.settings) return;
+      if (!layout.aux || layout.aux.side === "none") {
+        dom.settings.style.maxHeight = "";
+        dom.settings.style.top = "";
+        dom.settings.style.bottom = "";
+        return;
       }
 
-      const next = Geometry.clampFloating(desiredLeft, desiredTop, size.width, size.height);
-      Geometry.setAbsolutePosition(dom.panel, next.left, next.top);
+      const panelHeight = Geometry.getFloatingSize(dom.panel, CONFIG.drag.floatingWidth, 260).height;
+      dom.settings.dataset.placement = layout.aux.side;
+      dom.settings.style.left = "0";
+      dom.settings.style.right = "auto";
+      dom.settings.style.width = "100%";
+      dom.settings.style.maxHeight = `${Math.round(layout.aux.height)}px`;
+      dom.settings.style.top = layout.aux.side === "below"
+        ? `${Math.round(panelHeight + 12)}px`
+        : `${Math.round(-layout.aux.height - 12)}px`;
+      dom.settings.style.bottom = "auto";
+      tracePositionWrite("LayoutManager.applyPetLayout auxiliary", dom.settings);
     },
 
     updateFloatingLayout() {
       if (!dom.root) return;
+      if (!this.firstLayoutStarted) {
+        this.firstLayoutStarted = true;
+        traceLayout("first layout starts", {
+          root: traceElementName(dom.root),
+          ready: dom.root.classList.contains("aflodit-ready")
+        });
+      }
       this.updateMenuLayout();
-      this.updatePanelLayout();
+      this.applyPetLayout(this.computePetLayout());
+      if (!this.firstLayoutApplied) {
+        this.firstLayoutApplied = true;
+        traceLayout("first layout applies position", {
+          root: traceStyleSnapshot(dom.root),
+          card: traceStyleSnapshot(dom.panel),
+          avatar: traceStyleSnapshot(dom.avatar),
+          face: traceStyleSnapshot(dom.face)
+        });
+      }
+    },
+
+    schedulePetLayout() {
+      if (this.layoutFrame) return;
+      this.layoutFrame = window.requestAnimationFrame(() => {
+        this.layoutFrame = null;
+        this.updateFloatingLayout();
+      });
+    },
+
+    markReady() {
+      traceLayout("LayoutManager.markReady before reveal", {
+        root: traceStyleSnapshot(dom.root),
+        card: traceStyleSnapshot(dom.panel),
+        avatar: traceStyleSnapshot(dom.avatar),
+        face: traceStyleSnapshot(dom.face)
+      });
+      traceLayout("LayoutManager.markReady clearing inline hidden", {
+        previousVisibility: dom.root?.style.visibility || ""
+      });
+      if (dom.root) dom.root.style.visibility = "";
+      tracePositionWrite("LayoutManager.markReady inline hidden cleared", dom.root);
+      dom.root?.classList.add("aflodit-ready");
+      traceLayout("LayoutManager.markReady aflodit-ready added", {
+        className: dom.root?.className || "",
+        root: traceStyleSnapshot(dom.root)
+      });
     }
   };

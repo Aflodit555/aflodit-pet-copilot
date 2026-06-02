@@ -28,14 +28,17 @@
       dom.settingsMenu.classList.remove("hidden");
       dom.settingsModel.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
+      dom.settingsDisplay.classList.add("hidden");
+      dom.settingsAbout.classList.add("hidden");
       dom.settingsMessage.textContent = "";
+      LayoutManager.schedulePetLayout();
     },
 
     toggleSettings() {
       const willOpen = dom.settings.classList.contains("hidden");
       if (!willOpen) {
         this.closeSettings();
-        LayoutManager.updateFloatingLayout();
+        LayoutManager.schedulePetLayout();
         return;
       }
 
@@ -43,8 +46,10 @@
       dom.settingsMenu.classList.remove("hidden");
       dom.settingsModel.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
+      dom.settingsDisplay.classList.add("hidden");
+      dom.settingsAbout.classList.add("hidden");
       dom.settingsMessage.textContent = "";
-      LayoutManager.updateFloatingLayout();
+      LayoutManager.schedulePetLayout();
       SettingsManager.load();
     },
 
@@ -52,8 +57,10 @@
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.remove("hidden");
       dom.settingsCommands.classList.add("hidden");
+      dom.settingsDisplay.classList.add("hidden");
+      dom.settingsAbout.classList.add("hidden");
       dom.settingsMessage.textContent = "";
-      LayoutManager.updateFloatingLayout();
+      LayoutManager.schedulePetLayout();
       SettingsManager.load();
     },
 
@@ -61,21 +68,46 @@
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.add("hidden");
       dom.settingsCommands.classList.remove("hidden");
+      dom.settingsDisplay.classList.add("hidden");
+      dom.settingsAbout.classList.add("hidden");
       dom.settingsMessage.textContent = "";
-      LayoutManager.updateFloatingLayout();
+      LayoutManager.schedulePetLayout();
+    },
+
+    openDisplaySettings() {
+      dom.settingsMenu.classList.add("hidden");
+      dom.settingsModel.classList.add("hidden");
+      dom.settingsCommands.classList.add("hidden");
+      dom.settingsDisplay.classList.remove("hidden");
+      dom.settingsAbout.classList.add("hidden");
+      dom.settingsMessage.textContent = "";
+      UiSettingsStore.hydrateControls();
+      LayoutManager.schedulePetLayout();
+    },
+
+    openAbout() {
+      dom.settingsMenu.classList.add("hidden");
+      dom.settingsModel.classList.add("hidden");
+      dom.settingsCommands.classList.add("hidden");
+      dom.settingsDisplay.classList.add("hidden");
+      dom.settingsAbout.classList.remove("hidden");
+      dom.settingsMessage.textContent = "";
+      LayoutManager.schedulePetLayout();
     },
 
     backToSettingsMenu() {
       dom.settingsModel.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
+      dom.settingsDisplay.classList.add("hidden");
+      dom.settingsAbout.classList.add("hidden");
       dom.settingsMenu.classList.remove("hidden");
       dom.settingsMessage.textContent = "";
-      LayoutManager.updateFloatingLayout();
+      LayoutManager.schedulePetLayout();
     },
 
     showSettingsNotice(message) {
       dom.settingsMessage.textContent = message;
-      LayoutManager.updateFloatingLayout();
+      LayoutManager.schedulePetLayout();
     },
 
     openPanel(action) {
@@ -382,6 +414,217 @@
 // =========================
   // 12. 拖拽
   // =========================
+
+  const UiSettingsStore = {
+    memory: null,
+
+    defaults() {
+      return {
+        positionMode: "docked",
+        edgeSnap: true,
+        initialPosition: "bottom-right",
+        savedPosition: null,
+        opacity: 1
+      };
+    },
+
+    sanitize(raw = {}) {
+      const base = this.defaults();
+      const positionMode = raw.positionMode === "free" ? "free" : "docked";
+      const initialPosition = ["bottom-right", "bottom-left", "top-right", "top-left", "current"].includes(raw.initialPosition)
+        ? raw.initialPosition
+        : base.initialPosition;
+      const opacity = [1, 0.8, 0.6].includes(Number(raw.opacity)) ? Number(raw.opacity) : base.opacity;
+      const savedPosition = raw.savedPosition
+        && Number.isFinite(Number(raw.savedPosition.x))
+        && Number.isFinite(Number(raw.savedPosition.y))
+        ? { x: Number(raw.savedPosition.x), y: Number(raw.savedPosition.y) }
+        : null;
+
+      return {
+        positionMode,
+        edgeSnap: typeof raw.edgeSnap === "boolean" ? raw.edgeSnap : base.edgeSnap,
+        initialPosition,
+        savedPosition,
+        opacity
+      };
+    },
+
+    storageArea() {
+      return globalThis.chrome?.storage?.local || null;
+    },
+
+    async load() {
+      traceLayout("UI settings load starts", {
+        storageAvailable: !!this.storageArea()?.get
+      });
+      const area = this.storageArea();
+      if (!area?.get) {
+        state.uiSettings = this.sanitize(this.memory || state.uiSettings);
+        traceLayout("UI settings load finishes", {
+          source: "memory/default",
+          initialPosition: state.uiSettings.initialPosition,
+          edgeSnap: state.uiSettings.edgeSnap,
+          opacity: state.uiSettings.opacity,
+          hasSavedPosition: !!state.uiSettings.savedPosition
+        });
+        return state.uiSettings;
+      }
+
+      return new Promise((resolve) => {
+        try {
+          area.get(CONFIG.storage.uiSettingsKey, (result = {}) => {
+            if (globalThis.chrome?.runtime?.lastError) {
+              log("Failed to load UI settings.", globalThis.chrome.runtime.lastError.message);
+              state.uiSettings = this.sanitize(this.memory || state.uiSettings);
+              traceLayout("UI settings load finishes", {
+                source: "chrome.storage.local error fallback",
+                initialPosition: state.uiSettings.initialPosition,
+                edgeSnap: state.uiSettings.edgeSnap,
+                opacity: state.uiSettings.opacity,
+                hasSavedPosition: !!state.uiSettings.savedPosition
+              });
+              resolve(state.uiSettings);
+              return;
+            }
+            state.uiSettings = this.sanitize(result[CONFIG.storage.uiSettingsKey]);
+            this.memory = state.uiSettings;
+            traceLayout("UI settings load finishes", {
+              source: "chrome.storage.local",
+              initialPosition: state.uiSettings.initialPosition,
+              edgeSnap: state.uiSettings.edgeSnap,
+              opacity: state.uiSettings.opacity,
+              hasSavedPosition: !!state.uiSettings.savedPosition
+            });
+            resolve(state.uiSettings);
+          });
+        } catch (error) {
+          log("Failed to load UI settings.", error);
+          state.uiSettings = this.sanitize(this.memory || state.uiSettings);
+          traceLayout("UI settings load finishes", {
+            source: "exception fallback",
+            initialPosition: state.uiSettings.initialPosition,
+            edgeSnap: state.uiSettings.edgeSnap,
+            opacity: state.uiSettings.opacity,
+            hasSavedPosition: !!state.uiSettings.savedPosition
+          });
+          resolve(state.uiSettings);
+        }
+      });
+    },
+
+    async save(settings = state.uiSettings) {
+      const sanitized = this.sanitize(settings);
+      state.uiSettings = sanitized;
+      this.memory = sanitized;
+      const area = this.storageArea();
+      if (!area?.set) return sanitized;
+
+      return new Promise((resolve) => {
+        try {
+          area.set({ [CONFIG.storage.uiSettingsKey]: sanitized }, () => {
+            if (globalThis.chrome?.runtime?.lastError) {
+              log("Failed to save UI settings.", globalThis.chrome.runtime.lastError.message);
+            }
+            resolve(sanitized);
+          });
+        } catch (error) {
+          log("Failed to save UI settings.", error);
+          resolve(sanitized);
+        }
+      });
+    },
+
+    applyOpacity() {
+      if (dom.pet) dom.pet.style.opacity = String(state.uiSettings.opacity);
+    },
+
+    hydrateControls() {
+      if (!dom.uiEdgeSnap) return;
+      dom.uiEdgeSnap.value = state.uiSettings.edgeSnap ? "on" : "off";
+      dom.uiInitialPosition.value = state.uiSettings.initialPosition;
+      dom.uiOpacity.value = String(state.uiSettings.opacity);
+    },
+
+    currentFreePosition(position = state.position) {
+      const rect = Geometry.getPositioningRect(position);
+      const clamped = Geometry.clampFullPosition(rect.left, rect.top);
+      return { x: clamped.x, y: clamped.y };
+    },
+
+    async saveCurrentPosition(position = state.position) {
+      if (state.uiSettings.initialPosition !== "current") return;
+      state.uiSettings = this.sanitize({
+        ...state.uiSettings,
+        savedPosition: this.currentFreePosition(position)
+      });
+      this.hydrateControls();
+      await this.save();
+    },
+
+    async setEdgeSnap(value) {
+      state.uiSettings = this.sanitize({ ...state.uiSettings, edgeSnap: value === "on" });
+      await this.save();
+      this.hydrateControls();
+    },
+
+    async setInitialPosition(initialPosition) {
+      const next = {
+        ...state.uiSettings,
+        initialPosition,
+        savedPosition: initialPosition === "current" ? this.currentFreePosition() : state.uiSettings.savedPosition
+      };
+      state.uiSettings = this.sanitize(next);
+      await this.save();
+      this.hydrateControls();
+
+      if (state.uiSettings.initialPosition === "current") {
+        LayoutManager.setRootPosition({
+          mode: "free",
+          dockX: null,
+          dockY: null,
+          offsetX: 0,
+          offsetY: 0,
+          x: state.uiSettings.savedPosition.x,
+          y: state.uiSettings.savedPosition.y,
+          updatedAt: Date.now()
+        }, { snap: false, persist: false });
+        LayoutManager.schedulePetLayout();
+        return;
+      }
+
+      LayoutManager.setRootPosition(LayoutManager.positionForCorner(state.uiSettings.initialPosition), {
+        snap: false,
+        persist: false
+      });
+      LayoutManager.schedulePetLayout();
+    },
+
+    async setOpacity(opacity) {
+      state.uiSettings = this.sanitize({ ...state.uiSettings, opacity: Number(opacity) });
+      this.applyOpacity();
+      await this.save();
+      this.hydrateControls();
+      LayoutManager.updateFloatingLayout();
+      LayoutManager.schedulePetLayout();
+    },
+
+    async resetPosition() {
+      state.uiSettings = this.sanitize({
+        ...state.uiSettings,
+        initialPosition: "bottom-right",
+        savedPosition: null
+      });
+      await this.save();
+      this.hydrateControls();
+      LayoutManager.setRootPosition(LayoutManager.positionForCorner("bottom-right"), {
+        snap: false,
+        persist: false
+      });
+      LayoutManager.schedulePetLayout();
+    }
+  };
+
   const DragManager = {
     begin(event) {
       if (event.button !== undefined && event.button !== 0) return;
@@ -431,6 +674,7 @@
 
       if (didMove) {
         LayoutManager.setRootPosition(state.position, { snap: true });
+        LayoutManager.schedulePetLayout();
         state.drag.suppressClick = true;
         window.setTimeout(() => { state.drag.suppressClick = false; }, 160);
       }
@@ -537,6 +781,16 @@
       UIController.openCommandHelp();
     });
 
+    on(dom.settingsDisplayEntry, "click", (event) => {
+      event.stopPropagation();
+      UIController.openDisplaySettings();
+    });
+
+    on(dom.settingsAboutEntry, "click", (event) => {
+      event.stopPropagation();
+      UIController.openAbout();
+    });
+
     on(dom.settingsTest, "click", (event) => {
       event.stopPropagation();
       SettingsManager.test();
@@ -555,7 +809,7 @@
     on(dom.settingsCancel, "click", (event) => {
       event.stopPropagation();
       UIController.closeSettings();
-      LayoutManager.updateFloatingLayout();
+      LayoutManager.schedulePetLayout();
     });
 
     on(dom.commandsBack, "click", (event) => {
@@ -566,7 +820,34 @@
     on(dom.commandsClose, "click", (event) => {
       event.stopPropagation();
       UIController.closeSettings();
-      LayoutManager.updateFloatingLayout();
+      LayoutManager.schedulePetLayout();
+    });
+
+    on(dom.displayBack, "click", (event) => {
+      event.stopPropagation();
+      UIController.backToSettingsMenu();
+    });
+
+    on(dom.aboutBack, "click", (event) => {
+      event.stopPropagation();
+      UIController.backToSettingsMenu();
+    });
+
+    on(dom.uiEdgeSnap, "change", () => {
+      UiSettingsStore.setEdgeSnap(dom.uiEdgeSnap.value);
+    });
+
+    on(dom.uiInitialPosition, "change", () => {
+      UiSettingsStore.setInitialPosition(dom.uiInitialPosition.value);
+    });
+
+    on(dom.uiOpacity, "change", () => {
+      UiSettingsStore.setOpacity(dom.uiOpacity.value);
+    });
+
+    on(dom.uiResetPosition, "click", (event) => {
+      event.stopPropagation();
+      UiSettingsStore.resetPosition();
     });
 
     dom.quickButtons.forEach((button) => {
@@ -623,9 +904,18 @@
     state.running = false;
   }
 
-  function init() {
+  async function init() {
+    traceLayout("init starts", { version: CONFIG.version });
     createDom();
+    await UiSettingsStore.load();
+    UiSettingsStore.applyOpacity();
+    traceLayout("initial root layout about to apply", {
+      initialPosition: state.uiSettings.initialPosition,
+      hasSavedPosition: !!state.uiSettings.savedPosition,
+      root: traceStyleSnapshot(dom.root)
+    });
     LayoutManager.setInitialPosition();
+    LayoutManager.markReady();
     setMode(MODE.NORMAL);
     setActivity(ACTIVITY.IDLE);
     enforceScrollBoxes();
@@ -634,4 +924,6 @@
     window[GLOBAL_KEY] = { version: CONFIG.version, destroy };
   }
 
-  init();
+  init().catch((error) => {
+    console.error("[AFlodit Pet] init failed", error);
+  });

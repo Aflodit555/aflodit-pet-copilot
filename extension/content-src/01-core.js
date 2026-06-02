@@ -1,4 +1,5 @@
 const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
+  const AFLODIT_LAYOUT_TRACE = false;
   window[GLOBAL_KEY]?.destroy?.();
   document.getElementById("aflodit-pet-root")?.remove();
 // =========================
@@ -27,7 +28,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   });
 
   const CONFIG = Object.freeze({
-    version: "0.6.9",
+    version: "0.6.10.6",
     backendUrl: "http://127.0.0.1:3001/api/pet",
     streamUrl: "http://127.0.0.1:3001/api/pet-stream",
     settingsUrl: "http://127.0.0.1:3001/api/settings",
@@ -35,7 +36,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     localClientToken: "aflodit-pet-local-dev",
     debug: false,
     storage: Object.freeze({
-      positionKey: "aflodit_pet_position"
+      uiSettingsKey: "afloditPetUiSettings"
     }),
     limits: Object.freeze({
       action: 32,
@@ -67,7 +68,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       avatarSize: 64,
       initialOffset: 24,
       viewportMargin: 12,
-      dockSnapThreshold: 48,
+      dockSnapThreshold: 96,
       dockMargin: 24,
       dragThreshold: 4,
       panelGap: 20,
@@ -190,6 +191,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       y: 0,
       updatedAt: 0
     },
+    uiSettings: {
+      positionMode: "docked",
+      edgeSnap: true,
+      initialPosition: "bottom-right",
+      savedPosition: null,
+      opacity: 1
+    },
     layout: {
       menuVariant: "br",
       panelPlacement: "top"
@@ -212,11 +220,56 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   // 3. 工具函数
   // =========================
   const log = (...args) => CONFIG.debug && console.log("[AFlodit Pet]", ...args);
+  const traceLayout = (label, data = {}) => {
+    if (AFLODIT_LAYOUT_TRACE) console.log("[AFlodit Layout Trace]", label, data);
+  };
   const text = (value) => String(value ?? "").trim();
   const limit = (value, max) => text(value).slice(0, max);
   const actionConfig = (action) => ACTION_CONFIG[action] || ACTION_CONFIG[ACTION.CHAT];
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const randomBetween = (min, max) => min + Math.random() * (max - min);
+
+  function traceElementName(element) {
+    if (!element) return "(null)";
+    const id = element.id ? `#${element.id}` : "";
+    const className = typeof element.className === "string" && element.className.trim()
+      ? `.${element.className.trim().replace(/\s+/g, ".")}`
+      : "";
+    return `${element.tagName?.toLowerCase?.() || "element"}${id}${className}`;
+  }
+
+  function traceStyleSnapshot(element) {
+    if (!element) return null;
+    const style = window.getComputedStyle(element);
+    return {
+      target: traceElementName(element),
+      inline: {
+        visibility: element.style.visibility || "",
+        left: element.style.left || "",
+        top: element.style.top || "",
+        right: element.style.right || "",
+        bottom: element.style.bottom || "",
+        transform: element.style.transform || "",
+        transition: element.style.transition || ""
+      },
+      computed: {
+        visibility: style.visibility,
+        opacity: style.opacity,
+        display: style.display,
+        position: style.position,
+        left: style.left,
+        top: style.top,
+        right: style.right,
+        bottom: style.bottom,
+        transform: style.transform,
+        transition: style.transition
+      }
+    };
+  }
+
+  function tracePositionWrite(label, element) {
+    traceLayout(`position write: ${label}`, traceStyleSnapshot(element));
+  }
 
   function on(target, type, handler, options) {
     target.addEventListener(type, handler, options);
