@@ -53,11 +53,53 @@ const AFloditBuiltinCommands = (() => {
     enabled: true
   });
 
+  const POMODORO_COMMAND = Object.freeze({
+    id: "pomodoro",
+    aliases: Object.freeze(["@番茄钟", "@pomodoro"]),
+    description: "Open the local Pomodoro Focus Ring settings panel.",
+    inputMode: "local",
+    contextMode: "none",
+    handler: Object.freeze({
+      type: "local_action",
+      action: "open_pomodoro"
+    }),
+    enabled: true
+  });
+
+  const STOP_POMODORO_COMMAND = Object.freeze({
+    id: "stop-pomodoro",
+    aliases: Object.freeze(["@停止番茄钟", "@stop_pomodoro"]),
+    description: "Stop the current local Pomodoro timer.",
+    inputMode: "local",
+    contextMode: "none",
+    handler: Object.freeze({
+      type: "local_action",
+      action: "stop_pomodoro"
+    }),
+    enabled: true
+  });
+
+  const POMODORO_STATUS_COMMAND = Object.freeze({
+    id: "pomodoro-status",
+    aliases: Object.freeze(["@番茄钟状态", "@pomodoro_status"]),
+    description: "Show the current local Pomodoro timer status.",
+    inputMode: "local",
+    contextMode: "none",
+    handler: Object.freeze({
+      type: "local_action",
+      action: "pomodoro_status"
+    }),
+    enabled: true
+  });
+
   const BUILTIN_COMMANDS = Object.freeze([
     SELECTION_CONTEXT_COMMAND,
     PAGE_CONTEXT_COMMAND,
     READING_COMMAND,
-    EXIT_READING_COMMAND
+    EXIT_READING_COMMAND,
+    POMODORO_COMMAND,
+    STOP_POMODORO_COMMAND,
+    POMODORO_STATUS_COMMAND
   ]);
 
   return {
@@ -65,7 +107,10 @@ const AFloditBuiltinCommands = (() => {
     SELECTION_CONTEXT_COMMAND,
     PAGE_CONTEXT_COMMAND,
     READING_COMMAND,
-    EXIT_READING_COMMAND
+    EXIT_READING_COMMAND,
+    POMODORO_COMMAND,
+    STOP_POMODORO_COMMAND,
+    POMODORO_STATUS_COMMAND
   };
 })();
 

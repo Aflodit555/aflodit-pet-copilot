@@ -1,4 +1,4 @@
-/* AFlodit Pet Copilot v0.6.10.6
+/* AFlodit Pet Copilot v0.7.0.1
    分层：tokens -> layout -> avatar -> quick menu -> panel -> text/scroll -> controls -> states -> animations -> overrides
 */
 
@@ -431,6 +431,14 @@
   margin-top: 8px;
 }
 
+#aflodit-pet-root .pet-pomodoro-panel {
+  margin: 8px 0 10px;
+  padding: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
 #aflodit-pet-root .pet-primary-button,
 #aflodit-pet-root .pet-secondary-button {
   border: none;
@@ -642,6 +650,51 @@
   animation-duration: 2.4s;
 }
 
+#aflodit-pet-root .pet-pomodoro-ring {
+  position: absolute;
+  inset: -10px;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: var(--aflodit-pomodoro-alpha, 0);
+  background:
+    conic-gradient(
+      from -90deg,
+      rgba(255, 184, 92, 0.94) 0deg,
+      rgba(255, 199, 102, 0.9) var(--aflodit-pomodoro-progress, 0deg),
+      rgba(255, 199, 102, 0) var(--aflodit-pomodoro-progress, 0deg),
+      rgba(255, 199, 102, 0) 360deg
+    );
+  filter: drop-shadow(0 0 7px rgba(255, 180, 90, 0.42));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 calc(100% - 6px));
+  animation: aflodit-pomodoro-breathe 2.8s ease-in-out infinite;
+}
+
+#aflodit-pet-root.pet-pomodoro-active .pet-pomodoro-ring {
+  display: block !important;
+}
+
+#aflodit-pet-root.pet-pomodoro-rest .pet-pomodoro-ring {
+  background:
+    conic-gradient(
+      from -90deg,
+      rgba(130, 220, 255, 0) 0deg,
+      rgba(130, 220, 255, 0) var(--aflodit-pomodoro-progress, 0deg),
+      rgba(74, 174, 255, 0.92) var(--aflodit-pomodoro-progress, 0deg),
+      rgba(130, 220, 255, 0.88) 360deg
+    );
+  filter: drop-shadow(0 0 7px rgba(90, 185, 255, 0.45));
+}
+
+#aflodit-pet-root.pet-pomodoro-done .pet-pomodoro-ring {
+  animation: aflodit-pomodoro-flash 0.55s ease-in-out infinite;
+}
+
+#aflodit-pet-root .pet-pomodoro-ring.hidden {
+  display: none !important;
+}
+
 /* 9. Avatar motion animations */
 .motion-nod { animation: aflodit-nod 0.7s ease; }
 .motion-shake { animation: aflodit-shake 0.6s ease; }
@@ -689,6 +742,28 @@
   0% { opacity: 0.18; transform: scale(0.96); }
   50% { opacity: 0.36; transform: scale(1.04); }
   100% { opacity: 0.18; transform: scale(0.96); }
+}
+
+@keyframes aflodit-pomodoro-breathe {
+  0%, 100% {
+    opacity: 0.62;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: var(--aflodit-pomodoro-alpha, 0);
+    transform: scale(1.04);
+  }
+}
+
+@keyframes aflodit-pomodoro-flash {
+  0%, 100% {
+    opacity: 0.28;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.07);
+  }
 }
 
 /* 10. Browser-page conflict overrides */

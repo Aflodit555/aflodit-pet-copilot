@@ -70,6 +70,8 @@
               <div class="pet-help-line"><b>@页面</b>：引用当前页面正文</div>
               <div class="pet-help-line"><b>@陪读</b>：进入陪读模式</div>
               <div class="pet-help-line"><b>@退出陪读</b>：退出陪读模式</div>
+              <div class="pet-help-line"><b>@番茄钟</b>：打开本地番茄钟</div>
+              <div class="pet-help-line"><b>@停止番茄钟</b>：停止当前番茄钟</div>
               <div class="pet-help-line pet-help-muted">示例：@选区 解释这段话</div>
               <div class="pet-help-line pet-help-muted">示例：@页面 这页主要讲什么</div>
               <div class="pet-settings-actions">
@@ -116,7 +118,7 @@
               <div class="pet-settings-title">关于</div>
               <div class="pet-about-list">
                 <div><b>Project</b>：AFlodit Pet Copilot</div>
-                <div><b>Version</b>：0.6.10.6</div>
+                <div><b>Version</b>：0.7.0.1</div>
                 <div><b>Runtime</b>：Local Backend + Browser Extension</div>
                 <div><b>Backend URL</b>：http://127.0.0.1:3001</div>
                 <div><b>Model modes</b>：Mock / OpenAI-Compatible</div>
@@ -127,6 +129,36 @@
               <div class="pet-settings-actions">
                 <button id="aflodit-pet-about-back" class="pet-secondary-button">Back</button>
               </div>
+            </div>
+          </div>
+
+          <div id="aflodit-pet-pomodoro-settings" class="pet-pomodoro-panel hidden" aria-live="polite">
+            <div class="pet-settings-title">番茄钟</div>
+            <label class="pet-settings-field">
+              <span>工作时间（分钟）</span>
+              <input id="aflodit-pet-pomodoro-work" type="text" inputmode="decimal" maxlength="6" autocomplete="off" />
+            </label>
+            <label class="pet-settings-field">
+              <span>休息时间（分钟）</span>
+              <input id="aflodit-pet-pomodoro-rest" type="text" inputmode="decimal" maxlength="6" autocomplete="off" />
+            </label>
+            <label class="pet-settings-field">
+              <span>轮数</span>
+              <input id="aflodit-pet-pomodoro-rounds" type="text" inputmode="decimal" maxlength="6" autocomplete="off" />
+            </label>
+            <div id="aflodit-pet-pomodoro-message" class="pet-settings-message">本地计时，不请求后端。</div>
+            <div class="pet-settings-actions">
+              <button id="aflodit-pet-pomodoro-start" class="pet-primary-button">开始</button>
+              <button id="aflodit-pet-pomodoro-cancel" class="pet-secondary-button">取消</button>
+            </div>
+          </div>
+
+          <div id="aflodit-pet-pomodoro-notice" class="pet-pomodoro-panel hidden" aria-live="polite">
+            <div id="aflodit-pet-pomodoro-notice-title" class="pet-settings-title">番茄钟</div>
+            <div id="aflodit-pet-pomodoro-notice-body" class="pet-settings-note"></div>
+            <div class="pet-settings-actions">
+              <button id="aflodit-pet-pomodoro-primary" class="pet-primary-button">开始休息</button>
+              <button id="aflodit-pet-pomodoro-end" class="pet-secondary-button">结束番茄钟</button>
             </div>
           </div>
 
@@ -152,6 +184,7 @@
         </div>
 
         <div id="aflodit-pet-avatar" title="AFlodit Pet Copilot">
+          <span id="aflodit-pet-pomodoro-ring" class="pet-pomodoro-ring hidden" aria-hidden="true"></span>
           <span id="aflodit-pet-idea-bulb" class="pet-idea-bulb hidden" aria-hidden="true">
             <span class="pet-idea-bulb-glow"></span>
             <span class="pet-idea-bulb-ray pet-idea-bulb-ray-1"></span>
@@ -461,6 +494,18 @@
       settingsCommands: root.querySelector("#aflodit-pet-settings-commands"),
       settingsDisplay: root.querySelector("#aflodit-pet-settings-display"),
       settingsAbout: root.querySelector("#aflodit-pet-settings-about"),
+      pomodoroSettings: root.querySelector("#aflodit-pet-pomodoro-settings"),
+      pomodoroNotice: root.querySelector("#aflodit-pet-pomodoro-notice"),
+      pomodoroWork: root.querySelector("#aflodit-pet-pomodoro-work"),
+      pomodoroRest: root.querySelector("#aflodit-pet-pomodoro-rest"),
+      pomodoroRounds: root.querySelector("#aflodit-pet-pomodoro-rounds"),
+      pomodoroMessage: root.querySelector("#aflodit-pet-pomodoro-message"),
+      pomodoroStart: root.querySelector("#aflodit-pet-pomodoro-start"),
+      pomodoroCancel: root.querySelector("#aflodit-pet-pomodoro-cancel"),
+      pomodoroNoticeTitle: root.querySelector("#aflodit-pet-pomodoro-notice-title"),
+      pomodoroNoticeBody: root.querySelector("#aflodit-pet-pomodoro-notice-body"),
+      pomodoroPrimary: root.querySelector("#aflodit-pet-pomodoro-primary"),
+      pomodoroEnd: root.querySelector("#aflodit-pet-pomodoro-end"),
       settingsModelEntry: root.querySelector("[data-settings-view='model']"),
       settingsCommandsEntry: root.querySelector("[data-settings-view='commands']"),
       settingsDisplayEntry: root.querySelector("[data-settings-view='display']"),
@@ -491,6 +536,7 @@
       reply: root.querySelector("#aflodit-pet-reply"),
       refresh: root.querySelector("#aflodit-pet-refresh-action"),
       meta: root.querySelector("#aflodit-pet-meta"),
+      pomodoroRing: root.querySelector("#aflodit-pet-pomodoro-ring"),
       ideaBulb: root.querySelector("#aflodit-pet-idea-bulb"),
       face: root.querySelector("#aflodit-pet-face"),
       eyeLeft: root.querySelector("#aflodit-pet-eye-left"),

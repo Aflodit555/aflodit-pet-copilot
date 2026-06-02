@@ -21,6 +21,7 @@
       dom.panel.classList.add("hidden");
       dom.refresh.classList.add("hidden");
       this.closeSettings();
+      globalThis.AFloditPomodoroController?.hidePanels?.();
     },
 
     closeSettings() {
@@ -869,6 +870,9 @@
 
       if (localCommand?.type === "enter_reading") return UIController.enterReadingMode();
       if (localCommand?.type === "exit_reading") return UIController.exitReadingMode({ openChat: true });
+      if (localCommand?.type === "open_pomodoro") return globalThis.AFloditPomodoroController?.openSettings?.();
+      if (localCommand?.type === "stop_pomodoro") return globalThis.AFloditPomodoroController?.stop?.();
+      if (localCommand?.type === "pomodoro_status") return globalThis.AFloditPomodoroController?.showStatus?.();
       ActionRunner.runAction(ACTION.CHAT, value);
     });
 
@@ -897,6 +901,7 @@
     FaceController.stopReplyPeekLoop(true);
     FaceController.stopReadingLoop(true);
     FaceController.hideIdeaBulb({ clearTimer: true });
+    globalThis.AFloditPomodoroController?.destroy?.();
     dom.root?.remove();
     state.ui = UI.IDLE;
     state.mode = MODE.NORMAL;
@@ -921,6 +926,8 @@
     enforceScrollBoxes();
     FaceController.resetFace();
     bindEvents();
+    globalThis.AFloditPomodoroController?.bindEvents?.();
+    globalThis.AFloditPomodoroController?.restore?.();
     window[GLOBAL_KEY] = { version: CONFIG.version, destroy };
   }
 
