@@ -28,7 +28,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   });
 
   const CONFIG = Object.freeze({
-    version: "0.7.0.1",
+    version: "0.7.0.4",
     backendUrl: "http://127.0.0.1:3001/api/pet",
     streamUrl: "http://127.0.0.1:3001/api/pet-stream",
     settingsUrl: "http://127.0.0.1:3001/api/settings",
@@ -53,6 +53,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       mouseRange: 260,
       mouseHoldMs: 900,
       glanceDelay: Object.freeze({ min: 1200, max: 2400 })
+    }),
+    hoverMenu: Object.freeze({
+      safeZonePadding: 28,
+      closeDelayMs: 320
     }),
     face: Object.freeze({
       menuLookDelay: Object.freeze({ min: 700, max: 1300 }),
@@ -177,6 +181,9 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     selectedText: "",
     running: false,
     requestId: 0,
+    menuOpenReason: null,
+    hoverCloseTimer: null,
+    lastPointer: null,
     lookTimer: null,
     replyPeekTimer: null,
     readingTimer: null,
@@ -304,6 +311,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   }
 
   function setRunning(running) {
+    if (running && typeof clearHoverCloseTimer === "function") clearHoverCloseTimer();
     state.running = running;
     dom.quickButtons.forEach((button) => { button.disabled = running; });
     dom.chatSend.disabled = running;

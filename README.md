@@ -22,7 +22,7 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.6.8 Safe Local Settings API`。
+当前实现是 `v0.7.0.4 Hover Bubble Menu UX Patch`。
 
 这个版本重点加入了安全的本地模型设置能力：
 

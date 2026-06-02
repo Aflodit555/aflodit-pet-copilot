@@ -1,23 +1,112 @@
 // =========================
   // 10. UI 控制
   // =========================
+  function clearHoverCloseTimer() {
+    if (!state.hoverCloseTimer) return;
+    window.clearTimeout(state.hoverCloseTimer);
+    state.hoverCloseTimer = null;
+  }
+
+  function isTextInputFocused() {
+    const active = document.activeElement;
+    if (!active || active === document.body) return false;
+    return !!active.closest?.("input, textarea, select, [contenteditable='true']");
+  }
+
+  function isElementVisible(element) {
+    return !!element && !element.classList.contains("hidden");
+  }
+
+  function expandedRectContains(rect, clientX, clientY, padding) {
+    if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+    return clientX >= rect.left - padding
+      && clientX <= rect.right + padding
+      && clientY >= rect.top - padding
+      && clientY <= rect.bottom + padding;
+  }
+
+  function isPointerInBubbleSafeZone(clientX, clientY) {
+    const padding = CONFIG.hoverMenu.safeZonePadding;
+    const elements = [
+      dom.avatar,
+      isElementVisible(dom.menu) ? dom.menu : null,
+      ...(dom.quickButtons || []).filter(isElementVisible)
+    ];
+
+    return elements.some((element) => expandedRectContains(element.getBoundingClientRect(), clientX, clientY, padding));
+  }
+
+  function canHoverOpenMenu() {
+    return dom.root?.classList.contains("aflodit-ready")
+      && state.ui === UI.IDLE
+      && state.mode === MODE.NORMAL
+      && !state.running
+      && !state.drag.active
+      && !state.drag.suppressClick
+      && !isTextInputFocused()
+      && !isElementVisible(dom.settings)
+      && !isElementVisible(dom.pomodoroSettings)
+      && !isElementVisible(dom.pomodoroNotice);
+  }
+
+  function scheduleHoverClose() {
+    if (state.menuOpenReason !== "hover" || state.hoverCloseTimer) return;
+    state.hoverCloseTimer = window.setTimeout(() => {
+      state.hoverCloseTimer = null;
+      const pointer = state.lastPointer;
+      if (state.menuOpenReason !== "hover") return;
+      if (pointer && isPointerInBubbleSafeZone(pointer.clientX, pointer.clientY)) return;
+      UIController.closeHoverMenu();
+    }, CONFIG.hoverMenu.closeDelayMs);
+  }
+
+  function handleHoverMenuPointerMove(event) {
+    state.lastPointer = { clientX: event.clientX, clientY: event.clientY };
+
+    if (state.menuOpenReason === "hover") {
+      if (isPointerInBubbleSafeZone(event.clientX, event.clientY)) {
+        clearHoverCloseTimer();
+      } else {
+        scheduleHoverClose();
+      }
+      return;
+    }
+
+    if (canHoverOpenMenu() && isPointerInBubbleSafeZone(event.clientX, event.clientY)) {
+      UIController.openMenu("hover");
+    }
+  }
+
   const UIController = {
     closeMenu(resetLook = true) {
+      clearHoverCloseTimer();
       dom.menu.classList.add("hidden");
+      state.menuOpenReason = null;
       FaceController.stopLookLoop(resetLook);
     },
 
-    openMenu() {
+    openMenu(reason = "click") {
+      clearHoverCloseTimer();
       FaceController.stopReplyPeekLoop(true);
       Extractor.updateSelectedText();
       this.closePanel();
       dom.menu.classList.remove("hidden");
       state.ui = UI.MENU;
+      state.menuOpenReason = reason;
       LayoutManager.updateFloatingLayout();
       FaceController.startMenuLookLoop();
     },
 
+    closeHoverMenu() {
+      if (state.menuOpenReason !== "hover") return;
+      this.closeMenu(true);
+      state.ui = UI.IDLE;
+      state.action = ACTION.CHAT;
+      FaceController.resetFace();
+    },
+
     closePanel() {
+      clearHoverCloseTimer();
       dom.panel.classList.add("hidden");
       dom.refresh.classList.add("hidden");
       this.closeSettings();
@@ -25,6 +114,7 @@
     },
 
     closeSettings() {
+      clearHoverCloseTimer();
       dom.settings.classList.add("hidden");
       dom.settingsMenu.classList.remove("hidden");
       dom.settingsModel.classList.add("hidden");
@@ -36,6 +126,7 @@
     },
 
     toggleSettings() {
+      clearHoverCloseTimer();
       const willOpen = dom.settings.classList.contains("hidden");
       if (!willOpen) {
         this.closeSettings();
@@ -55,6 +146,7 @@
     },
 
     openModelSettings() {
+      clearHoverCloseTimer();
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.remove("hidden");
       dom.settingsCommands.classList.add("hidden");
@@ -66,6 +158,7 @@
     },
 
     openCommandHelp() {
+      clearHoverCloseTimer();
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.add("hidden");
       dom.settingsCommands.classList.remove("hidden");
@@ -76,6 +169,7 @@
     },
 
     openDisplaySettings() {
+      clearHoverCloseTimer();
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
@@ -87,6 +181,7 @@
     },
 
     openAbout() {
+      clearHoverCloseTimer();
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
@@ -97,6 +192,7 @@
     },
 
     backToSettingsMenu() {
+      clearHoverCloseTimer();
       dom.settingsModel.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.add("hidden");
@@ -112,6 +208,7 @@
     },
 
     openPanel(action) {
+      clearHoverCloseTimer();
       const config = actionConfig(action);
       state.action = action;
       Extractor.updateSelectedText();
@@ -146,6 +243,7 @@
     },
 
     showWarning(message) {
+      clearHoverCloseTimer();
       FaceController.stopReplyPeekLoop(true);
       this.closeMenu(false);
       dom.panel.classList.remove("hidden");
@@ -160,6 +258,7 @@
     },
 
     showLoading(action) {
+      clearHoverCloseTimer();
       FaceController.stopReplyPeekLoop(true);
       const config = actionConfig(action);
       dom.status.textContent = config.loading;
@@ -229,6 +328,7 @@
     },
 
     closeAll() {
+      clearHoverCloseTimer();
       state.requestId += 1;
       FaceController.stopReadingLoop(true);
       setMode(MODE.NORMAL);
@@ -244,6 +344,7 @@
     },
 
     enterReadingMode() {
+      clearHoverCloseTimer();
       state.requestId += 1;
       setRunning(false);
       this.closeMenu(false);
@@ -265,6 +366,7 @@
     },
 
     exitReadingMode({ openChat = true } = {}) {
+      clearHoverCloseTimer();
       if (state.mode !== MODE.READING) {
         if (openChat) this.openPanel(ACTION.CHAT);
         return;
@@ -655,6 +757,7 @@
       if (!state.drag.moved && distance < CONFIG.drag.dragThreshold) return;
 
       state.drag.moved = true;
+      if (state.menuOpenReason === "hover") UIController.closeHoverMenu();
       LayoutManager.setRootPosition({
         x: state.drag.originX + dx,
         y: state.drag.originY + dy,
@@ -737,6 +840,7 @@
     on(dom.root, "wheel", (event) => ScrollGuard.handleWheel(event), { capture: true, passive: false });
     on(document, "selectionchange", () => Extractor.updateSelectedText());
     on(document, "mousemove", (event) => FaceController.handleReadingMouseMove(event), { passive: true });
+    on(document, "pointermove", (event) => handleHoverMenuPointerMove(event), { passive: true });
     on(window, "resize", () => LayoutManager.handleViewportResize());
 
     on(dom.avatar, "pointerdown", (event) => DragManager.begin(event));
@@ -758,7 +862,12 @@
         return;
       }
 
-      if (state.ui === UI.IDLE) return UIController.openMenu();
+      if (state.ui === UI.IDLE) return UIController.openMenu("click");
+      if (state.ui === UI.MENU && state.menuOpenReason === "hover") {
+        state.menuOpenReason = "click";
+        clearHoverCloseTimer();
+        return;
+      }
       if (state.ui === UI.MENU) return UIController.openPanel(ACTION.CHAT);
       UIController.closeAll();
     });
@@ -896,6 +1005,7 @@
   // =========================
   function destroy() {
     state.requestId += 1;
+    clearHoverCloseTimer();
     cleanups.splice(0).forEach((cleanup) => cleanup());
     FaceController.stopLookLoop(true);
     FaceController.stopReplyPeekLoop(true);

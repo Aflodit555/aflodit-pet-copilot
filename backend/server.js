@@ -20,7 +20,7 @@ const configuredModelName = process.env.MODEL_NAME || (normalizedConfiguredProvi
 
 const Config = Object.freeze({
   appName: "AFlodit Pet Copilot",
-  version: "0.6.8",
+  version: "0.7.0.4",
   runtimeName: "difyless-llm-runtime",
   runtimeType: "local-provider-llm-runtime",
   host: process.env.HOST || "127.0.0.1",

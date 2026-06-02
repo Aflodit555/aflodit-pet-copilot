@@ -118,7 +118,7 @@
               <div class="pet-settings-title">关于</div>
               <div class="pet-about-list">
                 <div><b>Project</b>：AFlodit Pet Copilot</div>
-                <div><b>Version</b>：0.7.0.1</div>
+                <div><b>Version</b>：${CONFIG.version}</div>
                 <div><b>Runtime</b>：Local Backend + Browser Extension</div>
                 <div><b>Backend URL</b>：http://127.0.0.1:3001</div>
                 <div><b>Model modes</b>：Mock / OpenAI-Compatible</div>
