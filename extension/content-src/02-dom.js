@@ -31,13 +31,6 @@
             <div id="aflodit-pet-settings-model" class="pet-settings-view hidden">
               <div class="pet-settings-title">模型配置</div>
               <label class="pet-settings-field">
-                <span>Provider</span>
-                <select id="aflodit-pet-settings-provider">
-                  <option value="mock">mock</option>
-                  <option value="openai-compatible">openai-compatible</option>
-                </select>
-              </label>
-              <label class="pet-settings-field">
                 <span>Base URL</span>
                 <input id="aflodit-pet-settings-base-url" type="text" autocomplete="off" />
               </label>
@@ -50,8 +43,11 @@
                 <input id="aflodit-pet-settings-api-key" type="password" autocomplete="off" />
               </label>
               <label class="pet-settings-field">
-                <span>Timeout (ms)</span>
-                <input id="aflodit-pet-settings-timeout-ms" type="number" min="1000" max="120000" step="1000" autocomplete="off" />
+                <span>Provider</span>
+                <select id="aflodit-pet-settings-provider">
+                  <option value="mock">mock</option>
+                  <option value="openai-compatible">openai-compatible</option>
+                </select>
               </label>
               <div id="aflodit-pet-settings-message" class="pet-settings-message" aria-live="polite"></div>
               <div class="pet-settings-actions">
@@ -514,7 +510,6 @@
       settingsBaseUrl: root.querySelector("#aflodit-pet-settings-base-url"),
       settingsModelName: root.querySelector("#aflodit-pet-settings-model-name"),
       settingsApiKey: root.querySelector("#aflodit-pet-settings-api-key"),
-      settingsTimeoutMs: root.querySelector("#aflodit-pet-settings-timeout-ms"),
       settingsMessage: root.querySelector("#aflodit-pet-settings-message"),
       settingsTest: root.querySelector("#aflodit-pet-settings-test"),
       settingsSave: root.querySelector("#aflodit-pet-settings-save"),

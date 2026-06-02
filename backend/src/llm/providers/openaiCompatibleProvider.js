@@ -1,5 +1,7 @@
 "use strict";
 
+const AFLODIT_FIXED_TIMEOUT_MS = 40000;
+
 function trimTrailingSlashes(value) {
   return String(value || "").trim().replace(/\/+$/g, "");
 }
@@ -42,7 +44,7 @@ async function callOpenAICompatibleProvider({ prompts, env = process.env }) {
   const baseUrl = buildChatCompletionsUrl(env.MODEL_BASE_URL);
   const apiKey = String(env.MODEL_API_KEY || "").trim();
   const model = String(env.MODEL_NAME || "").trim();
-  const timeoutMs = numberFromEnv(env.MODEL_TIMEOUT_MS, 20000);
+  const timeoutMs = AFLODIT_FIXED_TIMEOUT_MS;
   const temperature = numberFromEnv(env.MODEL_TEMPERATURE, 0.3);
   const maxTokens = numberFromEnv(env.MODEL_MAX_TOKENS, 512);
   const useJsonObjectResponseFormat = String(env.MODEL_RESPONSE_FORMAT || "").trim() === "json_object";
@@ -112,7 +114,7 @@ async function callOpenAICompatibleProviderStream({ prompts, env = process.env, 
   const baseUrl = buildChatCompletionsUrl(env.MODEL_BASE_URL);
   const apiKey = String(env.MODEL_API_KEY || "").trim();
   const model = String(env.MODEL_NAME || "").trim();
-  const timeoutMs = numberFromEnv(env.MODEL_TIMEOUT_MS, 20000);
+  const timeoutMs = AFLODIT_FIXED_TIMEOUT_MS;
   const temperature = numberFromEnv(env.MODEL_TEMPERATURE, 0.3);
   const maxTokens = numberFromEnv(env.MODEL_MAX_TOKENS, 512);
 
@@ -222,7 +224,7 @@ async function testOpenAICompatibleProvider({ settings }) {
   const baseUrl = buildChatCompletionsUrl(modelSettings.baseUrl);
   const apiKey = String(modelSettings.apiKey || "").trim();
   const model = String(modelSettings.model || "").trim();
-  const timeoutMs = numberFromEnv(modelSettings.timeoutMs, 10000);
+  const timeoutMs = AFLODIT_FIXED_TIMEOUT_MS;
 
   if (!baseUrl || !apiKey || !model) {
     throw makeProviderError("MODEL_CONFIG_INVALID", "Missing openai-compatible settings.");
@@ -245,7 +247,7 @@ async function testOpenAICompatibleProvider({ settings }) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify(requestBody)
-    }, Math.min(timeoutMs, 10000));
+    }, timeoutMs);
   } catch (error) {
     if (/timed out/i.test(error?.message || "")) {
       throw makeProviderError("MODEL_TIMEOUT", "Provider request timed out.", { latencyMs: Date.now() - startedAt });

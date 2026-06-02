@@ -8,6 +8,7 @@ const { runPetLlm, runPetLlmStream } = require("./src/llm");
 const { ACTIONS } = require("./src/llm/llmSchemas");
 const { createSettingsRouter } = require("./src/settings/settingsRoutes");
 const { getRuntimeEnv, getEffectiveSettings } = require("./src/settings/settingsStore");
+const { AFLODIT_FIXED_TIMEOUT_MS } = require("./src/settings/settingsSchema");
 
 function toBool(value, fallback = false) {
   if (value === undefined || value === null || value === "") return fallback;
@@ -20,7 +21,7 @@ const configuredModelName = process.env.MODEL_NAME || (normalizedConfiguredProvi
 
 const Config = Object.freeze({
   appName: "AFlodit Pet Copilot",
-  version: "0.7.0.4",
+  version: "0.7.0.5",
   runtimeName: "difyless-llm-runtime",
   runtimeType: "local-provider-llm-runtime",
   host: process.env.HOST || "127.0.0.1",
@@ -33,7 +34,7 @@ const Config = Object.freeze({
   modelBaseUrl: process.env.MODEL_BASE_URL || "",
   modelResponseFormat: process.env.MODEL_RESPONSE_FORMAT || "",
   modelApiKeyPresent: Boolean(String(process.env.MODEL_API_KEY || "").trim()),
-  modelTimeoutMs: Number(process.env.MODEL_TIMEOUT_MS || 20000),
+  modelTimeoutMs: AFLODIT_FIXED_TIMEOUT_MS,
   rateLimitWindowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 60000),
   rateLimitMax: Number(process.env.RATE_LIMIT_MAX || 30),
   corsAllowAll: toBool(process.env.CORS_ALLOW_ALL, false),
@@ -136,7 +137,7 @@ function runtimeStatus() {
       required_config: modelConfig.required
     },
     llm_debug: Config.llmDebug,
-    timeout_ms: modelSettings.timeoutMs,
+    timeout_ms: AFLODIT_FIXED_TIMEOUT_MS,
     server: {
       host: Config.host,
       port: Config.port,

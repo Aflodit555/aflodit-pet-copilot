@@ -2,9 +2,10 @@
 
 const PROVIDERS = Object.freeze(["mock", "openai-compatible"]);
 const CLEAR_API_KEY = "__CLEAR__";
-const MIN_TIMEOUT_MS = 1000;
-const MAX_TIMEOUT_MS = 120000;
-const DEFAULT_TIMEOUT_MS = 30000;
+const AFLODIT_FIXED_TIMEOUT_MS = 40000;
+const MIN_TIMEOUT_MS = AFLODIT_FIXED_TIMEOUT_MS;
+const MAX_TIMEOUT_MS = AFLODIT_FIXED_TIMEOUT_MS;
+const DEFAULT_TIMEOUT_MS = AFLODIT_FIXED_TIMEOUT_MS;
 const MAX_BASE_URL_LENGTH = 1000;
 const MAX_MODEL_LENGTH = 200;
 const MAX_API_KEY_LENGTH = 4096;
@@ -27,7 +28,6 @@ function normalizeProvider(value) {
 function defaultSettingsFromEnv(env = process.env) {
   const provider = normalizeProvider(env.MODEL_PROVIDER) || "mock";
   const model = text(env.MODEL_NAME) || (provider === "mock" ? "mock" : "");
-  const timeoutMs = clampTimeout(numberFrom(env.MODEL_TIMEOUT_MS, provider === "mock" ? 20000 : DEFAULT_TIMEOUT_MS));
 
   return {
     model: {
@@ -35,27 +35,17 @@ function defaultSettingsFromEnv(env = process.env) {
       baseUrl: text(env.MODEL_BASE_URL),
       model,
       apiKey: text(env.MODEL_API_KEY),
-      timeoutMs
+      timeoutMs: DEFAULT_TIMEOUT_MS
     }
   };
 }
 
 function clampTimeout(value) {
-  const number = numberFrom(value, DEFAULT_TIMEOUT_MS);
-  return Math.max(MIN_TIMEOUT_MS, Math.min(MAX_TIMEOUT_MS, Math.round(number)));
+  return DEFAULT_TIMEOUT_MS;
 }
 
 function validateTimeoutMs(value, errors) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) {
-    errors.push("timeoutMs must be a number.");
-    return DEFAULT_TIMEOUT_MS;
-  }
-  if (number < MIN_TIMEOUT_MS || number > MAX_TIMEOUT_MS) {
-    errors.push(`timeoutMs must be between ${MIN_TIMEOUT_MS} and ${MAX_TIMEOUT_MS}.`);
-    return clampTimeout(number);
-  }
-  return Math.round(number);
+  return DEFAULT_TIMEOUT_MS;
 }
 
 function makeApiKeyPreview(apiKey) {
@@ -123,7 +113,6 @@ function normalizeStoredSettings(raw, warnings = []) {
 
   const source = raw.model && typeof raw.model === "object" ? raw.model : {};
   const provider = normalizeProvider(source.provider);
-  const timeoutMs = source.timeoutMs === undefined ? undefined : clampTimeout(source.timeoutMs);
   const model = {};
 
   if (provider) model.provider = provider;
@@ -132,7 +121,6 @@ function normalizeStoredSettings(raw, warnings = []) {
   if (typeof source.baseUrl === "string") model.baseUrl = text(source.baseUrl);
   if (typeof source.model === "string") model.model = text(source.model);
   if (typeof source.apiKey === "string") model.apiKey = text(source.apiKey);
-  if (timeoutMs !== undefined) model.timeoutMs = timeoutMs;
 
   return { model };
 }
@@ -152,7 +140,7 @@ function effectiveSettingsFromStored(stored, env = process.env) {
   const merged = mergeSettings(envDefaults, normalizedStored);
   if (!merged.model.provider) merged.model.provider = "mock";
   if (merged.model.provider === "mock" && !merged.model.model) merged.model.model = "mock";
-  merged.model.timeoutMs = clampTimeout(merged.model.timeoutMs);
+  merged.model.timeoutMs = DEFAULT_TIMEOUT_MS;
   return merged;
 }
 
@@ -164,7 +152,7 @@ function settingsToRuntimeEnv(settings, env = process.env) {
     MODEL_BASE_URL: model.baseUrl || "",
     MODEL_API_KEY: model.apiKey || "",
     MODEL_NAME: model.model || (model.provider === "mock" ? "mock" : ""),
-    MODEL_TIMEOUT_MS: String(model.timeoutMs || DEFAULT_TIMEOUT_MS)
+    MODEL_TIMEOUT_MS: String(DEFAULT_TIMEOUT_MS)
   };
 }
 
@@ -176,7 +164,6 @@ function sanitizeSettings(settings) {
       provider: model.provider || "mock",
       baseUrl: model.baseUrl || "",
       model: model.model || "",
-      timeoutMs: clampTimeout(model.timeoutMs),
       apiKeySet: Boolean(apiKey),
       apiKeyPreview: makeApiKeyPreview(apiKey)
     }
@@ -202,10 +189,6 @@ function validateSettingsForSave(payload, existingStored = {}, env = process.env
   const model = source.model === undefined
     ? (existing.model.model || (nextProvider === "mock" ? "mock" : ""))
     : validateModelName(source.model, errors, { required: nextProvider === "openai-compatible" });
-  const timeoutMs = source.timeoutMs === undefined
-    ? (existing.model.timeoutMs || effective.model.timeoutMs || DEFAULT_TIMEOUT_MS)
-    : validateTimeoutMs(source.timeoutMs, errors);
-
   let apiKey = existing.model.apiKey || "";
   let apiKeyCleared = false;
   if (Object.prototype.hasOwnProperty.call(source, "apiKey")) {
@@ -225,8 +208,7 @@ function validateSettingsForSave(payload, existingStored = {}, env = process.env
     model: {
       provider: nextProvider,
       baseUrl,
-      model: model || (nextProvider === "mock" ? "mock" : ""),
-      timeoutMs
+      model: model || (nextProvider === "mock" ? "mock" : "")
     }
   };
   if (apiKey) settings.model.apiKey = apiKey;
@@ -245,7 +227,7 @@ function validateSettingsForTest(payload, savedOrEffective = {}, env = process.e
   const baseUrl = validateBaseUrl(merged.model.baseUrl, errors, { required });
   const model = validateModelName(merged.model.model, errors, { required });
   const apiKey = validateApiKey(merged.model.apiKey, errors);
-  const timeoutMs = validateTimeoutMs(merged.model.timeoutMs, errors);
+  const timeoutMs = DEFAULT_TIMEOUT_MS;
 
   if (required && !apiKey) errors.push("apiKey is required for openai-compatible provider.");
 
@@ -267,6 +249,7 @@ function validateSettingsForTest(payload, savedOrEffective = {}, env = process.e
 module.exports = {
   CLEAR_API_KEY,
   PROVIDERS,
+  AFLODIT_FIXED_TIMEOUT_MS,
   DEFAULT_TIMEOUT_MS,
   MIN_TIMEOUT_MS,
   MAX_TIMEOUT_MS,

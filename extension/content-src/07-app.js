@@ -428,18 +428,15 @@
       dom.settingsProvider.value = model.provider || "mock";
       dom.settingsBaseUrl.value = model.baseUrl || "";
       dom.settingsModelName.value = model.model || "";
-      dom.settingsTimeoutMs.value = String(model.timeoutMs || 30000);
       dom.settingsApiKey.value = "";
       dom.settingsApiKey.placeholder = this.apiKeyPlaceholder(settings);
     },
 
     readForm() {
-      const timeoutMs = Number(dom.settingsTimeoutMs.value || 30000);
       const model = {
         provider: dom.settingsProvider.value,
         baseUrl: dom.settingsBaseUrl.value.trim(),
-        model: dom.settingsModelName.value.trim(),
-        timeoutMs
+        model: dom.settingsModelName.value.trim()
       };
       const apiKey = dom.settingsApiKey.value.trim();
       if (apiKey) model.apiKey = apiKey;
