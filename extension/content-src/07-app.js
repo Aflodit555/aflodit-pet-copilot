@@ -838,7 +838,11 @@
     on(document, "selectionchange", () => Extractor.updateSelectedText());
     on(document, "mousemove", (event) => FaceController.handleReadingMouseMove(event), { passive: true });
     on(document, "pointermove", (event) => handleHoverMenuPointerMove(event), { passive: true });
-    on(window, "resize", () => LayoutManager.handleViewportResize());
+    on(window, "resize", () => LayoutManager.handleViewportResize("resize"));
+    on(document, "fullscreenchange", () => LayoutManager.handleViewportResize("fullscreenchange"));
+    if (window.visualViewport) {
+      on(window.visualViewport, "resize", () => LayoutManager.handleViewportResize("visualViewport.resize"));
+    }
 
     on(dom.avatar, "pointerdown", (event) => DragManager.begin(event));
     on(dom.avatar, "pointermove", (event) => DragManager.move(event));

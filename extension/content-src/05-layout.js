@@ -258,6 +258,8 @@
   // =========================
   const LayoutManager = {
     layoutFrame: null,
+    anchorLayoutTimer: null,
+    layoutReason: "layout",
     firstLayoutStarted: false,
     firstLayoutApplied: false,
 
@@ -351,9 +353,36 @@
       this.setRootPosition(this.positionFromUiSettings(), { snap: false, persist: false });
     },
 
-    handleViewportResize() {
-      this.applyRootPosition(Geometry.resolvePosition(state.position));
+    applyAnchoredLayout(reason = "layout") {
+      const next = Geometry.resolvePosition(state.position);
+      state.position = {
+        mode: next.mode,
+        dockX: next.dockX,
+        dockY: next.dockY,
+        offsetX: next.offsetX,
+        offsetY: next.offsetY,
+        x: next.x,
+        y: next.y,
+        updatedAt: state.position?.updatedAt || Date.now()
+      };
+      traceLayout("LayoutManager.applyAnchoredLayout", { reason, next });
+      this.layoutReason = reason;
+      this.applyRootPosition(next);
       this.schedulePetLayout();
+    },
+
+    scheduleAnchorLayout(reason = "resize") {
+      if (this.anchorLayoutTimer) {
+        window.clearTimeout(this.anchorLayoutTimer);
+      }
+      this.anchorLayoutTimer = window.setTimeout(() => {
+        this.anchorLayoutTimer = null;
+        this.applyAnchoredLayout(reason);
+      }, CONFIG.settingsPanel.resizeDebounceMs);
+    },
+
+    handleViewportResize(reason = "resize") {
+      this.scheduleAnchorLayout(reason);
     },
 
     getOpenOrientation() {
@@ -478,32 +507,60 @@
       const panelSize = Geometry.getFloatingSize(dom.panel, CONFIG.drag.floatingWidth, 260);
       const hasAux = !!dom.settings && !dom.settings.classList.contains("hidden");
       const auxNaturalHeight = hasAux
-        ? Math.max(48, Math.min(260, dom.settings.scrollHeight || dom.settings.offsetHeight || 260))
+        ? Math.max(48, Math.min(CONFIG.settingsPanel.maxHeight, viewport.height - margin * 2))
         : 0;
 
       return { viewport, margin, gap, avatarRect, panelSize, hasAux, auxNaturalHeight };
     },
 
-    panelCandidates(parts) {
-      const { avatarRect, panelSize, viewport, margin, gap } = parts;
+    deriveCardRectFromAvatar(placement, parts) {
+      const { avatarRect, panelSize, viewport, gap } = parts;
       const centerX = avatarRect.left + avatarRect.width / 2;
       const centerY = avatarRect.top + avatarRect.height / 2;
       const alignLeft = centerX > viewport.width / 2 ? avatarRect.right - panelSize.width : avatarRect.left;
-      const clampedAlignLeft = clamp(alignLeft, margin, Math.max(margin, viewport.width - panelSize.width - margin));
-      const clampedCenterTop = clamp(centerY - panelSize.height / 2, margin, Math.max(margin, viewport.height - panelSize.height - margin));
+      const alignTop = centerY > viewport.height / 2 ? avatarRect.bottom - panelSize.height : avatarRect.top;
+      const preferred = {
+        top: { left: alignLeft, top: avatarRect.top - panelSize.height - gap },
+        bottom: { left: alignLeft, top: avatarRect.bottom + gap },
+        left: { left: avatarRect.left - panelSize.width - gap, top: alignTop },
+        right: { left: avatarRect.right + gap, top: alignTop }
+      }[placement] || { left: alignLeft, top: avatarRect.top - panelSize.height - gap };
+
+      return this.rectFromPosition(preferred.left, preferred.top, panelSize.width, panelSize.height);
+    },
+
+    panelCandidates(parts) {
+      const { avatarRect, viewport, margin } = parts;
       const roomLeft = avatarRect.left - margin;
       const roomRight = viewport.width - avatarRect.right - margin;
       const preferLeft = roomLeft >= roomRight;
+      const orderedPlacements = ["top", "bottom", preferLeft ? "left" : "right", preferLeft ? "right" : "left"];
 
-      return [
-        { placement: "top", priority: 0, left: clampedAlignLeft, top: avatarRect.top - panelSize.height - gap },
-        { placement: "bottom", priority: 1, left: clampedAlignLeft, top: avatarRect.bottom + gap },
-        { placement: preferLeft ? "left" : "right", priority: 2, left: preferLeft ? avatarRect.left - panelSize.width - gap : avatarRect.right + gap, top: clampedCenterTop },
-        { placement: preferLeft ? "right" : "left", priority: 3, left: preferLeft ? avatarRect.right + gap : avatarRect.left - panelSize.width - gap, top: clampedCenterTop }
-      ].map((candidate) => ({
-        ...candidate,
-        ...Geometry.clampFloating(candidate.left, candidate.top, panelSize.width, panelSize.height)
-      }));
+      return orderedPlacements.map((placement, index) => {
+        const rect = this.deriveCardRectFromAvatar(placement, parts);
+        return {
+          placement,
+          priority: index,
+          left: rect.left,
+          top: rect.top
+        };
+      });
+    },
+
+    deriveSettingsRectFromCard(panelRect, side, parts) {
+      const { gap, auxNaturalHeight } = parts;
+      const localLeft = 0;
+      const localTop = side === "above" ? -auxNaturalHeight - gap : panelRect.height + gap;
+      const left = panelRect.left + localLeft;
+      const top = panelRect.top + localTop;
+
+      return {
+        side,
+        height: auxNaturalHeight,
+        localLeft,
+        localTop,
+        rect: this.rectFromPosition(left, top, panelRect.width, auxNaturalHeight)
+      };
     },
 
     auxPlacements(panelRect, parts) {
@@ -512,18 +569,14 @@
       const { viewport, margin, gap, auxNaturalHeight } = parts;
       const spaceAbove = panelRect.top - margin - gap;
       const spaceBelow = viewport.height - panelRect.bottom - margin - gap;
-      const build = (side, available, scoreBias) => {
-        const height = Math.min(auxNaturalHeight, Math.max(48, Math.min(260, Math.max(0, available))));
-        const top = side === "above" ? panelRect.top - gap - height : panelRect.bottom + gap;
+      const build = (side, scoreBias) => {
         return {
-          side,
-          height,
-          rect: this.rectFromPosition(panelRect.left, top, panelRect.width, height),
+          ...this.deriveSettingsRectFromCard(panelRect, side, parts),
           scoreBias
         };
       };
-      const above = build("above", spaceAbove, 0);
-      const below = build("below", spaceBelow, 20);
+      const above = build("above", 0);
+      const below = build("below", 20);
       if (spaceAbove >= auxNaturalHeight) return [above, below];
       if (spaceBelow >= auxNaturalHeight) return [below, above];
       return spaceAbove >= spaceBelow ? [above, below] : [below, above];
@@ -545,7 +598,7 @@
         + (candidate.aux?.scoreBias || 0);
     },
 
-    computePetLayout() {
+    computePetLayout(parts = null) {
       if (!dom.panel || dom.panel.classList.contains("hidden")) return null;
 
       traceLayout("LayoutManager.computePetLayout start", {
@@ -553,7 +606,7 @@
         panel: traceElementName(dom.panel),
         auxiliaryHidden: dom.settings?.classList.contains("hidden")
       });
-      const parts = this.measurePetParts();
+      parts = parts || this.measurePetParts();
       const candidates = [];
       this.panelCandidates(parts).forEach((panelCandidate) => {
         const panelRect = this.rectFromPosition(panelCandidate.left, panelCandidate.top, parts.panelSize.width, parts.panelSize.height);
@@ -574,6 +627,65 @@
       return layout;
     },
 
+    cardSettingsDistance(cardRect, settingsRect) {
+      if (!cardRect || !settingsRect) return null;
+      const horizontalGap = settingsRect.right < cardRect.left
+        ? cardRect.left - settingsRect.right
+        : (settingsRect.left > cardRect.right ? settingsRect.left - cardRect.right : 0);
+      const verticalGap = settingsRect.bottom <= cardRect.top
+        ? cardRect.top - settingsRect.bottom
+        : (settingsRect.top >= cardRect.bottom ? settingsRect.top - cardRect.bottom : 0);
+      return { horizontalGap, verticalGap };
+    },
+
+    rectDistance(a, b) {
+      if (!a || !b) return null;
+      const horizontalGap = b.right < a.left
+        ? a.left - b.right
+        : (b.left > a.right ? b.left - a.right : 0);
+      const verticalGap = b.bottom < a.top
+        ? a.top - b.bottom
+        : (b.top > a.bottom ? b.top - a.bottom : 0);
+      return {
+        horizontalGap,
+        verticalGap,
+        nearestGap: Math.max(horizontalGap, verticalGap)
+      };
+    },
+
+    traceAnchoredLayout(reason, layout, parts) {
+      if (!AFLODIT_LAYOUT_TRACE || !layout) return;
+      const cardRect = this.rectFromPosition(layout.left, layout.top, parts.panelSize.width, parts.panelSize.height);
+      const settingsRect = layout.aux?.rect || null;
+      const cardSettingsDistance = this.cardSettingsDistance(cardRect, settingsRect);
+      const cardAvatarDistance = this.rectDistance(cardRect, parts.avatarRect);
+      const payload = {
+        reason,
+        viewport: parts.viewport,
+        anchor: {
+          mode: state.position?.mode || "",
+          dockX: state.position?.dockX || null,
+          dockY: state.position?.dockY || null,
+          x: state.position?.x,
+          y: state.position?.y
+        },
+        avatarRect: parts.avatarRect,
+        cardRect,
+        settingsRect,
+        cardSettingsDistance,
+        cardAvatarDistance,
+        settingsPlacement: layout.aux?.side || "none",
+        boundaryCorrection: false
+      };
+      traceLayout("anchored layout", payload);
+      if (cardSettingsDistance && cardSettingsDistance.horizontalGap > 32) {
+        console.warn("[AFlodit Layout Trace]", "settings detached from card", payload);
+      }
+      if (cardAvatarDistance && cardAvatarDistance.nearestGap > 48) {
+        console.warn("[AFlodit Layout Trace]", "card detached from avatar", payload);
+      }
+    },
+
     applyPetLayout(layout) {
       if (!layout || !dom.panel) return;
 
@@ -586,21 +698,22 @@
 
       if (!dom.settings) return;
       if (!layout.aux || layout.aux.side === "none") {
+        dom.settings.style.height = "";
         dom.settings.style.maxHeight = "";
+        dom.settings.style.left = "";
         dom.settings.style.top = "";
+        dom.settings.style.right = "";
         dom.settings.style.bottom = "";
         return;
       }
 
-      const panelHeight = Geometry.getFloatingSize(dom.panel, CONFIG.drag.floatingWidth, 260).height;
       dom.settings.dataset.placement = layout.aux.side;
-      dom.settings.style.left = "0";
+      dom.settings.style.left = `${Math.round(layout.aux.localLeft || 0)}px`;
       dom.settings.style.right = "auto";
       dom.settings.style.width = "100%";
+      dom.settings.style.height = `${Math.round(layout.aux.height)}px`;
       dom.settings.style.maxHeight = `${Math.round(layout.aux.height)}px`;
-      dom.settings.style.top = layout.aux.side === "below"
-        ? `${Math.round(panelHeight + 12)}px`
-        : `${Math.round(-layout.aux.height - 12)}px`;
+      dom.settings.style.top = `${Math.round(layout.aux.localTop)}px`;
       dom.settings.style.bottom = "auto";
       tracePositionWrite("LayoutManager.applyPetLayout auxiliary", dom.settings);
     },
@@ -615,7 +728,10 @@
         });
       }
       this.updateMenuLayout();
-      this.applyPetLayout(this.computePetLayout());
+      const parts = this.measurePetParts();
+      const layout = this.computePetLayout(parts);
+      this.applyPetLayout(layout);
+      this.traceAnchoredLayout(this.layoutReason || "updateFloatingLayout", layout, parts);
       if (!this.firstLayoutApplied) {
         this.firstLayoutApplied = true;
         traceLayout("first layout applies position", {

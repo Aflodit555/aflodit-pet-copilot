@@ -1,5 +1,5 @@
 const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
-  const AFLODIT_LAYOUT_TRACE = false;
+  const AFLODIT_LAYOUT_TRACE = true;
   window[GLOBAL_KEY]?.destroy?.();
   document.getElementById("aflodit-pet-root")?.remove();
 // =========================
@@ -28,7 +28,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   });
 
   const CONFIG = Object.freeze({
-    version: "0.7.0.5",
+    version: "0.7.0.8.2",
     backendUrl: "http://127.0.0.1:3001/api/pet",
     streamUrl: "http://127.0.0.1:3001/api/pet-stream",
     settingsUrl: "http://127.0.0.1:3001/api/settings",
@@ -57,6 +57,12 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     hoverMenu: Object.freeze({
       safeZonePadding: 28,
       closeDelayMs: 320
+    }),
+    settingsPanel: Object.freeze({
+      bodyHeight: 260,
+      footerHeight: 64,
+      maxHeight: 324,
+      resizeDebounceMs: 100
     }),
     face: Object.freeze({
       menuLookDelay: Object.freeze({ min: 700, max: 1300 }),

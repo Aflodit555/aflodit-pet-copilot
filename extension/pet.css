@@ -1,4 +1,4 @@
-/* AFlodit Pet Copilot v0.7.0.5
+/* AFlodit Pet Copilot v0.7.0.8.2
    分层：tokens -> layout -> avatar -> quick menu -> panel -> text/scroll -> controls -> states -> animations -> overrides
 */
 
@@ -13,6 +13,9 @@
   --pet-panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
   --pet-avatar-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
   --pet-bubble-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+  --aflodit-settings-body-height: 260px;
+  --aflodit-settings-footer-height: 64px;
+  --aflodit-settings-panel-height: 324px;
   --pet-radius-lg: 18px;
   --pet-radius-md: 12px;
   --pet-scroll-thumb: rgba(0, 0, 0, 0.28);
@@ -317,17 +320,60 @@
   right: auto;
   bottom: calc(100% + 10px);
   width: 100%;
+  height: var(--aflodit-settings-panel-height);
   margin: 0;
-  padding: 12px 14px;
+  padding: 0;
   border: 1px solid var(--pet-border);
   border-radius: var(--pet-radius-lg);
   background: var(--pet-white);
   box-shadow: var(--pet-panel-shadow);
-  max-height: 260px;
+  max-height: var(--aflodit-settings-panel-height);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+#aflodit-pet-root .pet-settings-view {
+  min-height: 0;
+  max-height: inherit;
+  padding: 12px 14px;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+}
+
+#aflodit-pet-root .pet-settings-fixed-footer {
+  height: 100%;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#aflodit-pet-root .pet-settings-fixed-footer.hidden {
+  display: none !important;
+}
+
+#aflodit-pet-root .pet-settings-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: var(--aflodit-settings-body-height);
+  padding: 12px 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+#aflodit-pet-root .pet-settings-footer {
+  flex-shrink: 0;
+  min-height: var(--aflodit-settings-footer-height);
+  margin-top: 0;
+  padding: 8px 14px;
+  border-top: 1px solid var(--pet-border);
+  background: var(--pet-white);
+  align-items: center;
 }
 
 #aflodit-pet-root .pet-settings-title {

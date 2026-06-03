@@ -28,7 +28,8 @@
               <button class="pet-settings-menu-item" data-settings-view="about">关于</button>
             </div>
 
-            <div id="aflodit-pet-settings-model" class="pet-settings-view hidden">
+            <div id="aflodit-pet-settings-model" class="pet-settings-view pet-settings-fixed-footer hidden">
+              <div class="pet-settings-body">
               <div class="pet-settings-title">模型配置</div>
               <label class="pet-settings-field">
                 <span>Base URL</span>
@@ -50,7 +51,8 @@
                 </select>
               </label>
               <div id="aflodit-pet-settings-message" class="pet-settings-message" aria-live="polite"></div>
-              <div class="pet-settings-actions">
+              </div>
+              <div class="pet-settings-actions pet-settings-footer">
                 <button id="aflodit-pet-settings-test" class="pet-secondary-button">Test Connection</button>
                 <button id="aflodit-pet-settings-save" class="pet-primary-button">Save</button>
                 <button id="aflodit-pet-settings-back" class="pet-secondary-button">Back</button>
@@ -58,7 +60,8 @@
               </div>
             </div>
 
-            <div id="aflodit-pet-settings-commands" class="pet-settings-view hidden">
+            <div id="aflodit-pet-settings-commands" class="pet-settings-view pet-settings-fixed-footer hidden">
+              <div class="pet-settings-body">
               <div class="pet-settings-title">快捷命令</div>
               <div class="pet-help-line"><b>Enter</b>：发送 Chat</div>
               <div class="pet-help-line"><b>Esc</b>：关闭面板</div>
@@ -70,13 +73,15 @@
               <div class="pet-help-line"><b>@停止番茄钟</b>：停止当前番茄钟</div>
               <div class="pet-help-line pet-help-muted">示例：@选区 解释这段话</div>
               <div class="pet-help-line pet-help-muted">示例：@页面 这页主要讲什么</div>
-              <div class="pet-settings-actions">
+              </div>
+              <div class="pet-settings-actions pet-settings-footer">
                 <button id="aflodit-pet-commands-back" class="pet-secondary-button">Back</button>
                 <button id="aflodit-pet-commands-close" class="pet-secondary-button">Close</button>
               </div>
             </div>
 
-            <div id="aflodit-pet-settings-display" class="pet-settings-view hidden">
+            <div id="aflodit-pet-settings-display" class="pet-settings-view pet-settings-fixed-footer hidden">
+              <div class="pet-settings-body">
               <div class="pet-settings-title">显示与位置</div>
               <label class="pet-settings-field">
                 <span>边缘吸附</span>
@@ -104,13 +109,15 @@
                 </select>
               </label>
               <div class="pet-settings-message">显示设置保存在浏览器 chrome.storage.local，不写入后端模型配置。</div>
-              <div class="pet-settings-actions">
+              </div>
+              <div class="pet-settings-actions pet-settings-footer">
                 <button id="aflodit-pet-ui-reset-position" class="pet-secondary-button">重置位置</button>
                 <button id="aflodit-pet-display-back" class="pet-secondary-button">Back</button>
               </div>
             </div>
 
-            <div id="aflodit-pet-settings-about" class="pet-settings-view hidden">
+            <div id="aflodit-pet-settings-about" class="pet-settings-view pet-settings-fixed-footer hidden">
+              <div class="pet-settings-body">
               <div class="pet-settings-title">关于</div>
               <div class="pet-about-list">
                 <div><b>Project</b>：AFlodit Pet Copilot</div>
@@ -122,7 +129,8 @@
               </div>
               <div class="pet-settings-note">AFlodit Pet Copilot 是一个运行在浏览器页面上的轻量 AI 桌宠助手，可以聊天、解释选中文本、翻译选中文本和总结当前网页。</div>
               <div class="pet-settings-note">API Key 保存在本地后端配置中，不写入扩展代码。不要公开 backend/.env 或 backend/.local/settings.local.json。本项目是本地优先的开发者工具，不是生产级账号系统。</div>
-              <div class="pet-settings-actions">
+              </div>
+              <div class="pet-settings-actions pet-settings-footer">
                 <button id="aflodit-pet-about-back" class="pet-secondary-button">Back</button>
               </div>
             </div>
