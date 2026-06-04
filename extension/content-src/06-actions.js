@@ -15,7 +15,7 @@
         return "";
       }
 
-      if (config.needsSelection && !state.selectedText) return config.empty;
+      if (config.needsSelection && !state.selectedText) return normalizeUserErrorMessage("NO_SELECTED_TEXT");
       if (config.needsUserText && !userText.trim()) return config.empty;
       if (action === ACTION.SUMMARY && !Extractor.getPageTextSnippet()) return config.empty;
       return "";
@@ -52,7 +52,19 @@
       });
 
       const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.reply || `后端请求失败：${response.status}`);
+      if (!response.ok) {
+        const error = new Error(data?.reply || data?.message || `后端请求失败：${response.status}`);
+        error.code = data?.error_code || data?.code || data?.error?.code;
+        error.data = data;
+        error.status = response.status;
+        throw error;
+      }
+      if (!data || typeof data.reply !== "string") {
+        const error = new Error("Unexpected backend response shape.");
+        error.code = "MODEL_BAD_RESPONSE";
+        error.data = data;
+        throw error;
+      }
       return data;
     },
 
@@ -70,7 +82,9 @@
       }
 
       if (event.type === "error") {
-        return event.data || null;
+        const data = event.data || null;
+        if (data && !data.error_code && event.error_code) data.error_code = event.error_code;
+        return data;
       }
 
       return null;
@@ -114,7 +128,11 @@
         if (result) finalData = result;
       }
 
-      if (!finalData) throw new Error("流式后端没有返回 final 事件。");
+      if (!finalData) {
+        const error = new Error("流式后端没有返回 final 事件。");
+        error.code = "MODEL_BAD_RESPONSE";
+        throw error;
+      }
       return finalData;
     },
 

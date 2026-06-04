@@ -21,7 +21,7 @@ const configuredModelName = process.env.MODEL_NAME || (normalizedConfiguredProvi
 
 const Config = Object.freeze({
   appName: "AFlodit Pet Copilot",
-  version: "0.7.0.8",
+  version: "0.7.0.9",
   runtimeName: "difyless-llm-runtime",
   runtimeType: "local-provider-llm-runtime",
   host: process.env.HOST || "127.0.0.1",
@@ -268,7 +268,10 @@ app.post("/api/pet", async (req, res) => {
     return res.json(limited);
   } catch (err) {
     Logger.error("Backend error:", err);
-    return res.status(200).json(safeResponse("模型暂时没有返回有效结果，请稍后再试。", "error", 0.3));
+    return res.status(200).json({
+      ...safeResponse("模型暂时没有返回有效结果，请稍后再试。", "error", 0.3),
+      error_code: "MODEL_BAD_RESPONSE"
+    });
   }
 });
 

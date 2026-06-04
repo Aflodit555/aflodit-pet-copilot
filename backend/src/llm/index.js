@@ -58,6 +58,26 @@ function safeFinalResponse(response) {
   };
 }
 
+function classifyModelError(error) {
+  const code = String(error?.code || "").trim();
+  if (["MODEL_CONFIG_INVALID", "MODEL_AUTH_FAILED", "MODEL_TIMEOUT", "MODEL_BAD_RESPONSE", "MODEL_NETWORK_ERROR"].includes(code)) {
+    return code;
+  }
+
+  const message = String(error?.message || "");
+  if (/timed out|timeout|abort/i.test(message)) return "MODEL_TIMEOUT";
+  if (/401|403|auth|api[_ -]?key|model_api_key|model_base_url|model_name|required for openai-compatible|unsupported model_provider/i.test(message)) {
+    return "MODEL_CONFIG_INVALID";
+  }
+  if (/json|malformed|non-json|choices|did not include|unexpected|invalid response|http \d+/i.test(message)) {
+    return "MODEL_BAD_RESPONSE";
+  }
+  if (/fetch failed|network|econnrefused|enotfound|connection/i.test(message)) {
+    return "MODEL_NETWORK_ERROR";
+  }
+  return "MODEL_BAD_RESPONSE";
+}
+
 function getConfiguredModel(provider, env) {
   const configured = String(env.MODEL_NAME || "").trim();
   return configured || (provider === "mock" ? "mock" : "");
@@ -77,6 +97,7 @@ function attachDebug(response, debug, includeRawText) {
     motion: response.motion,
     bubble_type: response.bubble_type,
     confidence: response.confidence,
+    ...(response.error_code ? { error_code: response.error_code } : {}),
     debug: {
       provider: debug.provider,
       model: debug.model,
@@ -231,6 +252,7 @@ async function runPetLlm(body, options = {}) {
       includeRawText,
       includeParsedObject: llmDebug
     });
+    if (normalized.debug?.fallbackUsed) normalized.error_code = "MODEL_BAD_RESPONSE";
     debug.timing.responseNormalizeMs = Date.now() - normalizeStartedAt;
     debug.timing.totalMs = Date.now() - totalStartedAt;
     const finalResponse = includeDebug ? attachDebug(normalized, debug, includeRawText) : {
@@ -238,7 +260,8 @@ async function runPetLlm(body, options = {}) {
       emotion: normalized.emotion,
       motion: normalized.motion,
       bubble_type: normalized.bubble_type,
-      confidence: normalized.confidence
+      confidence: normalized.confidence,
+      ...(normalized.debug?.fallbackUsed ? { error_code: "MODEL_BAD_RESPONSE" } : {})
     };
     if (llmDebug) {
       logger.log("[LLM_DEBUG] parse and normalization", JSON.stringify({
@@ -258,12 +281,17 @@ async function runPetLlm(body, options = {}) {
     }
     debug.fallbackUsed = true;
     debug.providerWarnings.push(error?.message || "Provider call failed.");
+    const errorCode = classifyModelError(error);
     const fallback = {
       ...modelFailureResponse(),
+      error_code: errorCode,
       debug: { warnings: [], fallbackUsed: true, rawTextAvailable: false }
     };
     debug.timing.totalMs = Date.now() - totalStartedAt;
-    const finalResponse = includeDebug ? attachDebug(fallback, debug, includeRawText) : modelFailureResponse();
+    const finalResponse = includeDebug ? attachDebug(fallback, debug, includeRawText) : {
+      ...modelFailureResponse(),
+      error_code: errorCode
+    };
     if (llmDebug) {
       logger.log("[LLM_DEBUG] model runtime error", JSON.stringify({
         provider: debug.provider,
@@ -396,6 +424,7 @@ async function runPetLlmStream(body, options = {}) {
 
     const normalizeStartedAt = Date.now();
     const normalized = normalizeFinalObject(finalObject, includeRawText, llmDebug);
+    if (!reply) normalized.error_code = "MODEL_BAD_RESPONSE";
     debug.timing.finalNormalizeMs = Date.now() - normalizeStartedAt;
     debug.timing.streamTotalMs = Date.now() - totalStartedAt;
     debug.timing.totalMs = debug.timing.streamTotalMs;
@@ -420,8 +449,10 @@ async function runPetLlmStream(body, options = {}) {
   } catch (error) {
     debug.fallbackUsed = true;
     debug.providerWarnings.push(error?.message || "Provider stream failed.");
+    const errorCode = classifyModelError(error);
     const finalObject = {
       ...modelFailureResponse(),
+      error_code: errorCode,
       emotion: "error",
       motion: "shake",
       bubble_type: "error",
@@ -439,7 +470,8 @@ async function runPetLlmStream(body, options = {}) {
       emotion: normalized.emotion,
       motion: normalized.motion,
       bubble_type: normalized.bubble_type,
-      confidence: normalized.confidence
+      confidence: normalized.confidence,
+      error_code: errorCode
     };
 
     if (llmDebug) {

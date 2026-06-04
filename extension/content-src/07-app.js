@@ -60,6 +60,75 @@
     }, CONFIG.hoverMenu.closeDelayMs);
   }
 
+  const USER_ERROR_MESSAGES = Object.freeze({
+    noSelectedText: "请先在网页中选中一段文字。",
+    backendDisconnected: "本地后端未连接，请确认 backend 已运行。",
+    missingApiKey: "请先在设置中填写 API Key。",
+    timeout: "请求超过 40 秒，可能是网络或模型服务较慢。",
+    invalidModelResponse: "模型返回格式异常，请稍后重试或检查模型配置。"
+  });
+
+  function clearSettingsNoticeTimer() {
+    if (!state.settingsNoticeTimer) return;
+    window.clearTimeout(state.settingsNoticeTimer);
+    state.settingsNoticeTimer = null;
+  }
+
+  function scrollReplyToTop() {
+    if (!dom.reply) return;
+    dom.reply.scrollTop = 0;
+    const raf = window.requestAnimationFrame || ((callback) => window.setTimeout(callback, 0));
+    raf(() => {
+      if (dom.reply) dom.reply.scrollTop = 0;
+    });
+  }
+
+  function normalizeUserErrorMessage(error, context = {}) {
+    const code = String(context.code || error?.code || context.result?.error_code || "").trim();
+    const rawMessage = String(context.message || error?.message || context.result?.reply || error || "");
+    const lowerMessage = rawMessage.toLowerCase();
+    const resultBubbleType = context.result?.bubble_type || "";
+    const isResultError = resultBubbleType === "error" || resultBubbleType === "warning";
+    const canInferFromMessage = !context.result || isResultError;
+
+    if (error === "NO_SELECTED_TEXT" || code === "NO_SELECTED_TEXT") return USER_ERROR_MESSAGES.noSelectedText;
+    if (canInferFromMessage && /selected text|选中|選中/i.test(rawMessage) && /missing|required|需要|请先|請先/i.test(rawMessage)) {
+      return USER_ERROR_MESSAGES.noSelectedText;
+    }
+
+    if (
+      code === "MODEL_CONFIG_INVALID"
+      || code === "MODEL_AUTH_FAILED"
+      || (canInferFromMessage && /api[_ -]?key|model_api_key|missing openai-compatible|unsupported model_provider|provider must be|invalid model settings/i.test(rawMessage))
+    ) {
+      return USER_ERROR_MESSAGES.missingApiKey;
+    }
+
+    if (code === "MODEL_TIMEOUT" || (canInferFromMessage && /timeout|timed out|abort/i.test(lowerMessage))) {
+      return USER_ERROR_MESSAGES.timeout;
+    }
+
+    if (
+      code === "MODEL_BAD_RESPONSE"
+      || (canInferFromMessage && /json|parse|malformed|unexpected.*response|invalid response|non-json|choices|没有返回 final|did not include/i.test(rawMessage))
+    ) {
+      return USER_ERROR_MESSAGES.invalidModelResponse;
+    }
+
+    if (
+      error?.name === "TypeError"
+      || /failed to fetch|load failed|networkerror|connection refused|econnrefused|err_connection_refused|无法连接|不能连接/i.test(rawMessage)
+    ) {
+      return USER_ERROR_MESSAGES.backendDisconnected;
+    }
+
+    if (isResultError && /模型暂时|有效结果|valid result/i.test(rawMessage)) {
+      return USER_ERROR_MESSAGES.invalidModelResponse;
+    }
+
+    return context.fallback || rawMessage || USER_ERROR_MESSAGES.invalidModelResponse;
+  }
+
   function handleHoverMenuPointerMove(event) {
     state.lastPointer = { clientX: event.clientX, clientY: event.clientY };
 
@@ -115,6 +184,7 @@
 
     closeSettings() {
       clearHoverCloseTimer();
+      clearSettingsNoticeTimer();
       dom.settings.classList.add("hidden");
       dom.settingsMenu.classList.remove("hidden");
       dom.settingsModel.classList.add("hidden");
@@ -203,7 +273,15 @@
     },
 
     showSettingsNotice(message) {
+      clearSettingsNoticeTimer();
       dom.settingsMessage.textContent = message;
+      if (message) {
+        state.settingsNoticeTimer = window.setTimeout(() => {
+          dom.settingsMessage.textContent = "";
+          state.settingsNoticeTimer = null;
+          LayoutManager.schedulePetLayout();
+        }, 3600);
+      }
       LayoutManager.schedulePetLayout();
     },
 
@@ -221,7 +299,7 @@
       dom.mode.textContent = config.label;
       dom.status.textContent = config.idle;
       dom.reply.textContent = "暂无回复。";
-      dom.reply.scrollTop = 0;
+      scrollReplyToTop();
       dom.refresh.classList.toggle("hidden", !config.refreshable);
       setBubbleType("normal");
       setMeta("neutral", "idle");
@@ -250,7 +328,7 @@
       state.ui = UI.PANEL;
       dom.status.textContent = "无法执行当前动作。";
       dom.reply.textContent = message;
-      dom.reply.scrollTop = 0;
+      scrollReplyToTop();
       setMeta("confused", "shake");
       setBubbleType("warning");
       LayoutManager.updateFloatingLayout();
@@ -264,7 +342,7 @@
       dom.status.textContent = config.loading;
       dom.reply.textContent = "思考中...";
       delete dom.reply.dataset.streaming;
-      dom.reply.scrollTop = 0;
+      scrollReplyToTop();
       setMeta("thinking", "focus");
       setBubbleType("info");
       LayoutManager.updateFloatingLayout();
@@ -301,9 +379,12 @@
       const finalFace = this.resolveFinalFace(result);
       enforceScrollBoxes();
       dom.status.textContent = "本地后端已返回结果。";
-      dom.reply.textContent = result.reply || "后端没有返回 reply。";
+      dom.reply.textContent = normalizeUserErrorMessage(null, {
+        result,
+        fallback: result.reply || "后端没有返回 reply。"
+      });
       delete dom.reply.dataset.streaming;
-      dom.reply.scrollTop = 0;
+      scrollReplyToTop();
       setMeta(finalFace.emotion, finalFace.motion);
       setBubbleType(result.bubble_type || "normal");
       LayoutManager.updateFloatingLayout();
@@ -318,9 +399,9 @@
     showError(error) {
       FaceController.stopReplyPeekLoop(true);
       dom.status.textContent = "请求本地后端失败。";
-      dom.reply.textContent = String(error?.message || error);
+      dom.reply.textContent = normalizeUserErrorMessage(error);
       delete dom.reply.dataset.streaming;
-      dom.reply.scrollTop = 0;
+      scrollReplyToTop();
       setMeta("error", "shake");
       setBubbleType("error");
       LayoutManager.updateFloatingLayout();
@@ -445,14 +526,14 @@
 
     userMessageForCode(code, fallback) {
       const messages = {
-        MODEL_AUTH_FAILED: "Authentication failed. Check your API key.",
-        MODEL_TIMEOUT: "Request timed out.",
-        MODEL_NETWORK_ERROR: "Network error. Check the base URL.",
-        MODEL_BAD_RESPONSE: "Provider returned an invalid response.",
-        MODEL_CONFIG_INVALID: "Invalid model settings.",
+        MODEL_AUTH_FAILED: USER_ERROR_MESSAGES.missingApiKey,
+        MODEL_TIMEOUT: USER_ERROR_MESSAGES.timeout,
+        MODEL_NETWORK_ERROR: "模型服务连接失败，请检查 Base URL。",
+        MODEL_BAD_RESPONSE: USER_ERROR_MESSAGES.invalidModelResponse,
+        MODEL_CONFIG_INVALID: USER_ERROR_MESSAGES.missingApiKey,
         SETTINGS_AUTH_REQUIRED: "Settings token rejected by local backend."
       };
-      return messages[code] || fallback || "Settings request failed.";
+      return messages[code] || normalizeUserErrorMessage(null, { code, message: fallback, fallback: fallback || "Settings request failed." });
     },
 
     async load() {
@@ -479,7 +560,7 @@
           body: JSON.stringify(this.readForm())
         });
         this.hydrate(data.settings);
-        UIController.showSettingsNotice("Saved locally.");
+        UIController.showSettingsNotice("已保存");
       } catch (error) {
         const code = error?.data?.error?.code || error?.data?.code;
         UIController.showSettingsNotice(this.userMessageForCode(code, error.message));
@@ -498,7 +579,7 @@
           body: JSON.stringify(this.readForm())
         });
         if (data.ok) {
-          UIController.showSettingsNotice(`Connected. ${data.latencyMs || 0}ms.`);
+          UIController.showSettingsNotice("连接成功");
         } else {
           UIController.showSettingsNotice(this.userMessageForCode(data.code, data.message));
         }

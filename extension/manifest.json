@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AFlodit Pet Copilot",
-  "version": "0.7.0.8",
+  "version": "0.7.0.9",
   "description": "A lightweight browser pet AI assistant.",
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
