@@ -83,6 +83,41 @@
     });
   }
 
+  function fallbackReplyText() {
+    return "暂无回复。";
+  }
+
+  function staleReplyText() {
+    return "已选择新文本，请点击刷新获取回复。";
+  }
+
+  function resultMatchesCurrentContext(action) {
+    const cached = state.lastResult;
+    if (!cached.replyText || cached.action !== action) return false;
+    if (actionConfig(action).context === "selection") {
+      return Boolean(cached.selectedText) && cached.selectedText === state.selectedText;
+    }
+    return true;
+  }
+
+  function cacheVisibleResult({ action = state.action, result = {}, finalFace = {} } = {}) {
+    if (result.error_code || result.bubble_type === "error" || result.emotion === "error") return;
+    const replyText = String(dom.reply?.textContent || result.reply || "").trim();
+    if (!replyText) return;
+    const pending = state.pendingRequest || {};
+    state.lastResult = {
+      action,
+      selectedText: pending.selectedText || state.selectedText || "",
+      replyText,
+      emotion: finalFace.emotion || result.emotion || "neutral",
+      motion: finalFace.motion || result.motion || "idle",
+      bubbleType: result.bubble_type || "normal",
+      statusMessage: dom.status?.textContent || "",
+      requestFingerprint: pending.fingerprint || `${action}|${pending.selectedText || state.selectedText || ""}`
+    };
+    state.replyStale = false;
+  }
+
   function normalizeUserErrorMessage(error, context = {}) {
     const code = String(context.code || error?.code || context.result?.error_code || "").trim();
     const rawMessage = String(context.message || error?.message || context.result?.reply || error || "");
@@ -144,6 +179,41 @@
     if (canHoverOpenMenu() && isPointerInBubbleSafeZone(event.clientX, event.clientY)) {
       UIController.openMenu("hover");
     }
+  }
+
+  function isInsidePetRoot(target) {
+    return !!dom.root && !!target && dom.root.contains(target);
+  }
+
+  function handleOutsidePointerDown(event) {
+    if (state.ui !== UI.PANEL || isInsidePetRoot(event.target)) {
+      state.outsidePointer = null;
+      return;
+    }
+
+    state.outsidePointer = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY
+    };
+  }
+
+  function handleOutsidePointerUp(event) {
+    const started = state.outsidePointer;
+    state.outsidePointer = null;
+
+    if (!started || state.ui !== UI.PANEL || isInsidePetRoot(event.target)) return;
+    if (event.pointerId !== undefined && started.pointerId !== undefined && event.pointerId !== started.pointerId) return;
+
+    const distance = Math.hypot(event.clientX - started.x, event.clientY - started.y);
+    if (distance > CONFIG.outsideClose.movementThreshold) return;
+
+    window.setTimeout(() => {
+      if (state.ui !== UI.PANEL) return;
+      const selectionText = String(window.getSelection?.().toString() || "").trim();
+      if (selectionText) return;
+      UIController.closeAll();
+    }, CONFIG.outsideClose.selectionCheckDelayMs);
   }
 
   const UIController = {
@@ -297,12 +367,14 @@
       state.ui = UI.PANEL;
       dom.panel.classList.remove("hidden");
       dom.mode.textContent = config.label;
-      dom.status.textContent = config.idle;
-      dom.reply.textContent = "暂无回复。";
+      const canRestore = resultMatchesCurrentContext(action);
+      dom.status.textContent = canRestore ? (state.lastResult.statusMessage || config.idle) : config.idle;
+      dom.reply.textContent = canRestore ? state.lastResult.replyText : fallbackReplyText();
       scrollReplyToTop();
       dom.refresh.classList.toggle("hidden", !config.refreshable);
-      setBubbleType("normal");
-      setMeta("neutral", "idle");
+      setBubbleType(canRestore ? state.lastResult.bubbleType : "normal");
+      setMeta(canRestore ? state.lastResult.emotion : "neutral", canRestore ? state.lastResult.motion : "idle");
+      state.replyStale = false;
 
       dom.chatRow.classList.toggle("hidden", !config.needsUserText);
       dom.contextBlock.classList.toggle("hidden", config.context === "none");
@@ -317,6 +389,18 @@
         dom.selected.textContent = state.selectedText || "暂无选中文本。";
       }
 
+      LayoutManager.updateFloatingLayout();
+    },
+
+    markReplyStaleForSelection(selectedText = "") {
+      if (!state.lastResult.replyText || state.replyStale) return;
+      if (!selectedText || selectedText === state.lastResult.selectedText) return;
+      dom.reply.textContent = staleReplyText();
+      delete dom.reply.dataset.streaming;
+      scrollReplyToTop();
+      setBubbleType("info");
+      setMeta("thinking", "idle");
+      state.replyStale = true;
       LayoutManager.updateFloatingLayout();
     },
 
@@ -343,6 +427,7 @@
       dom.reply.textContent = "思考中...";
       delete dom.reply.dataset.streaming;
       scrollReplyToTop();
+      state.replyStale = false;
       setMeta("thinking", "focus");
       setBubbleType("info");
       LayoutManager.updateFloatingLayout();
@@ -387,6 +472,7 @@
       scrollReplyToTop();
       setMeta(finalFace.emotion, finalFace.motion);
       setBubbleType(result.bubble_type || "normal");
+      cacheVisibleResult({ action: state.action, result, finalFace });
       LayoutManager.updateFloatingLayout();
       if (finalFace.motion === "bulb") {
         FaceController.playIdeaBulb();
@@ -919,6 +1005,8 @@
     on(document, "selectionchange", () => Extractor.updateSelectedText());
     on(document, "mousemove", (event) => FaceController.handleReadingMouseMove(event), { passive: true });
     on(document, "pointermove", (event) => handleHoverMenuPointerMove(event), { passive: true });
+    on(document, "pointerdown", (event) => handleOutsidePointerDown(event), { capture: true, passive: true });
+    on(document, "pointerup", (event) => handleOutsidePointerUp(event), { capture: true, passive: true });
     on(window, "resize", () => LayoutManager.handleViewportResize("resize"));
     on(document, "fullscreenchange", () => LayoutManager.handleViewportResize("fullscreenchange"));
     if (window.visualViewport) {

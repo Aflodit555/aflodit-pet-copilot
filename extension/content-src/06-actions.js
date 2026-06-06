@@ -148,6 +148,11 @@
 
       const requestId = ++state.requestId;
       const payload = this.buildPayload(action, userText.trim());
+      state.pendingRequest = {
+        action,
+        selectedText: payload.selected_text || "",
+        fingerprint: `${payload.action}|${payload.selected_text || ""}|${payload.page_url || ""}|${payload.page_text_snippet || ""}`
+      };
       UIController.showLoading(action);
       setRunning(true);
 
@@ -181,6 +186,7 @@
         console.error(error);
         UIController.showError(error);
       } finally {
+        if (requestId === state.requestId) state.pendingRequest = null;
         if (requestId === state.requestId) setRunning(false);
       }
     }

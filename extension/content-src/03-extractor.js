@@ -27,10 +27,19 @@
     },
 
     updateSelectedText() {
+      const previous = state.selectedText;
       const selected = this.getSelectedText();
       if (selected) state.selectedText = selected;
       if (actionConfig(state.action).context === "selection") {
         dom.selected.textContent = state.selectedText || "暂无选中文本。";
+      }
+      if (
+        selected
+        && selected !== previous
+        && state.ui === UI.PANEL
+        && actionConfig(state.action).context === "selection"
+      ) {
+        UIController.markReplyStaleForSelection?.(selected);
       }
     },
 
