@@ -463,11 +463,30 @@
 
 #aflodit-pet-root .pet-about-list {
   display: grid;
-  gap: 3px;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
 }
 
 #aflodit-pet-root .pet-settings-note {
   color: var(--pet-muted);
+}
+
+#aflodit-pet-root .pet-about-section {
+  margin-top: 10px;
+}
+
+#aflodit-pet-root .pet-about-section-title {
+  margin-bottom: 3px;
+  color: var(--pet-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#aflodit-pet-root .pet-about-section .pet-settings-note {
+  margin-top: 0;
 }
 
 #aflodit-pet-root .pet-settings-actions {

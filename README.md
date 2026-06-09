@@ -22,9 +22,21 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.7.0.11 Preserve Last Reply Patch`。
+当前实现是 `v0.8.0 Backendless Runtime Phase 1`。
 
-这个版本重点加入了安全的本地模型设置能力：
+### v0.8.0 Phase 1 Background Runtime Skeleton
+
+`v0.8.0 Phase 1` 是 Backendless 迁移的骨架阶段，不是最终 Backendless 用户版。当前普通功能仍需要本地 backend。
+
+本阶段只接入 Chrome MV3 background service worker 和安全的 background runtime 骨架。AI 主链路仍保持不变：
+
+```text
+content.js -> http://127.0.0.1:3001/api/pet -> Local Backend -> LLM Runtime
+```
+
+Phase 1 新增的 background runtime 当前只用于状态探测和脱敏 public settings skeleton，支持消息：`runtime:getStatus`、`settings:getPublic`、`settings:savePublic`、`settings:clearKey`。它不保存真实 API Key，不迁移真实模型请求，不执行任意 fetch，不引入 `https://*/*`，也不引入 Native Messaging。Settings 面板中的只读状态只用于确认 background service worker 是否可用；Chat、Explain、Translate、Summarize 仍走本地 backend。
+
+当前仍保留此前版本中的本地模型设置能力：
 
 - Settings 面板可以读取、保存、测试模型配置。
 - 新增 `GET /api/settings`、`PUT /api/settings`、`POST /api/settings/test`。
@@ -48,6 +60,8 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 - **Pet Positioning**：支持 docked/free 位置、边缘吸附、窗口 resize 后位置约束。
 
 ## 快速开始
+
+在最终 Backendless 版本完成前，当前 Phase 1 仍按本地后端流程运行。
 
 ### 1. 准备环境
 
@@ -405,6 +419,7 @@ PORT=3002
 ## 已知限制
 
 - 使用扩展时必须运行本地后端。
+- 这是 Phase 1 的临时限制，后续 Phase 计划迁移到 background runtime。
 - 后端不是 production hardened 服务。
 - OpenAI-Compatible provider 的兼容性取决于对方 `/chat/completions` 行为。
 - 网页内容提取质量会因网站结构而变化。

@@ -28,12 +28,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   });
 
   const CONFIG = Object.freeze({
-    version: "0.7.0.11",
+    version: "0.8.0",
     backendUrl: "http://127.0.0.1:3001/api/pet",
     streamUrl: "http://127.0.0.1:3001/api/pet-stream",
     settingsUrl: "http://127.0.0.1:3001/api/settings",
     streamEnabled: true,
     localClientToken: "aflodit-pet-local-dev",
+    backgroundStatusTimeoutMs: 1200,
     debug: false,
     storage: Object.freeze({
       uiSettingsKey: "afloditPetUiSettings",
@@ -229,6 +230,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       initialPosition: "bottom-right",
       savedPosition: null,
       opacity: 1
+    },
+    backgroundRuntime: {
+      checked: false,
+      available: false,
+      label: "backend legacy"
     },
     layout: {
       menuVariant: "br",

@@ -328,6 +328,7 @@
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.remove("hidden");
       dom.settingsMessage.textContent = "";
+      BackgroundRuntimeClient.refreshStatus();
       LayoutManager.schedulePetLayout();
     },
 
@@ -546,6 +547,64 @@
       dom.avatar.title = "AFlodit Pet Copilot";
       FaceController.resetFace();
       if (openChat) this.openPanel(ACTION.CHAT);
+    }
+  };
+
+// =========================
+  // 10.1 Background runtime probe
+  // =========================
+  const BackgroundRuntimeClient = {
+    updateLabel(label, available = false) {
+      state.backgroundRuntime = {
+        checked: true,
+        available,
+        label
+      };
+      if (dom.runtimeStatus) dom.runtimeStatus.textContent = label;
+    },
+
+    send(message) {
+      const runtime = globalThis.chrome?.runtime;
+      if (!runtime?.sendMessage) {
+        return Promise.resolve(null);
+      }
+
+      return new Promise((resolve) => {
+        let settled = false;
+        const timer = window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          resolve(null);
+        }, CONFIG.backgroundStatusTimeoutMs);
+
+        try {
+          runtime.sendMessage(message, (response) => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timer);
+            if (runtime.lastError) {
+              resolve(null);
+              return;
+            }
+            resolve(response || null);
+          });
+        } catch (error) {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timer);
+          resolve(null);
+        }
+      });
+    },
+
+    async refreshStatus() {
+      const status = await this.send({ type: "runtime:getStatus" });
+      if (status?.ok && status.runtime === "background") {
+        this.updateLabel("backend legacy / background available", true);
+        return status;
+      }
+      this.updateLabel("backend legacy", false);
+      return null;
     }
   };
 // =========================

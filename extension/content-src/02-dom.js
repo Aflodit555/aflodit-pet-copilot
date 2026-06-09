@@ -122,13 +122,23 @@
               <div class="pet-about-list">
                 <div><b>Project</b>：AFlodit Pet Copilot</div>
                 <div><b>Version</b>：${CONFIG.version}</div>
-                <div><b>Runtime</b>：Local Backend + Browser Extension</div>
+                <div><b>Runtime status</b>：<span id="aflodit-pet-runtime-status">backend legacy</span></div>
                 <div><b>Backend URL</b>：http://127.0.0.1:3001</div>
                 <div><b>Model modes</b>：Mock / OpenAI-Compatible</div>
                 <div><b>GitHub</b>：https://github.com/AFlodit55/aflodit-pet-copilot</div>
               </div>
-              <div class="pet-settings-note">AFlodit Pet Copilot 是一个运行在浏览器页面上的轻量 AI 桌宠助手，可以聊天、解释选中文本、翻译选中文本和总结当前网页。</div>
-              <div class="pet-settings-note">API Key 保存在本地后端配置中，不写入扩展代码。不要公开 backend/.env 或 backend/.local/settings.local.json。本项目是本地优先的开发者工具，不是生产级账号系统。</div>
+              <div class="pet-about-section">
+                <div class="pet-about-section-title">产品概述</div>
+                <div class="pet-settings-note">AFlodit Pet Copilot 是一个运行在网页中的轻量 AI 桌宠助手，支持聊天、解释选中文本、翻译选中文本和总结当前网页。</div>
+              </div>
+              <div class="pet-about-section">
+                <div class="pet-about-section-title">当前阶段</div>
+                <div class="pet-settings-note">当前版本为 v0.8.0 Phase 1。Background runtime 已接入骨架，但主要 AI 功能仍通过本地 backend 运行。</div>
+              </div>
+              <div class="pet-about-section">
+                <div class="pet-about-section-title">安全说明</div>
+                <div class="pet-settings-note">API Key 当前保存在本地后端配置中，不写入扩展存储。请勿公开 backend/.env 或 backend/.local/settings.local.json。</div>
+              </div>
               </div>
               <div class="pet-settings-actions pet-settings-footer">
                 <button id="aflodit-pet-about-back" class="pet-secondary-button">Back</button>
@@ -518,6 +528,7 @@
       settingsBaseUrl: root.querySelector("#aflodit-pet-settings-base-url"),
       settingsModelName: root.querySelector("#aflodit-pet-settings-model-name"),
       settingsApiKey: root.querySelector("#aflodit-pet-settings-api-key"),
+      runtimeStatus: root.querySelector("#aflodit-pet-runtime-status"),
       settingsMessage: root.querySelector("#aflodit-pet-settings-message"),
       settingsTest: root.querySelector("#aflodit-pet-settings-test"),
       settingsSave: root.querySelector("#aflodit-pet-settings-save"),
