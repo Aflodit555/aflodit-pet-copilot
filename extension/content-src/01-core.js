@@ -236,6 +236,14 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       available: false,
       label: "backend legacy"
     },
+    runtimePublicSettings: {
+      provider: "mock",
+      model: "mock-model",
+      saveMode: "local",
+      debugEnabled: false,
+      hasApiKey: false,
+      apiKeyPreview: ""
+    },
     layout: {
       menuVariant: "br",
       panelPlacement: "top"

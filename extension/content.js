@@ -648,6 +648,14 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       available: false,
       label: "backend legacy"
     },
+    runtimePublicSettings: {
+      provider: "mock",
+      model: "mock-model",
+      saveMode: "local",
+      debugEnabled: false,
+      hasApiKey: false,
+      apiKeyPreview: ""
+    },
     layout: {
       menuVariant: "br",
       panelPlacement: "top"
@@ -786,6 +794,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
             <div id="aflodit-pet-settings-menu" class="pet-settings-view">
               <div class="pet-settings-title">插件设置</div>
               <button class="pet-settings-menu-item" data-settings-view="model">模型配置</button>
+              <button class="pet-settings-menu-item" data-settings-view="runtime">Backendless Preview</button>
               <button class="pet-settings-menu-item" data-settings-view="display">显示与位置</button>
               <button class="pet-settings-menu-item" data-settings-view="commands">快捷命令</button>
               <button class="pet-settings-menu-item" data-settings-view="about">关于</button>
@@ -820,6 +829,46 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <button id="aflodit-pet-settings-save" class="pet-primary-button">Save</button>
                 <button id="aflodit-pet-settings-back" class="pet-secondary-button">Back</button>
                 <button id="aflodit-pet-settings-cancel" class="pet-secondary-button">Cancel</button>
+              </div>
+            </div>
+
+            <div id="aflodit-pet-settings-runtime" class="pet-settings-view pet-settings-fixed-footer hidden">
+              <div class="pet-settings-body">
+              <div class="pet-settings-title">Backendless Preview</div>
+              <div class="pet-settings-message pet-runtime-warning">Backendless Preview 当前不接真实模型，真实 Chat/Explain/Translate/Summarize 仍走本地 backend。</div>
+              <div class="pet-runtime-summary">
+                <div><b>Runtime status</b>：<span id="aflodit-pet-runtime-settings-status">unavailable</span></div>
+                <div><b>Has API Key</b>：<span id="aflodit-pet-runtime-has-key">false</span></div>
+                <div><b>API Key preview</b>：<span id="aflodit-pet-runtime-key-preview"></span></div>
+              </div>
+              <label class="pet-settings-field">
+                <span>Provider</span>
+                <select id="aflodit-pet-runtime-provider">
+                  <option value="mock">mock</option>
+                </select>
+              </label>
+              <label class="pet-settings-field">
+                <span>Model</span>
+                <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
+              </label>
+              <label class="pet-settings-field">
+                <span>Save mode</span>
+                <select id="aflodit-pet-runtime-save-mode">
+                  <option value="local">local</option>
+                  <option value="session">session</option>
+                </select>
+              </label>
+              <label class="pet-settings-check">
+                <input id="aflodit-pet-runtime-debug" type="checkbox" />
+                <span>Debug enabled</span>
+              </label>
+              <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
+              </div>
+              <div class="pet-settings-actions pet-settings-footer">
+                <button id="aflodit-pet-runtime-save" class="pet-primary-button">Save Runtime Settings</button>
+                <button id="aflodit-pet-runtime-reload" class="pet-secondary-button">Reload Runtime Settings</button>
+                <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button">Clear Runtime Key</button>
+                <button id="aflodit-pet-runtime-back" class="pet-secondary-button">Back</button>
               </div>
             </div>
 
@@ -896,7 +945,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
               </div>
               <div class="pet-about-section">
                 <div class="pet-about-section-title">当前阶段</div>
-                <div class="pet-settings-note">当前版本为 v0.8.0 Phase 1。Background runtime 已接入骨架，但主要 AI 功能仍通过本地 backend 运行。</div>
+                <div class="pet-settings-note">当前版本为 v0.8.0 Phase 2。Backendless Preview 已接入 public settings 闭环，但主要 AI 功能仍通过本地 backend 运行。</div>
               </div>
               <div class="pet-about-section">
                 <div class="pet-about-section-title">安全说明</div>
@@ -1268,6 +1317,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       settings: root.querySelector("#aflodit-pet-settings"),
       settingsMenu: root.querySelector("#aflodit-pet-settings-menu"),
       settingsModel: root.querySelector("#aflodit-pet-settings-model"),
+      settingsRuntime: root.querySelector("#aflodit-pet-settings-runtime"),
       settingsCommands: root.querySelector("#aflodit-pet-settings-commands"),
       settingsDisplay: root.querySelector("#aflodit-pet-settings-display"),
       settingsAbout: root.querySelector("#aflodit-pet-settings-about"),
@@ -1284,6 +1334,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       pomodoroPrimary: root.querySelector("#aflodit-pet-pomodoro-primary"),
       pomodoroEnd: root.querySelector("#aflodit-pet-pomodoro-end"),
       settingsModelEntry: root.querySelector("[data-settings-view='model']"),
+      settingsRuntimeEntry: root.querySelector("[data-settings-view='runtime']"),
       settingsCommandsEntry: root.querySelector("[data-settings-view='commands']"),
       settingsDisplayEntry: root.querySelector("[data-settings-view='display']"),
       settingsAboutEntry: root.querySelector("[data-settings-view='about']"),
@@ -1292,6 +1343,18 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       settingsModelName: root.querySelector("#aflodit-pet-settings-model-name"),
       settingsApiKey: root.querySelector("#aflodit-pet-settings-api-key"),
       runtimeStatus: root.querySelector("#aflodit-pet-runtime-status"),
+      runtimeSettingsStatus: root.querySelector("#aflodit-pet-runtime-settings-status"),
+      runtimeProvider: root.querySelector("#aflodit-pet-runtime-provider"),
+      runtimeModel: root.querySelector("#aflodit-pet-runtime-model"),
+      runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
+      runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
+      runtimeHasKey: root.querySelector("#aflodit-pet-runtime-has-key"),
+      runtimeKeyPreview: root.querySelector("#aflodit-pet-runtime-key-preview"),
+      runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),
+      runtimeSave: root.querySelector("#aflodit-pet-runtime-save"),
+      runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
+      runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
+      runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),
       settingsMessage: root.querySelector("#aflodit-pet-settings-message"),
       settingsTest: root.querySelector("#aflodit-pet-settings-test"),
       settingsSave: root.querySelector("#aflodit-pet-settings-save"),
@@ -2963,6 +3026,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       dom.settings.classList.add("hidden");
       dom.settingsMenu.classList.remove("hidden");
       dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.add("hidden");
@@ -2982,6 +3046,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       dom.settings.classList.remove("hidden");
       dom.settingsMenu.classList.remove("hidden");
       dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.add("hidden");
@@ -2994,6 +3059,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       clearHoverCloseTimer();
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.remove("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.add("hidden");
@@ -3002,10 +3068,24 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       SettingsManager.load();
     },
 
+    openRuntimeSettings() {
+      clearHoverCloseTimer();
+      dom.settingsMenu.classList.add("hidden");
+      dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.remove("hidden");
+      dom.settingsCommands.classList.add("hidden");
+      dom.settingsDisplay.classList.add("hidden");
+      dom.settingsAbout.classList.add("hidden");
+      dom.settingsMessage.textContent = "";
+      RuntimeSettingsManager.load();
+      LayoutManager.schedulePetLayout();
+    },
+
     openCommandHelp() {
       clearHoverCloseTimer();
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.remove("hidden");
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.add("hidden");
@@ -3017,6 +3097,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       clearHoverCloseTimer();
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.remove("hidden");
       dom.settingsAbout.classList.add("hidden");
@@ -3029,6 +3110,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       clearHoverCloseTimer();
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.remove("hidden");
@@ -3040,6 +3122,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     backToSettingsMenu() {
       clearHoverCloseTimer();
       dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.add("hidden");
@@ -3256,7 +3339,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   };
 
 // =========================
-  // 10.1 Background runtime probe
+  // 10.1 Background runtime client
   // =========================
   const BackgroundRuntimeClient = {
     updateLabel(label, available = false) {
@@ -3302,14 +3385,175 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       });
     },
 
+    async request(message) {
+      const response = await this.send(message);
+      if (!response) {
+        return {
+          ok: false,
+          error: {
+            code: "BACKGROUND_UNAVAILABLE",
+            message: "Background runtime unavailable."
+          }
+        };
+      }
+      return response;
+    },
+
+    async getStatus() {
+      return this.request({ type: "runtime:getStatus" });
+    },
+
+    async getPublicSettings() {
+      return this.request({ type: "settings:getPublic" });
+    },
+
+    async savePublicSettings(payload = {}) {
+      return this.request({
+        type: "settings:savePublic",
+        payload: {
+          provider: payload.provider,
+          model: payload.model,
+          saveMode: payload.saveMode,
+          debugEnabled: payload.debugEnabled
+        }
+      });
+    },
+
+    async clearKey() {
+      return this.request({ type: "settings:clearKey" });
+    },
+
     async refreshStatus() {
-      const status = await this.send({ type: "runtime:getStatus" });
+      const status = await this.getStatus();
       if (status?.ok && status.runtime === "background") {
         this.updateLabel("backend legacy / background available", true);
         return status;
       }
       this.updateLabel("backend legacy", false);
       return null;
+    }
+  };
+
+  const RuntimeSettingsManager = {
+    busy: false,
+
+    setBusy(busy) {
+      this.busy = busy;
+      dom.runtimeSave.disabled = busy;
+      dom.runtimeReload.disabled = busy;
+      dom.runtimeClearKey.disabled = busy;
+    },
+
+    setMessage(message) {
+      if (dom.runtimeMessage) dom.runtimeMessage.textContent = message || "";
+      LayoutManager.schedulePetLayout();
+    },
+
+    userMessage(response, fallback = "Runtime settings request failed.") {
+      const code = response?.error?.code || response?.code || "";
+      const messages = {
+        BACKGROUND_UNAVAILABLE: "Background runtime unavailable.",
+        MESSAGE_PAYLOAD_FORBIDDEN: "Runtime settings rejected unsafe fields.",
+        SETTING_FORBIDDEN: "Runtime settings rejected unsafe fields.",
+        SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
+        PROVIDER_NOT_ALLOWED: "Provider is not available in Backendless Preview."
+      };
+      return messages[code] || response?.error?.message || response?.message || fallback;
+    },
+
+    hydrate(data = {}) {
+      const settings = data.settings || data || {};
+      const provider = settings.provider || "mock";
+      state.runtimePublicSettings = {
+        provider,
+        model: settings.model || "mock-model",
+        saveMode: settings.saveMode === "session" ? "session" : "local",
+        debugEnabled: Boolean(settings.debugEnabled),
+        hasApiKey: Boolean(settings.hasApiKey),
+        apiKeyPreview: settings.apiKeyPreview || ""
+      };
+
+      dom.runtimeProvider.value = provider === "mock" ? "mock" : "mock";
+      dom.runtimeModel.value = state.runtimePublicSettings.model;
+      dom.runtimeSaveMode.value = state.runtimePublicSettings.saveMode;
+      dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
+      dom.runtimeHasKey.textContent = String(state.runtimePublicSettings.hasApiKey);
+      dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
+    },
+
+    readForm() {
+      return {
+        provider: "mock",
+        model: String(dom.runtimeModel.value || "mock-model").trim() || "mock-model",
+        saveMode: dom.runtimeSaveMode.value === "session" ? "session" : "local",
+        debugEnabled: Boolean(dom.runtimeDebug.checked)
+      };
+    },
+
+    async refreshStatus() {
+      const status = await BackgroundRuntimeClient.refreshStatus();
+      if (dom.runtimeSettingsStatus) {
+        dom.runtimeSettingsStatus.textContent = status ? "background available" : "unavailable";
+      }
+      return status;
+    },
+
+    async load() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("Loading runtime settings...");
+      try {
+        await this.refreshStatus();
+        const response = await BackgroundRuntimeClient.getPublicSettings();
+        if (!response.ok) {
+          this.setMessage(this.userMessage(response));
+          return;
+        }
+        this.hydrate(response);
+        this.setMessage("Runtime settings loaded.");
+      } catch (error) {
+        this.setMessage(error?.message || "Runtime settings request failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async save() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("Saving runtime settings...");
+      try {
+        const response = await BackgroundRuntimeClient.savePublicSettings(this.readForm());
+        if (!response.ok) {
+          this.setMessage(this.userMessage(response));
+          return;
+        }
+        this.hydrate(response);
+        this.setMessage("Runtime settings saved. Legacy backend model settings are unchanged.");
+      } catch (error) {
+        this.setMessage(error?.message || "Runtime settings request failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async clearKey() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("Clearing runtime skeleton key...");
+      try {
+        const response = await BackgroundRuntimeClient.clearKey();
+        if (!response.ok) {
+          this.setMessage(this.userMessage(response));
+          return;
+        }
+        this.hydrate(response);
+        this.setMessage("Runtime skeleton key cleared. Backend API Key is unchanged.");
+      } catch (error) {
+        this.setMessage(error?.message || "Runtime settings request failed.");
+      } finally {
+        this.setBusy(false);
+      }
     }
   };
 // =========================
@@ -3820,6 +4064,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       UIController.openModelSettings();
     });
 
+    on(dom.settingsRuntimeEntry, "click", (event) => {
+      event.stopPropagation();
+      UIController.openRuntimeSettings();
+    });
+
     on(dom.settingsCommandsEntry, "click", (event) => {
       event.stopPropagation();
       UIController.openCommandHelp();
@@ -3843,6 +4092,26 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     on(dom.settingsSave, "click", (event) => {
       event.stopPropagation();
       SettingsManager.save();
+    });
+
+    on(dom.runtimeSave, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.save();
+    });
+
+    on(dom.runtimeReload, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.load();
+    });
+
+    on(dom.runtimeClearKey, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.clearKey();
+    });
+
+    on(dom.runtimeBack, "click", (event) => {
+      event.stopPropagation();
+      UIController.backToSettingsMenu();
     });
 
     on(dom.settingsBack, "click", (event) => {

@@ -20,6 +20,10 @@ function sanitizeString(value, fallback, maxLength = 120) {
   return trimmed ? trimmed.slice(0, maxLength) : fallback;
 }
 
+function sanitizeSaveMode(value, fallback) {
+  return value === "session" || value === "local" ? value : fallback;
+}
+
 export function sanitizePublicSettings(raw = {}, base = DEFAULT_SETTINGS) {
   const provider = sanitizeString(raw.provider, base.provider, 64);
   const safeProvider = hasProvider(provider) ? provider : base.provider;
@@ -28,7 +32,7 @@ export function sanitizePublicSettings(raw = {}, base = DEFAULT_SETTINGS) {
   return {
     provider: safeProvider,
     model: sanitizeString(raw.model, base.model || providerInfo?.defaultModel || "mock-model", 120),
-    saveMode: sanitizeString(raw.saveMode, base.saveMode, 32),
+    saveMode: sanitizeSaveMode(raw.saveMode, base.saveMode),
     debugEnabled: sanitizeBoolean(raw.debugEnabled, base.debugEnabled)
   };
 }

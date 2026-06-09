@@ -37,7 +37,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           ok: true,
           runtime: "background",
           version,
-          backendlessPhase: 1
+          backendlessPhase: 2
         };
       }
 

@@ -445,6 +445,19 @@
   border-color: #888;
 }
 
+#aflodit-pet-root .pet-settings-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--pet-text);
+  font-size: 12px;
+}
+
+#aflodit-pet-root .pet-settings-check input {
+  margin: 0;
+}
+
 #aflodit-pet-root .pet-settings-message {
   min-height: 18px;
   margin-top: 8px;
@@ -487,6 +500,29 @@
 
 #aflodit-pet-root .pet-about-section .pet-settings-note {
   margin-top: 0;
+}
+
+#aflodit-pet-root .pet-runtime-warning {
+  min-height: 0;
+  margin-top: 6px;
+  padding: 7px 8px;
+  border: 1px solid rgba(160, 120, 0, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 247, 214, 0.72);
+  color: #5d4a12;
+}
+
+#aflodit-pet-root .pet-runtime-summary {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #444;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 #aflodit-pet-root .pet-settings-actions {

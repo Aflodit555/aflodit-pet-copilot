@@ -258,6 +258,7 @@
       dom.settings.classList.add("hidden");
       dom.settingsMenu.classList.remove("hidden");
       dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.add("hidden");
@@ -277,6 +278,7 @@
       dom.settings.classList.remove("hidden");
       dom.settingsMenu.classList.remove("hidden");
       dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.add("hidden");
@@ -289,6 +291,7 @@
       clearHoverCloseTimer();
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.remove("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.add("hidden");
@@ -297,10 +300,24 @@
       SettingsManager.load();
     },
 
+    openRuntimeSettings() {
+      clearHoverCloseTimer();
+      dom.settingsMenu.classList.add("hidden");
+      dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.remove("hidden");
+      dom.settingsCommands.classList.add("hidden");
+      dom.settingsDisplay.classList.add("hidden");
+      dom.settingsAbout.classList.add("hidden");
+      dom.settingsMessage.textContent = "";
+      RuntimeSettingsManager.load();
+      LayoutManager.schedulePetLayout();
+    },
+
     openCommandHelp() {
       clearHoverCloseTimer();
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.remove("hidden");
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.add("hidden");
@@ -312,6 +329,7 @@
       clearHoverCloseTimer();
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.remove("hidden");
       dom.settingsAbout.classList.add("hidden");
@@ -324,6 +342,7 @@
       clearHoverCloseTimer();
       dom.settingsMenu.classList.add("hidden");
       dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.remove("hidden");
@@ -335,6 +354,7 @@
     backToSettingsMenu() {
       clearHoverCloseTimer();
       dom.settingsModel.classList.add("hidden");
+      dom.settingsRuntime.classList.add("hidden");
       dom.settingsCommands.classList.add("hidden");
       dom.settingsDisplay.classList.add("hidden");
       dom.settingsAbout.classList.add("hidden");
@@ -551,7 +571,7 @@
   };
 
 // =========================
-  // 10.1 Background runtime probe
+  // 10.1 Background runtime client
   // =========================
   const BackgroundRuntimeClient = {
     updateLabel(label, available = false) {
@@ -597,14 +617,175 @@
       });
     },
 
+    async request(message) {
+      const response = await this.send(message);
+      if (!response) {
+        return {
+          ok: false,
+          error: {
+            code: "BACKGROUND_UNAVAILABLE",
+            message: "Background runtime unavailable."
+          }
+        };
+      }
+      return response;
+    },
+
+    async getStatus() {
+      return this.request({ type: "runtime:getStatus" });
+    },
+
+    async getPublicSettings() {
+      return this.request({ type: "settings:getPublic" });
+    },
+
+    async savePublicSettings(payload = {}) {
+      return this.request({
+        type: "settings:savePublic",
+        payload: {
+          provider: payload.provider,
+          model: payload.model,
+          saveMode: payload.saveMode,
+          debugEnabled: payload.debugEnabled
+        }
+      });
+    },
+
+    async clearKey() {
+      return this.request({ type: "settings:clearKey" });
+    },
+
     async refreshStatus() {
-      const status = await this.send({ type: "runtime:getStatus" });
+      const status = await this.getStatus();
       if (status?.ok && status.runtime === "background") {
         this.updateLabel("backend legacy / background available", true);
         return status;
       }
       this.updateLabel("backend legacy", false);
       return null;
+    }
+  };
+
+  const RuntimeSettingsManager = {
+    busy: false,
+
+    setBusy(busy) {
+      this.busy = busy;
+      dom.runtimeSave.disabled = busy;
+      dom.runtimeReload.disabled = busy;
+      dom.runtimeClearKey.disabled = busy;
+    },
+
+    setMessage(message) {
+      if (dom.runtimeMessage) dom.runtimeMessage.textContent = message || "";
+      LayoutManager.schedulePetLayout();
+    },
+
+    userMessage(response, fallback = "Runtime settings request failed.") {
+      const code = response?.error?.code || response?.code || "";
+      const messages = {
+        BACKGROUND_UNAVAILABLE: "Background runtime unavailable.",
+        MESSAGE_PAYLOAD_FORBIDDEN: "Runtime settings rejected unsafe fields.",
+        SETTING_FORBIDDEN: "Runtime settings rejected unsafe fields.",
+        SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
+        PROVIDER_NOT_ALLOWED: "Provider is not available in Backendless Preview."
+      };
+      return messages[code] || response?.error?.message || response?.message || fallback;
+    },
+
+    hydrate(data = {}) {
+      const settings = data.settings || data || {};
+      const provider = settings.provider || "mock";
+      state.runtimePublicSettings = {
+        provider,
+        model: settings.model || "mock-model",
+        saveMode: settings.saveMode === "session" ? "session" : "local",
+        debugEnabled: Boolean(settings.debugEnabled),
+        hasApiKey: Boolean(settings.hasApiKey),
+        apiKeyPreview: settings.apiKeyPreview || ""
+      };
+
+      dom.runtimeProvider.value = provider === "mock" ? "mock" : "mock";
+      dom.runtimeModel.value = state.runtimePublicSettings.model;
+      dom.runtimeSaveMode.value = state.runtimePublicSettings.saveMode;
+      dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
+      dom.runtimeHasKey.textContent = String(state.runtimePublicSettings.hasApiKey);
+      dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
+    },
+
+    readForm() {
+      return {
+        provider: "mock",
+        model: String(dom.runtimeModel.value || "mock-model").trim() || "mock-model",
+        saveMode: dom.runtimeSaveMode.value === "session" ? "session" : "local",
+        debugEnabled: Boolean(dom.runtimeDebug.checked)
+      };
+    },
+
+    async refreshStatus() {
+      const status = await BackgroundRuntimeClient.refreshStatus();
+      if (dom.runtimeSettingsStatus) {
+        dom.runtimeSettingsStatus.textContent = status ? "background available" : "unavailable";
+      }
+      return status;
+    },
+
+    async load() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("Loading runtime settings...");
+      try {
+        await this.refreshStatus();
+        const response = await BackgroundRuntimeClient.getPublicSettings();
+        if (!response.ok) {
+          this.setMessage(this.userMessage(response));
+          return;
+        }
+        this.hydrate(response);
+        this.setMessage("Runtime settings loaded.");
+      } catch (error) {
+        this.setMessage(error?.message || "Runtime settings request failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async save() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("Saving runtime settings...");
+      try {
+        const response = await BackgroundRuntimeClient.savePublicSettings(this.readForm());
+        if (!response.ok) {
+          this.setMessage(this.userMessage(response));
+          return;
+        }
+        this.hydrate(response);
+        this.setMessage("Runtime settings saved. Legacy backend model settings are unchanged.");
+      } catch (error) {
+        this.setMessage(error?.message || "Runtime settings request failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async clearKey() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("Clearing runtime skeleton key...");
+      try {
+        const response = await BackgroundRuntimeClient.clearKey();
+        if (!response.ok) {
+          this.setMessage(this.userMessage(response));
+          return;
+        }
+        this.hydrate(response);
+        this.setMessage("Runtime skeleton key cleared. Backend API Key is unchanged.");
+      } catch (error) {
+        this.setMessage(error?.message || "Runtime settings request failed.");
+      } finally {
+        this.setBusy(false);
+      }
     }
   };
 // =========================
@@ -1115,6 +1296,11 @@
       UIController.openModelSettings();
     });
 
+    on(dom.settingsRuntimeEntry, "click", (event) => {
+      event.stopPropagation();
+      UIController.openRuntimeSettings();
+    });
+
     on(dom.settingsCommandsEntry, "click", (event) => {
       event.stopPropagation();
       UIController.openCommandHelp();
@@ -1138,6 +1324,26 @@
     on(dom.settingsSave, "click", (event) => {
       event.stopPropagation();
       SettingsManager.save();
+    });
+
+    on(dom.runtimeSave, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.save();
+    });
+
+    on(dom.runtimeReload, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.load();
+    });
+
+    on(dom.runtimeClearKey, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.clearKey();
+    });
+
+    on(dom.runtimeBack, "click", (event) => {
+      event.stopPropagation();
+      UIController.backToSettingsMenu();
     });
 
     on(dom.settingsBack, "click", (event) => {

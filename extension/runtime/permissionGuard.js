@@ -11,7 +11,32 @@ export function validatePublicSettings(settings = {}) {
     };
   }
 
-  for (const key of ["baseUrl", "url", "endpoint", "headers", "apiKey"]) {
+  const allowedKeys = new Set(["provider", "model", "saveMode", "debugEnabled"]);
+  const forbiddenKeys = new Set(["apiKey", "baseUrl", "url", "endpoint", "headers", "rawBody", "authorization", "Authorization"]);
+
+  for (const key of Object.keys(settings || {})) {
+    if (forbiddenKeys.has(key)) {
+      return {
+        ok: false,
+        error: {
+          code: "SETTING_FORBIDDEN",
+          message: `Public background settings cannot include ${key}.`
+        }
+      };
+    }
+
+    if (!allowedKeys.has(key)) {
+      return {
+        ok: false,
+        error: {
+          code: "SETTING_UNKNOWN",
+          message: `Public background settings field is not supported: ${key}`
+        }
+      };
+    }
+  }
+
+  for (const key of ["baseUrl", "url", "endpoint", "headers", "apiKey", "rawBody", "Authorization"]) {
     if (settings[key] !== undefined) {
       return {
         ok: false,

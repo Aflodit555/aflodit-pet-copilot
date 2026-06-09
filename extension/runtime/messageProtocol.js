@@ -10,6 +10,7 @@ export const BLOCKED_MESSAGE_TYPES = Object.freeze([
   "proxy",
   "request:url",
   "settings:getSecret",
+  "settings:saveSecret",
   "provider:rawCall",
   "debug:getRawRequest"
 ]);

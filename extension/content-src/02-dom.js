@@ -23,6 +23,7 @@
             <div id="aflodit-pet-settings-menu" class="pet-settings-view">
               <div class="pet-settings-title">插件设置</div>
               <button class="pet-settings-menu-item" data-settings-view="model">模型配置</button>
+              <button class="pet-settings-menu-item" data-settings-view="runtime">Backendless Preview</button>
               <button class="pet-settings-menu-item" data-settings-view="display">显示与位置</button>
               <button class="pet-settings-menu-item" data-settings-view="commands">快捷命令</button>
               <button class="pet-settings-menu-item" data-settings-view="about">关于</button>
@@ -57,6 +58,46 @@
                 <button id="aflodit-pet-settings-save" class="pet-primary-button">Save</button>
                 <button id="aflodit-pet-settings-back" class="pet-secondary-button">Back</button>
                 <button id="aflodit-pet-settings-cancel" class="pet-secondary-button">Cancel</button>
+              </div>
+            </div>
+
+            <div id="aflodit-pet-settings-runtime" class="pet-settings-view pet-settings-fixed-footer hidden">
+              <div class="pet-settings-body">
+              <div class="pet-settings-title">Backendless Preview</div>
+              <div class="pet-settings-message pet-runtime-warning">Backendless Preview 当前不接真实模型，真实 Chat/Explain/Translate/Summarize 仍走本地 backend。</div>
+              <div class="pet-runtime-summary">
+                <div><b>Runtime status</b>：<span id="aflodit-pet-runtime-settings-status">unavailable</span></div>
+                <div><b>Has API Key</b>：<span id="aflodit-pet-runtime-has-key">false</span></div>
+                <div><b>API Key preview</b>：<span id="aflodit-pet-runtime-key-preview"></span></div>
+              </div>
+              <label class="pet-settings-field">
+                <span>Provider</span>
+                <select id="aflodit-pet-runtime-provider">
+                  <option value="mock">mock</option>
+                </select>
+              </label>
+              <label class="pet-settings-field">
+                <span>Model</span>
+                <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
+              </label>
+              <label class="pet-settings-field">
+                <span>Save mode</span>
+                <select id="aflodit-pet-runtime-save-mode">
+                  <option value="local">local</option>
+                  <option value="session">session</option>
+                </select>
+              </label>
+              <label class="pet-settings-check">
+                <input id="aflodit-pet-runtime-debug" type="checkbox" />
+                <span>Debug enabled</span>
+              </label>
+              <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
+              </div>
+              <div class="pet-settings-actions pet-settings-footer">
+                <button id="aflodit-pet-runtime-save" class="pet-primary-button">Save Runtime Settings</button>
+                <button id="aflodit-pet-runtime-reload" class="pet-secondary-button">Reload Runtime Settings</button>
+                <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button">Clear Runtime Key</button>
+                <button id="aflodit-pet-runtime-back" class="pet-secondary-button">Back</button>
               </div>
             </div>
 
@@ -133,7 +174,7 @@
               </div>
               <div class="pet-about-section">
                 <div class="pet-about-section-title">当前阶段</div>
-                <div class="pet-settings-note">当前版本为 v0.8.0 Phase 1。Background runtime 已接入骨架，但主要 AI 功能仍通过本地 backend 运行。</div>
+                <div class="pet-settings-note">当前版本为 v0.8.0 Phase 2。Backendless Preview 已接入 public settings 闭环，但主要 AI 功能仍通过本地 backend 运行。</div>
               </div>
               <div class="pet-about-section">
                 <div class="pet-about-section-title">安全说明</div>
@@ -505,6 +546,7 @@
       settings: root.querySelector("#aflodit-pet-settings"),
       settingsMenu: root.querySelector("#aflodit-pet-settings-menu"),
       settingsModel: root.querySelector("#aflodit-pet-settings-model"),
+      settingsRuntime: root.querySelector("#aflodit-pet-settings-runtime"),
       settingsCommands: root.querySelector("#aflodit-pet-settings-commands"),
       settingsDisplay: root.querySelector("#aflodit-pet-settings-display"),
       settingsAbout: root.querySelector("#aflodit-pet-settings-about"),
@@ -521,6 +563,7 @@
       pomodoroPrimary: root.querySelector("#aflodit-pet-pomodoro-primary"),
       pomodoroEnd: root.querySelector("#aflodit-pet-pomodoro-end"),
       settingsModelEntry: root.querySelector("[data-settings-view='model']"),
+      settingsRuntimeEntry: root.querySelector("[data-settings-view='runtime']"),
       settingsCommandsEntry: root.querySelector("[data-settings-view='commands']"),
       settingsDisplayEntry: root.querySelector("[data-settings-view='display']"),
       settingsAboutEntry: root.querySelector("[data-settings-view='about']"),
@@ -529,6 +572,18 @@
       settingsModelName: root.querySelector("#aflodit-pet-settings-model-name"),
       settingsApiKey: root.querySelector("#aflodit-pet-settings-api-key"),
       runtimeStatus: root.querySelector("#aflodit-pet-runtime-status"),
+      runtimeSettingsStatus: root.querySelector("#aflodit-pet-runtime-settings-status"),
+      runtimeProvider: root.querySelector("#aflodit-pet-runtime-provider"),
+      runtimeModel: root.querySelector("#aflodit-pet-runtime-model"),
+      runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
+      runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
+      runtimeHasKey: root.querySelector("#aflodit-pet-runtime-has-key"),
+      runtimeKeyPreview: root.querySelector("#aflodit-pet-runtime-key-preview"),
+      runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),
+      runtimeSave: root.querySelector("#aflodit-pet-runtime-save"),
+      runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
+      runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
+      runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),
       settingsMessage: root.querySelector("#aflodit-pet-settings-message"),
       settingsTest: root.querySelector("#aflodit-pet-settings-test"),
       settingsSave: root.querySelector("#aflodit-pet-settings-save"),
