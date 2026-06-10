@@ -99,6 +99,20 @@ export function validateMessage(message) {
     };
   }
 
+  if (hasOwn(message, "payload") && (message.payload === null || typeof message.payload !== "object" || Array.isArray(message.payload))) {
+    return {
+      ok: false,
+      error: {
+        code: "MESSAGE_PAYLOAD_INVALID",
+        message: "Runtime message payload must be an object when provided."
+      }
+    };
+  }
+
+  if (type === "runtime:testConnectionMock") {
+    return { ok: true, type, payload: message.payload || {} };
+  }
+
   const forbiddenKey = findForbiddenKey(message);
   if (forbiddenKey && forbiddenKey !== "type") {
     return {
@@ -106,16 +120,6 @@ export function validateMessage(message) {
       error: {
         code: "MESSAGE_PAYLOAD_FORBIDDEN",
         message: `Runtime message payload contains forbidden field: ${forbiddenKey}`
-      }
-    };
-  }
-
-  if (hasOwn(message, "payload") && (message.payload === null || typeof message.payload !== "object" || Array.isArray(message.payload))) {
-    return {
-      ok: false,
-      error: {
-        code: "MESSAGE_PAYLOAD_INVALID",
-        message: "Runtime message payload must be an object when provided."
       }
     };
   }

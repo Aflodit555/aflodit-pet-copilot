@@ -3,7 +3,7 @@ import { assertNoArbitraryNetworkAccess, validateRuntimeTestPayload, validateSec
 import { createSafeLogger } from "./safeLog.js";
 import { createSecretStore } from "./secretStore.js";
 import { createSettingsStore } from "./settingsStore.js";
-import { getProvider, listPublicProviders, sanitizeModelForProvider } from "./providerRegistry.js";
+import { getProvider, listPublicProviders } from "./providerRegistry.js";
 
 function publicSettingsResponse(settings, hasApiKey, apiKeyPreview) {
   return {
@@ -91,7 +91,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           mode: "mock",
           providerId: provider.id,
           providerName: provider.displayName,
-          model: sanitizeModelForProvider(provider.id, parsed.payload.model),
+          model: parsed.payload.model.trim() || provider.defaultModel,
           hasApiKey: true,
           requestEnabled: false,
           latencyMs: 0,

@@ -95,51 +95,39 @@ export function validatePublicSettings(settings = {}) {
 }
 
 export function validateRuntimeTestPayload(payload = {}) {
-  const forbiddenKey = forbiddenPublicKeyIn(payload);
-  if (forbiddenKey) {
-    return {
-      ok: false,
-      error: {
-        code: "RUNTIME_TEST_PAYLOAD_FORBIDDEN",
-        message: `Runtime mock test payload cannot include ${forbiddenKey}.`
-      }
-    };
-  }
-
   const allowedKeys = new Set(["providerId", "model"]);
   for (const key of Object.keys(payload || {})) {
     if (!allowedKeys.has(key)) {
-      return {
-        ok: false,
-        error: {
-          code: "RUNTIME_TEST_PAYLOAD_UNKNOWN",
-          message: `Runtime mock test field is not supported: ${key}`
-        }
-      };
+      return invalidRuntimeTestPayload();
     }
   }
 
-  if (payload.providerId !== undefined && typeof payload.providerId !== "string") {
-    return {
-      ok: false,
-      error: {
-        code: "PROVIDER_ID_INVALID",
-        message: "Runtime mock test providerId must be a string."
-      }
-    };
+  if (typeof payload.providerId !== "string") {
+    return invalidRuntimeTestPayload();
   }
 
-  if (payload.model !== undefined && typeof payload.model !== "string") {
-    return {
-      ok: false,
-      error: {
-        code: "MODEL_INVALID",
-        message: "Runtime mock test model must be a string."
-      }
-    };
+  const providerId = payload.providerId.trim();
+  if (!providerId || providerId.length > 64) {
+    return invalidRuntimeTestPayload();
+  }
+
+  if (payload.model !== undefined) {
+    if (typeof payload.model !== "string" || payload.model.trim().length > 128) {
+      return invalidRuntimeTestPayload();
+    }
   }
 
   return { ok: true };
+}
+
+function invalidRuntimeTestPayload() {
+  return {
+    ok: false,
+    mode: "mock",
+    errorCode: "INVALID_PAYLOAD",
+    message: "Invalid mock test payload.",
+    requestEnabled: false
+  };
 }
 
 export function validateSecretPayload(payload = {}) {
