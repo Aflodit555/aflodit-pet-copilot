@@ -108,6 +108,7 @@
               <div class="pet-settings-actions pet-settings-footer">
                 <button id="aflodit-pet-runtime-save" class="pet-primary-button">Save Runtime Settings</button>
                 <button id="aflodit-pet-runtime-save-key" class="pet-primary-button">Save Runtime Key</button>
+                <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test Runtime Connection</button>
                 <button id="aflodit-pet-runtime-reload" class="pet-secondary-button">Reload Runtime Settings</button>
                 <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears Backendless Preview key, not backend key.">Clear Runtime Key</button>
                 <button id="aflodit-pet-runtime-back" class="pet-secondary-button">Back</button>
@@ -600,6 +601,7 @@
       runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),
       runtimeSave: root.querySelector("#aflodit-pet-runtime-save"),
       runtimeSaveKey: root.querySelector("#aflodit-pet-runtime-save-key"),
+      runtimeTestMock: root.querySelector("#aflodit-pet-runtime-test-mock"),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
       runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
       runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),

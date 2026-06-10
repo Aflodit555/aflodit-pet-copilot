@@ -889,6 +889,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
               <div class="pet-settings-actions pet-settings-footer">
                 <button id="aflodit-pet-runtime-save" class="pet-primary-button">Save Runtime Settings</button>
                 <button id="aflodit-pet-runtime-save-key" class="pet-primary-button">Save Runtime Key</button>
+                <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test Runtime Connection</button>
                 <button id="aflodit-pet-runtime-reload" class="pet-secondary-button">Reload Runtime Settings</button>
                 <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears Backendless Preview key, not backend key.">Clear Runtime Key</button>
                 <button id="aflodit-pet-runtime-back" class="pet-secondary-button">Back</button>
@@ -1381,6 +1382,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),
       runtimeSave: root.querySelector("#aflodit-pet-runtime-save"),
       runtimeSaveKey: root.querySelector("#aflodit-pet-runtime-save-key"),
+      runtimeTestMock: root.querySelector("#aflodit-pet-runtime-test-mock"),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
       runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
       runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),
@@ -3448,6 +3450,16 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       });
     },
 
+    async testConnectionMock(payload = {}) {
+      return this.request({
+        type: "runtime:testConnectionMock",
+        payload: {
+          providerId: payload.providerId,
+          model: payload.model
+        }
+      });
+    },
+
     async saveSecret(apiKey = "") {
       return this.request({
         type: "settings:saveSecret",
@@ -3477,6 +3489,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       this.busy = busy;
       dom.runtimeSave.disabled = busy;
       dom.runtimeSaveKey.disabled = busy;
+      dom.runtimeTestMock.disabled = busy;
       dom.runtimeReload.disabled = busy;
       dom.runtimeClearKey.disabled = busy;
     },
@@ -3493,7 +3506,9 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         MESSAGE_PAYLOAD_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
-        PROVIDER_NOT_ALLOWED: "Provider is not available in Backendless Preview."
+        PROVIDER_NOT_ALLOWED: "Provider is not available in Backendless Preview.",
+        RUNTIME_TEST_PAYLOAD_FORBIDDEN: "Runtime mock test rejected unsafe fields.",
+        RUNTIME_TEST_PAYLOAD_UNKNOWN: "Runtime mock test rejected unsupported fields."
       };
       return messages[code] || response?.error?.message || response?.message || fallback;
     },
@@ -3673,6 +3688,28 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         this.setMessage("Runtime key saved for Backendless Preview only. Backend key is unchanged.");
       } catch (error) {
         this.setMessage(error?.message || "Runtime key save failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async testMock() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("Running mock runtime test...");
+      try {
+        const form = this.readForm();
+        const response = await BackgroundRuntimeClient.testConnectionMock({
+          providerId: form.provider,
+          model: form.model
+        });
+        if (!response.ok) {
+          this.setMessage(response.message || this.userMessage(response, "Mock runtime test failed."));
+          return;
+        }
+        this.setMessage(response.message || "Mock runtime test passed. Real provider requests are still disabled.");
+      } catch (error) {
+        this.setMessage(error?.message || "Mock runtime test failed.");
       } finally {
         this.setBusy(false);
       }
@@ -4247,6 +4284,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     on(dom.runtimeSaveKey, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.saveKey();
+    });
+
+    on(dom.runtimeTestMock, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.testMock();
     });
 
     on(dom.runtimeReload, "click", (event) => {

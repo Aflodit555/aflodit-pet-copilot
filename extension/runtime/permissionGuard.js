@@ -1,8 +1,30 @@
 import { hasProvider } from "./providerRegistry.js";
 
+const FORBIDDEN_PUBLIC_KEYS = Object.freeze([
+  "apikey",
+  "secret",
+  "baseurl",
+  "url",
+  "endpoint",
+  "origin",
+  "chatpath",
+  "headers",
+  "rawbody",
+  "body",
+  "authorization",
+  "token",
+  "bearer"
+]);
+
+function forbiddenPublicKeyIn(value = {}) {
+  for (const key of Object.keys(value || {})) {
+    if (FORBIDDEN_PUBLIC_KEYS.includes(key.toLowerCase())) return key;
+  }
+  return "";
+}
+
 export function validatePublicSettings(settings = {}) {
   const allowedKeys = new Set(["provider", "model", "saveMode", "debugEnabled"]);
-  const forbiddenKeys = new Set(["apikey", "secret", "baseurl", "url", "endpoint", "origin", "chatpath", "headers", "rawbody", "authorization"]);
 
   if (settings.provider !== undefined && (typeof settings.provider !== "string" || !hasProvider(settings.provider))) {
     return {
@@ -15,8 +37,7 @@ export function validatePublicSettings(settings = {}) {
   }
 
   for (const key of Object.keys(settings || {})) {
-    const normalizedKey = key.toLowerCase();
-    if (forbiddenKeys.has(normalizedKey)) {
+    if (forbiddenPublicKeyIn({ [key]: settings[key] })) {
       return {
         ok: false,
         error: {
@@ -66,6 +87,54 @@ export function validatePublicSettings(settings = {}) {
       error: {
         code: "DEBUG_FLAG_INVALID",
         message: "Runtime debugEnabled must be boolean."
+      }
+    };
+  }
+
+  return { ok: true };
+}
+
+export function validateRuntimeTestPayload(payload = {}) {
+  const forbiddenKey = forbiddenPublicKeyIn(payload);
+  if (forbiddenKey) {
+    return {
+      ok: false,
+      error: {
+        code: "RUNTIME_TEST_PAYLOAD_FORBIDDEN",
+        message: `Runtime mock test payload cannot include ${forbiddenKey}.`
+      }
+    };
+  }
+
+  const allowedKeys = new Set(["providerId", "model"]);
+  for (const key of Object.keys(payload || {})) {
+    if (!allowedKeys.has(key)) {
+      return {
+        ok: false,
+        error: {
+          code: "RUNTIME_TEST_PAYLOAD_UNKNOWN",
+          message: `Runtime mock test field is not supported: ${key}`
+        }
+      };
+    }
+  }
+
+  if (payload.providerId !== undefined && typeof payload.providerId !== "string") {
+    return {
+      ok: false,
+      error: {
+        code: "PROVIDER_ID_INVALID",
+        message: "Runtime mock test providerId must be a string."
+      }
+    };
+  }
+
+  if (payload.model !== undefined && typeof payload.model !== "string") {
+    return {
+      ok: false,
+      error: {
+        code: "MODEL_INVALID",
+        message: "Runtime mock test model must be a string."
       }
     };
   }

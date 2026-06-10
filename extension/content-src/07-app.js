@@ -651,6 +651,16 @@
       });
     },
 
+    async testConnectionMock(payload = {}) {
+      return this.request({
+        type: "runtime:testConnectionMock",
+        payload: {
+          providerId: payload.providerId,
+          model: payload.model
+        }
+      });
+    },
+
     async saveSecret(apiKey = "") {
       return this.request({
         type: "settings:saveSecret",
@@ -680,6 +690,7 @@
       this.busy = busy;
       dom.runtimeSave.disabled = busy;
       dom.runtimeSaveKey.disabled = busy;
+      dom.runtimeTestMock.disabled = busy;
       dom.runtimeReload.disabled = busy;
       dom.runtimeClearKey.disabled = busy;
     },
@@ -696,7 +707,9 @@
         MESSAGE_PAYLOAD_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
-        PROVIDER_NOT_ALLOWED: "Provider is not available in Backendless Preview."
+        PROVIDER_NOT_ALLOWED: "Provider is not available in Backendless Preview.",
+        RUNTIME_TEST_PAYLOAD_FORBIDDEN: "Runtime mock test rejected unsafe fields.",
+        RUNTIME_TEST_PAYLOAD_UNKNOWN: "Runtime mock test rejected unsupported fields."
       };
       return messages[code] || response?.error?.message || response?.message || fallback;
     },
@@ -876,6 +889,28 @@
         this.setMessage("Runtime key saved for Backendless Preview only. Backend key is unchanged.");
       } catch (error) {
         this.setMessage(error?.message || "Runtime key save failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async testMock() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("Running mock runtime test...");
+      try {
+        const form = this.readForm();
+        const response = await BackgroundRuntimeClient.testConnectionMock({
+          providerId: form.provider,
+          model: form.model
+        });
+        if (!response.ok) {
+          this.setMessage(response.message || this.userMessage(response, "Mock runtime test failed."));
+          return;
+        }
+        this.setMessage(response.message || "Mock runtime test passed. Real provider requests are still disabled.");
+      } catch (error) {
+        this.setMessage(error?.message || "Mock runtime test failed.");
       } finally {
         this.setBusy(false);
       }
@@ -1450,6 +1485,11 @@
     on(dom.runtimeSaveKey, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.saveKey();
+    });
+
+    on(dom.runtimeTestMock, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.testMock();
     });
 
     on(dom.runtimeReload, "click", (event) => {

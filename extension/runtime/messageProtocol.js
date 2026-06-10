@@ -1,5 +1,6 @@
 export const ALLOWED_MESSAGE_TYPES = Object.freeze([
   "runtime:getStatus",
+  "runtime:testConnectionMock",
   "settings:getPublic",
   "settings:savePublic",
   "settings:saveSecret",
@@ -22,11 +23,15 @@ const FORBIDDEN_PAYLOAD_KEYS = Object.freeze([
   "url",
   "baseUrl",
   "endpoint",
+  "origin",
+  "chatPath",
   "headers",
   "authorization",
   "method",
   "body",
-  "rawBody"
+  "rawBody",
+  "token",
+  "bearer"
 ]);
 
 const SECRET_PAYLOAD_KEYS = Object.freeze(["apiKey", "secret"]);

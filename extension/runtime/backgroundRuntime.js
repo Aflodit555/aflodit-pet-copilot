@@ -1,9 +1,9 @@
 import { validateMessage } from "./messageProtocol.js";
-import { assertNoArbitraryNetworkAccess, validateSecretPayload } from "./permissionGuard.js";
+import { assertNoArbitraryNetworkAccess, validateRuntimeTestPayload, validateSecretPayload } from "./permissionGuard.js";
 import { createSafeLogger } from "./safeLog.js";
 import { createSecretStore } from "./secretStore.js";
 import { createSettingsStore } from "./settingsStore.js";
-import { listPublicProviders } from "./providerRegistry.js";
+import { getProvider, listPublicProviders, sanitizeModelForProvider } from "./providerRegistry.js";
 
 function publicSettingsResponse(settings, hasApiKey, apiKeyPreview) {
   return {
@@ -42,6 +42,60 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           backendlessPhase: 4,
           providerRegistryReady: true,
           providerRequestEnabled: false
+        };
+      }
+
+      if (parsed.type === "runtime:testConnectionMock") {
+        const guard = validateRuntimeTestPayload(parsed.payload || {});
+        if (!guard.ok) return guard;
+
+        const providerId = typeof parsed.payload.providerId === "string"
+          ? parsed.payload.providerId.trim()
+          : "";
+        const provider = getProvider(providerId);
+        if (!provider) {
+          return {
+            ok: false,
+            mode: "mock",
+            errorCode: "UNKNOWN_PROVIDER",
+            message: "Unknown provider.",
+            requestEnabled: false
+          };
+        }
+
+        if (!provider.enabled) {
+          return {
+            ok: false,
+            mode: "mock",
+            providerId: provider.id,
+            errorCode: "PROVIDER_DISABLED",
+            message: "Provider is disabled.",
+            requestEnabled: false
+          };
+        }
+
+        const hasApiKey = await secretStore.hasSecret();
+        if (!hasApiKey) {
+          return {
+            ok: false,
+            mode: "mock",
+            providerId: provider.id,
+            errorCode: "MISSING_RUNTIME_KEY",
+            message: "Runtime key is missing. Save a Runtime Key before testing.",
+            requestEnabled: false
+          };
+        }
+
+        return {
+          ok: true,
+          mode: "mock",
+          providerId: provider.id,
+          providerName: provider.displayName,
+          model: sanitizeModelForProvider(provider.id, parsed.payload.model),
+          hasApiKey: true,
+          requestEnabled: false,
+          latencyMs: 0,
+          message: "Mock runtime test passed. Real provider requests are still disabled."
         };
       }
 

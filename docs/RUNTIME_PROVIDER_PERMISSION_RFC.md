@@ -2,7 +2,7 @@
 
 ## 1. Goal
 
-Phase 5A defines the permission strategy for future real provider requests from the extension background runtime.
+Phase 5A defines the permission strategy for future real provider requests from the extension background runtime. Phase 5B adds a mock-only Test Connection skeleton that exercises the UI and message path without contacting real providers.
 
 The goals are:
 
@@ -10,7 +10,7 @@ The goals are:
 - Define the security model for a future Test Connection feature.
 - Keep Phase 5A as documentation only; it does not implement runtime requests.
 
-Phase 5A does not change the current AI request path. Chat, explain, translate, and summarize continue to use the local backend.
+Phase 5B does not change the current AI request path. Chat, explain, translate, and summarize continue to use the local backend.
 
 ## 2. Non-goals
 
@@ -38,7 +38,7 @@ The Backendless Preview path is currently:
 content script -> background runtime settings/secret preview
 ```
 
-The preview path stores and reloads public settings, provider allowlist state, and a Runtime Key preview. It does not run real AI requests yet.
+The preview path stores and reloads public settings, provider allowlist state, a Runtime Key preview, and a mock Test Connection result. It does not run real AI requests yet.
 
 ## 4. Permission Strategy Options
 
@@ -159,7 +159,7 @@ Rationale:
 
 ## 6. Test Connection Design
 
-Test Connection is a future design item, not implemented in Phase 5A.
+Real Test Connection is a future design item, not implemented in Phase 5B. Phase 5B only implements a mock Test Connection skeleton.
 
 Rules:
 
@@ -170,15 +170,22 @@ Rules:
 - Headers are generated only inside the provider adapter.
 - The content script must not provide URL, headers, or raw request body fields.
 - The response must be minimal and redacted.
+- Phase 5B mock Test Connection must not request a real provider.
+- Phase 5B mock Test Connection must not set `requestEnabled=true`.
 
 Successful response shape:
 
 ```json
 {
   "ok": true,
+  "mode": "mock",
   "providerId": "deepseek",
-  "requestEnabled": true,
-  "latencyMs": 1234
+  "providerName": "DeepSeek",
+  "model": "deepseek-chat",
+  "hasApiKey": true,
+  "requestEnabled": false,
+  "latencyMs": 0,
+  "message": "Mock runtime test passed. Real provider requests are still disabled."
 }
 ```
 
@@ -187,8 +194,10 @@ Failure response shape:
 ```json
 {
   "ok": false,
-  "errorCode": "AUTH_FAILED",
-  "message": "Authentication failed. Check your runtime key.",
+  "mode": "mock",
+  "providerId": "deepseek",
+  "errorCode": "MISSING_RUNTIME_KEY",
+  "message": "Runtime key is missing. Save a Runtime Key before testing.",
   "requestEnabled": false
 }
 ```
@@ -207,7 +216,7 @@ Test Connection may consume provider quota after real provider requests are enab
 
 Recommended rollout:
 
-- Phase 5B: implement mock Test Connection skeleton only.
+- Phase 5B: implement mock Test Connection skeleton only. It does not consume tokens.
 - Phase 5C: implement real Test Connection with the smallest practical request.
 - If a provider has no safe metadata endpoint, use a minimal chat completion request.
 - UI copy must clearly state that a real provider test may consume a small amount of tokens or quota.
@@ -230,7 +239,7 @@ Recommended rollout:
 - Runtime Key exists.
 - Latest Test Connection passed.
 
-Phase 4 intentionally has every provider set to `requestEnabled=false`. Phase 5A does not change that state.
+Phase 4 intentionally has every provider set to `requestEnabled=false`. Phase 5B does not change that state.
 
 ## 9. Logging and Redaction
 
