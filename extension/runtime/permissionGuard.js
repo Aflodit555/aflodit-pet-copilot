@@ -1,7 +1,10 @@
 import { hasProvider } from "./providerRegistry.js";
 
 export function validatePublicSettings(settings = {}) {
-  if (settings.provider !== undefined && !hasProvider(settings.provider)) {
+  const allowedKeys = new Set(["provider", "model", "saveMode", "debugEnabled"]);
+  const forbiddenKeys = new Set(["apikey", "secret", "baseurl", "url", "endpoint", "origin", "chatpath", "headers", "rawbody", "authorization"]);
+
+  if (settings.provider !== undefined && (typeof settings.provider !== "string" || !hasProvider(settings.provider))) {
     return {
       ok: false,
       error: {
@@ -11,11 +14,9 @@ export function validatePublicSettings(settings = {}) {
     };
   }
 
-  const allowedKeys = new Set(["provider", "model", "saveMode", "debugEnabled"]);
-  const forbiddenKeys = new Set(["apiKey", "baseUrl", "url", "endpoint", "headers", "rawBody", "authorization", "Authorization"]);
-
   for (const key of Object.keys(settings || {})) {
-    if (forbiddenKeys.has(key)) {
+    const normalizedKey = key.toLowerCase();
+    if (forbiddenKeys.has(normalizedKey)) {
       return {
         ok: false,
         error: {
@@ -36,16 +37,37 @@ export function validatePublicSettings(settings = {}) {
     }
   }
 
-  for (const key of ["baseUrl", "url", "endpoint", "headers", "apiKey", "rawBody", "Authorization"]) {
-    if (settings[key] !== undefined) {
+  if (settings.model !== undefined) {
+    const trimmedModel = typeof settings.model === "string" ? settings.model.trim() : "";
+    if (typeof settings.model !== "string" || settings.model.trim().length > 120 || (!trimmedModel && settings.provider === undefined)) {
       return {
         ok: false,
         error: {
-          code: "SETTING_FORBIDDEN",
-          message: `Public background settings cannot include ${key}.`
+          code: "MODEL_INVALID",
+          message: "Runtime model must be a string up to 120 characters; empty model is only allowed when selecting a provider default."
         }
       };
     }
+  }
+
+  if (settings.saveMode !== undefined && settings.saveMode !== "local" && settings.saveMode !== "session") {
+    return {
+      ok: false,
+      error: {
+        code: "SAVE_MODE_INVALID",
+        message: "Runtime saveMode must be local or session."
+      }
+    };
+  }
+
+  if (settings.debugEnabled !== undefined && typeof settings.debugEnabled !== "boolean") {
+    return {
+      ok: false,
+      error: {
+        code: "DEBUG_FLAG_INVALID",
+        message: "Runtime debugEnabled must be boolean."
+      }
+    };
   }
 
   return { ok: true };

@@ -37,6 +37,20 @@ The backend supports:
 
 Provider keys stay in the backend environment. The extension never calls model providers directly.
 
+## Backendless Preview Phase 4
+
+`extension/background.js` hosts a preview background runtime for the future backendless path. In Phase 4 it provides:
+
+- `runtime:getStatus`
+- `settings:getPublic`
+- `settings:savePublic`
+- `settings:saveSecret`
+- `settings:clearKey`
+
+The background runtime has a provider registry and allowlist for `Mock`, `OpenAI`, `DeepSeek`, `Qwen / DashScope`, and `OpenRouter`. Provider descriptors may contain provider origins inside `extension/runtime/providerRegistry.js`, but the request capability remains disabled with `requestEnabled=false`.
+
+The preview UI can save public runtime settings (`provider`, `model`, `saveMode`, `debugEnabled`) and a separate Runtime Key. It does not perform Test Connection, does not request real providers, does not add host permissions, and does not change the stable content script to local backend AI flow.
+
 ## Fallbacks And Debug
 
 The runtime normalizes unsafe provider output and returns safe fallback responses on provider errors, timeouts, malformed JSON, or invalid fields.

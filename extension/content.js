@@ -656,6 +656,16 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       hasApiKey: false,
       apiKeyPreview: ""
     },
+    runtimeProviders: [
+      {
+        id: "mock",
+        displayName: "Mock",
+        protocol: "mock",
+        defaultModel: "mock-model",
+        enabled: true,
+        requestEnabled: false
+      }
+    ],
     layout: {
       menuVariant: "br",
       panelPlacement: "top"
@@ -851,6 +861,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <span>Model</span>
                 <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
               </label>
+              <div class="pet-runtime-provider-card">
+                <div><b>Provider selected</b>：<span id="aflodit-pet-runtime-provider-selected">Mock</span></div>
+                <div><b>Protocol</b>：<span id="aflodit-pet-runtime-provider-protocol">mock</span></div>
+                <div><b>Default model</b>：<span id="aflodit-pet-runtime-provider-default-model">mock-model</span></div>
+                <div><b>Request enabled</b>：<span id="aflodit-pet-runtime-provider-request-enabled">no</span></div>
+              </div>
+              <div class="pet-settings-message pet-runtime-warning">Provider selection is a preview. Real model requests are not enabled in Phase 4.</div>
               <label class="pet-settings-field">
                 <span>API Key</span>
                 <input id="aflodit-pet-runtime-api-key" type="password" autocomplete="off" placeholder="Enter API Key for future backendless runtime" />
@@ -951,11 +968,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
               </div>
               <div class="pet-about-section">
                 <div class="pet-about-section-title">当前阶段</div>
-                <div class="pet-settings-note">当前版本为 v0.8.0 Phase 2。Backendless Preview 已接入 public settings 闭环，但主要 AI 功能仍通过本地 backend 运行。</div>
+                <div class="pet-settings-note">当前版本为 v0.8.0 Phase 4。Backendless Preview 已接入 provider allowlist、public settings 和 Runtime Key 预览，但主要 AI 功能仍通过本地 backend 运行。</div>
               </div>
               <div class="pet-about-section">
                 <div class="pet-about-section-title">安全说明</div>
-                <div class="pet-settings-note">API Key 当前保存在本地后端配置中，不写入扩展存储。请勿公开 backend/.env 或 backend/.local/settings.local.json。</div>
+                <div class="pet-settings-note">本地 backend API Key 与 Backendless Preview Runtime Key 分开保存；content script 只能看到脱敏状态，不会拿到完整 Runtime Key。</div>
               </div>
               </div>
               <div class="pet-settings-actions pet-settings-footer">
@@ -1352,6 +1369,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeSettingsStatus: root.querySelector("#aflodit-pet-runtime-settings-status"),
       runtimeProvider: root.querySelector("#aflodit-pet-runtime-provider"),
       runtimeModel: root.querySelector("#aflodit-pet-runtime-model"),
+      runtimeProviderSelected: root.querySelector("#aflodit-pet-runtime-provider-selected"),
+      runtimeProviderProtocol: root.querySelector("#aflodit-pet-runtime-provider-protocol"),
+      runtimeProviderDefaultModel: root.querySelector("#aflodit-pet-runtime-provider-default-model"),
+      runtimeProviderRequestEnabled: root.querySelector("#aflodit-pet-runtime-provider-request-enabled"),
       runtimeApiKey: root.querySelector("#aflodit-pet-runtime-api-key"),
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
       runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
@@ -3477,9 +3498,76 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       return messages[code] || response?.error?.message || response?.message || fallback;
     },
 
+    sanitizeProviders(providers = []) {
+      const items = Array.isArray(providers) ? providers : [];
+      const sanitized = items
+        .filter((provider) => provider && typeof provider.id === "string" && typeof provider.displayName === "string")
+        .map((provider) => ({
+          id: String(provider.id).trim(),
+          displayName: String(provider.displayName).trim(),
+          protocol: String(provider.protocol || "").trim(),
+          defaultModel: String(provider.defaultModel || "").trim(),
+          enabled: Boolean(provider.enabled),
+          requestEnabled: Boolean(provider.requestEnabled)
+        }))
+        .filter((provider) => provider.id && provider.displayName);
+
+      return sanitized.length ? sanitized : state.runtimeProviders;
+    },
+
+    providerById(providerId) {
+      return state.runtimeProviders.find((provider) => provider.id === providerId) || state.runtimeProviders[0];
+    },
+
+    renderProviderOptions(selectedProvider = "mock") {
+      if (!dom.runtimeProvider) return;
+      const previous = dom.runtimeProvider.value || selectedProvider;
+      dom.runtimeProvider.textContent = "";
+
+      state.runtimeProviders.forEach((provider) => {
+        const option = document.createElement("option");
+        option.value = provider.id;
+        option.textContent = provider.displayName;
+        option.disabled = !provider.enabled;
+        dom.runtimeProvider.appendChild(option);
+      });
+
+      const nextProvider = this.providerById(selectedProvider)?.id || this.providerById(previous)?.id || "mock";
+      dom.runtimeProvider.value = nextProvider;
+    },
+
+    updateProviderStatus(providerId = dom.runtimeProvider?.value || "mock") {
+      const provider = this.providerById(providerId);
+      if (!provider) return;
+
+      if (dom.runtimeProviderSelected) dom.runtimeProviderSelected.textContent = provider.displayName;
+      if (dom.runtimeProviderProtocol) dom.runtimeProviderProtocol.textContent = provider.protocol || "unknown";
+      if (dom.runtimeProviderDefaultModel) dom.runtimeProviderDefaultModel.textContent = provider.defaultModel || "";
+      if (dom.runtimeProviderRequestEnabled) {
+        dom.runtimeProviderRequestEnabled.textContent = provider.requestEnabled ? "yes" : "no";
+      }
+    },
+
+    handleProviderChange() {
+      const nextProviderId = dom.runtimeProvider.value || "mock";
+      const previousProvider = this.providerById(state.runtimePublicSettings.provider);
+      const nextProvider = this.providerById(nextProviderId);
+      const currentModel = String(dom.runtimeModel.value || "").trim();
+      const shouldUseDefaultModel = !currentModel || currentModel === previousProvider?.defaultModel;
+
+      if (shouldUseDefaultModel && nextProvider?.defaultModel) {
+        dom.runtimeModel.value = nextProvider.defaultModel;
+      }
+
+      state.runtimePublicSettings.provider = nextProviderId;
+      this.updateProviderStatus(nextProviderId);
+      LayoutManager.schedulePetLayout();
+    },
+
     hydrate(data = {}) {
       const settings = data.settings || data || {};
       const provider = settings.provider || "mock";
+      state.runtimeProviders = this.sanitizeProviders(data.providers);
       state.runtimePublicSettings = {
         provider,
         model: settings.model || "mock-model",
@@ -3489,7 +3577,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         apiKeyPreview: settings.apiKeyPreview || ""
       };
 
-      dom.runtimeProvider.value = provider === "mock" ? "mock" : "mock";
+      this.renderProviderOptions(provider);
       dom.runtimeModel.value = state.runtimePublicSettings.model;
       dom.runtimeApiKey.value = "";
       dom.runtimeApiKey.placeholder = state.runtimePublicSettings.hasApiKey
@@ -3499,12 +3587,16 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
       dom.runtimeHasKey.textContent = state.runtimePublicSettings.hasApiKey ? "yes" : "no";
       dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
+      this.updateProviderStatus(dom.runtimeProvider.value);
     },
 
     readForm() {
+      const providerId = dom.runtimeProvider.value || "mock";
+      const provider = this.providerById(providerId);
+      const model = String(dom.runtimeModel.value || "").trim() || provider?.defaultModel || "mock-model";
       return {
-        provider: "mock",
-        model: String(dom.runtimeModel.value || "mock-model").trim() || "mock-model",
+        provider: providerId,
+        model,
         saveMode: dom.runtimeSaveMode.value === "session" ? "session" : "local",
         debugEnabled: Boolean(dom.runtimeDebug.checked)
       };
@@ -4146,6 +4238,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     on(dom.runtimeSave, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.save();
+    });
+
+    on(dom.runtimeProvider, "change", () => {
+      RuntimeSettingsManager.handleProviderChange();
     });
 
     on(dom.runtimeSaveKey, "click", (event) => {

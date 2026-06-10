@@ -701,9 +701,76 @@
       return messages[code] || response?.error?.message || response?.message || fallback;
     },
 
+    sanitizeProviders(providers = []) {
+      const items = Array.isArray(providers) ? providers : [];
+      const sanitized = items
+        .filter((provider) => provider && typeof provider.id === "string" && typeof provider.displayName === "string")
+        .map((provider) => ({
+          id: String(provider.id).trim(),
+          displayName: String(provider.displayName).trim(),
+          protocol: String(provider.protocol || "").trim(),
+          defaultModel: String(provider.defaultModel || "").trim(),
+          enabled: Boolean(provider.enabled),
+          requestEnabled: Boolean(provider.requestEnabled)
+        }))
+        .filter((provider) => provider.id && provider.displayName);
+
+      return sanitized.length ? sanitized : state.runtimeProviders;
+    },
+
+    providerById(providerId) {
+      return state.runtimeProviders.find((provider) => provider.id === providerId) || state.runtimeProviders[0];
+    },
+
+    renderProviderOptions(selectedProvider = "mock") {
+      if (!dom.runtimeProvider) return;
+      const previous = dom.runtimeProvider.value || selectedProvider;
+      dom.runtimeProvider.textContent = "";
+
+      state.runtimeProviders.forEach((provider) => {
+        const option = document.createElement("option");
+        option.value = provider.id;
+        option.textContent = provider.displayName;
+        option.disabled = !provider.enabled;
+        dom.runtimeProvider.appendChild(option);
+      });
+
+      const nextProvider = this.providerById(selectedProvider)?.id || this.providerById(previous)?.id || "mock";
+      dom.runtimeProvider.value = nextProvider;
+    },
+
+    updateProviderStatus(providerId = dom.runtimeProvider?.value || "mock") {
+      const provider = this.providerById(providerId);
+      if (!provider) return;
+
+      if (dom.runtimeProviderSelected) dom.runtimeProviderSelected.textContent = provider.displayName;
+      if (dom.runtimeProviderProtocol) dom.runtimeProviderProtocol.textContent = provider.protocol || "unknown";
+      if (dom.runtimeProviderDefaultModel) dom.runtimeProviderDefaultModel.textContent = provider.defaultModel || "";
+      if (dom.runtimeProviderRequestEnabled) {
+        dom.runtimeProviderRequestEnabled.textContent = provider.requestEnabled ? "yes" : "no";
+      }
+    },
+
+    handleProviderChange() {
+      const nextProviderId = dom.runtimeProvider.value || "mock";
+      const previousProvider = this.providerById(state.runtimePublicSettings.provider);
+      const nextProvider = this.providerById(nextProviderId);
+      const currentModel = String(dom.runtimeModel.value || "").trim();
+      const shouldUseDefaultModel = !currentModel || currentModel === previousProvider?.defaultModel;
+
+      if (shouldUseDefaultModel && nextProvider?.defaultModel) {
+        dom.runtimeModel.value = nextProvider.defaultModel;
+      }
+
+      state.runtimePublicSettings.provider = nextProviderId;
+      this.updateProviderStatus(nextProviderId);
+      LayoutManager.schedulePetLayout();
+    },
+
     hydrate(data = {}) {
       const settings = data.settings || data || {};
       const provider = settings.provider || "mock";
+      state.runtimeProviders = this.sanitizeProviders(data.providers);
       state.runtimePublicSettings = {
         provider,
         model: settings.model || "mock-model",
@@ -713,7 +780,7 @@
         apiKeyPreview: settings.apiKeyPreview || ""
       };
 
-      dom.runtimeProvider.value = provider === "mock" ? "mock" : "mock";
+      this.renderProviderOptions(provider);
       dom.runtimeModel.value = state.runtimePublicSettings.model;
       dom.runtimeApiKey.value = "";
       dom.runtimeApiKey.placeholder = state.runtimePublicSettings.hasApiKey
@@ -723,12 +790,16 @@
       dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
       dom.runtimeHasKey.textContent = state.runtimePublicSettings.hasApiKey ? "yes" : "no";
       dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
+      this.updateProviderStatus(dom.runtimeProvider.value);
     },
 
     readForm() {
+      const providerId = dom.runtimeProvider.value || "mock";
+      const provider = this.providerById(providerId);
+      const model = String(dom.runtimeModel.value || "").trim() || provider?.defaultModel || "mock-model";
       return {
-        provider: "mock",
-        model: String(dom.runtimeModel.value || "mock-model").trim() || "mock-model",
+        provider: providerId,
+        model,
         saveMode: dom.runtimeSaveMode.value === "session" ? "session" : "local",
         debugEnabled: Boolean(dom.runtimeDebug.checked)
       };
@@ -1370,6 +1441,10 @@
     on(dom.runtimeSave, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.save();
+    });
+
+    on(dom.runtimeProvider, "change", () => {
+      RuntimeSettingsManager.handleProviderChange();
     });
 
     on(dom.runtimeSaveKey, "click", (event) => {

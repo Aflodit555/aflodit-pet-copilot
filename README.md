@@ -22,26 +22,28 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.8.0 Backendless Runtime Phase 3`。
+当前实现是 `v0.8.0 Backendless Runtime Phase 4`。
 
-### v0.8.0 Phase 3 Background Secret Store
+### v0.8.0 Phase 4 Provider Registry UI / Provider Allowlist
 
-`v0.8.0 Phase 3` 是 Backendless Preview 的密钥存储阶段，不是最终 Backendless 用户版。当前普通功能仍需要本地 backend。
+`v0.8.0 Phase 4` 是 Backendless Preview 的 Provider Registry UI / Provider Allowlist 阶段，不是最终 Backendless 用户版。当前普通功能仍需要本地 backend。
 
-本阶段在 Phase 2 public settings UI 闭环基础上，新增 Background Secret Store 和 Runtime Key 的保存、清除、脱敏展示能力。AI 主链路仍保持不变：
+本阶段在 Phase 3 Background Secret Store 基础上，新增 background runtime provider registry、provider allowlist 校验，以及 Backendless Preview UI 的 provider 下拉选择。AI 主链路仍保持不变：
 
 ```text
 content.js -> http://127.0.0.1:3001/api/pet -> Local Backend -> LLM Runtime
 ```
 
-Phase 3 的 background runtime 当前用于状态探测、脱敏 public settings preview 和 Backendless Preview Runtime Key 存储，支持消息：`runtime:getStatus`、`settings:getPublic`、`settings:savePublic`、`settings:saveSecret`、`settings:clearKey`。Background Runtime settings 保存 `provider`、`model`、`saveMode`、`debugEnabled` 等 public 字段；Runtime Key 只用于未来 Backendless runtime 预备能力，不影响旧 backend 模型配置，不迁移真实模型请求，不执行任意 fetch，不引入 `https://*/*`，也不引入 Native Messaging。Chat、Explain、Translate、Summarize 仍走本地 backend。
+Phase 4 的 background runtime 当前用于状态探测、脱敏 public settings preview、Backendless Preview Runtime Key 存储，以及 provider allowlist 选择。支持消息：`runtime:getStatus`、`settings:getPublic`、`settings:savePublic`、`settings:saveSecret`、`settings:clearKey`。Background Runtime settings 保存 `provider`、`model`、`saveMode`、`debugEnabled` 等 public 字段；Runtime Key 只用于未来 Backendless runtime 预备能力，不影响旧 backend 模型配置，不迁移真实模型请求，不执行任意 fetch，不引入 `https://*/*`，不引入 `optional_host_permissions`，也不引入 Native Messaging。Chat、Explain、Translate、Summarize 仍走本地 backend。
+
+Provider allowlist 当前包含 `Mock`、`OpenAI`、`DeepSeek`、`Qwen / DashScope` 和 `OpenRouter`。这些 provider descriptor 只用于 UI 预览和 settings 校验；`requestEnabled=false` 表示 background runtime 尚未启用真实 provider 请求能力。切换 provider 时，如果 model 为空或仍是旧 provider 的默认模型，UI 和 settings store 会自动填入新 provider 的默认模型。手动编辑过的 model 会被保留。
 
 Runtime Key 的保存位置由 `saveMode` 决定：
 
 - `local`：保存到浏览器扩展的 `chrome.storage.local`，浏览器重启后仍可能保留。runtime 会尽力设置 `TRUSTED_CONTEXTS`，避免 content script 直接访问；不支持该能力的浏览器会安全降级。
 - `session`：保存到 `chrome.storage.session`，用于更短生命周期；扩展重载或浏览器重启后可能失效。不支持 session storage 的浏览器会安全降级为 background 内存态。
 
-`settings:getPublic` 只返回 `hasApiKey` 和 `apiKeyPreview`，不会返回完整 Runtime Key。Runtime Key 不会写入 `backend/.env`，也不会写入 `backend/.local/settings.local.json`。
+`settings:getPublic` 会返回脱敏 public settings、`hasApiKey`、`apiKeyPreview` 和 provider allowlist，不会返回完整 Runtime Key。Runtime Key 不会写入 `backend/.env`，也不会写入 `backend/.local/settings.local.json`，也不会发送给真实 provider。
 
 当前仍保留此前版本中的本地模型设置能力：
 
@@ -60,7 +62,7 @@ Runtime Key 的保存位置由 `saveMode` 决定：
 - **Translate Selected Text**：选中网页文本后，翻译或润色为自然的简体中文。
 - **Summarize Current Page**：提取当前页面可读内容并总结。
 - **Settings Panel**：在 UI 中配置 Base URL、Model、API Key、Provider。模型请求超时固定为 40000ms。
-- **Backendless Preview**：预览 background public settings 和 Runtime Key 存储，当前不驱动真实模型请求。
+- **Backendless Preview**：预览 background public settings、provider allowlist 和 Runtime Key 存储，当前不驱动真实模型请求。
 - **Mock Mode**：无需 API Key 的本地演示模式，适合首次运行和测试。
 - **OpenAI-Compatible Provider**：支持标准 `/v1/chat/completions` 风格的模型服务。
 - **Experimental Streaming**：实验性 `/api/pet-stream` 流式回复。
@@ -69,7 +71,7 @@ Runtime Key 的保存位置由 `saveMode` 决定：
 
 ## 快速开始
 
-在最终 Backendless 版本完成前，当前 Phase 3 仍按本地后端流程运行。
+在最终 Backendless 版本完成前，当前 Phase 4 仍按本地后端流程运行。
 
 ### 1. 准备环境
 
@@ -230,6 +232,8 @@ LLM_DEBUG=false
 - Settings API 需要本地 token。
 - API Key 保存在 `backend/.local/settings.local.json`。
 - Background Runtime settings 不影响 `backend/.local/settings.local.json`；Runtime Key 只保存在扩展 background secret store 中。
+- Backendless Preview provider 选择不会同步到 backend settings，也不会影响当前本地 backend 的模型配置。
+- `requestEnabled=false` 的 provider 只表示已进入 allowlist，不表示 background 已能请求真实模型。
 - `backend/.local/` 和 `*.local.json` 已加入 `.gitignore`。
 - `GET /api/settings` 只返回 `apiKeySet` 和 `apiKeyPreview`。
 - API Key 不会保存在扩展的 `localStorage` 或 `chrome.storage`。
@@ -428,7 +432,8 @@ PORT=3002
 ## 已知限制
 
 - 使用扩展时必须运行本地后端。
-- 这是 Phase 3 的临时限制，后续 Phase 计划继续迁移到 background runtime。
+- 这是 Phase 4 的临时限制，后续 Phase 计划继续迁移到 background runtime。
+- Backendless Preview 的 provider 选择当前不做 Test Connection，也不请求真实模型。
 - 后端不是 production hardened 服务。
 - OpenAI-Compatible provider 的兼容性取决于对方 `/chat/completions` 行为。
 - 网页内容提取质量会因网站结构而变化。

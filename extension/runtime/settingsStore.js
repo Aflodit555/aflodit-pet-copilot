@@ -1,11 +1,17 @@
-import { getProvider, hasProvider } from "./providerRegistry.js";
+import {
+  getDefaultModelForProvider,
+  getDefaultProviderId,
+  hasProvider,
+  normalizeProviderId,
+  sanitizeModelForProvider
+} from "./providerRegistry.js";
 import { validatePublicSettings } from "./permissionGuard.js";
 
 const STORAGE_KEY = "afloditBackgroundRuntimePublicSettings";
 
 const DEFAULT_SETTINGS = Object.freeze({
-  provider: "mock",
-  model: "mock-model",
+  provider: getDefaultProviderId(),
+  model: getDefaultModelForProvider(getDefaultProviderId()),
   saveMode: "local",
   debugEnabled: false
 });
@@ -27,11 +33,10 @@ function sanitizeSaveMode(value, fallback) {
 export function sanitizePublicSettings(raw = {}, base = DEFAULT_SETTINGS) {
   const provider = sanitizeString(raw.provider, base.provider, 64);
   const safeProvider = hasProvider(provider) ? provider : base.provider;
-  const providerInfo = getProvider(safeProvider);
 
   return {
     provider: safeProvider,
-    model: sanitizeString(raw.model, base.model || providerInfo?.defaultModel || "mock-model", 120),
+    model: sanitizeModelForProvider(safeProvider, raw.model || base.model),
     saveMode: sanitizeSaveMode(raw.saveMode, base.saveMode),
     debugEnabled: sanitizeBoolean(raw.debugEnabled, base.debugEnabled)
   };
@@ -77,9 +82,20 @@ export function createSettingsStore(chromeApi) {
       if (!guard.ok) return guard;
 
       const current = await this.getPublicSettings();
+      const nextProvider = input.provider !== undefined
+        ? normalizeProviderId(input.provider)
+        : current.provider;
+      const providerChanged = nextProvider !== current.provider;
+      const incomingModel = input.model;
+      const oldDefaultModel = getDefaultModelForProvider(current.provider);
+      const shouldUseDefaultModel = providerChanged
+        && (incomingModel === undefined || !String(incomingModel).trim() || current.model === oldDefaultModel);
+      const nextModel = shouldUseDefaultModel
+        ? getDefaultModelForProvider(nextProvider)
+        : (incomingModel ?? current.model);
       const next = sanitizePublicSettings({
-        provider: input.provider ?? current.provider,
-        model: input.model ?? current.model,
+        provider: nextProvider,
+        model: nextModel,
         saveMode: input.saveMode ?? current.saveMode,
         debugEnabled: input.debugEnabled ?? current.debugEnabled
       }, current);

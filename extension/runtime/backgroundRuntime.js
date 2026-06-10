@@ -3,6 +3,7 @@ import { assertNoArbitraryNetworkAccess, validateSecretPayload } from "./permiss
 import { createSafeLogger } from "./safeLog.js";
 import { createSecretStore } from "./secretStore.js";
 import { createSettingsStore } from "./settingsStore.js";
+import { listPublicProviders } from "./providerRegistry.js";
 
 function publicSettingsResponse(settings, hasApiKey, apiKeyPreview) {
   return {
@@ -14,7 +15,8 @@ function publicSettingsResponse(settings, hasApiKey, apiKeyPreview) {
       debugEnabled: settings.debugEnabled,
       hasApiKey: Boolean(hasApiKey),
       apiKeyPreview: apiKeyPreview || ""
-    }
+    },
+    providers: listPublicProviders()
   };
 }
 
@@ -37,7 +39,9 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           ok: true,
           runtime: "background",
           version,
-          backendlessPhase: 3
+          backendlessPhase: 4,
+          providerRegistryReady: true,
+          providerRequestEnabled: false
         };
       }
 

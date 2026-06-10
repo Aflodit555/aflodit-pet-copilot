@@ -80,6 +80,13 @@
                 <span>Model</span>
                 <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
               </label>
+              <div class="pet-runtime-provider-card">
+                <div><b>Provider selected</b>：<span id="aflodit-pet-runtime-provider-selected">Mock</span></div>
+                <div><b>Protocol</b>：<span id="aflodit-pet-runtime-provider-protocol">mock</span></div>
+                <div><b>Default model</b>：<span id="aflodit-pet-runtime-provider-default-model">mock-model</span></div>
+                <div><b>Request enabled</b>：<span id="aflodit-pet-runtime-provider-request-enabled">no</span></div>
+              </div>
+              <div class="pet-settings-message pet-runtime-warning">Provider selection is a preview. Real model requests are not enabled in Phase 4.</div>
               <label class="pet-settings-field">
                 <span>API Key</span>
                 <input id="aflodit-pet-runtime-api-key" type="password" autocomplete="off" placeholder="Enter API Key for future backendless runtime" />
@@ -180,11 +187,11 @@
               </div>
               <div class="pet-about-section">
                 <div class="pet-about-section-title">当前阶段</div>
-                <div class="pet-settings-note">当前版本为 v0.8.0 Phase 2。Backendless Preview 已接入 public settings 闭环，但主要 AI 功能仍通过本地 backend 运行。</div>
+                <div class="pet-settings-note">当前版本为 v0.8.0 Phase 4。Backendless Preview 已接入 provider allowlist、public settings 和 Runtime Key 预览，但主要 AI 功能仍通过本地 backend 运行。</div>
               </div>
               <div class="pet-about-section">
                 <div class="pet-about-section-title">安全说明</div>
-                <div class="pet-settings-note">API Key 当前保存在本地后端配置中，不写入扩展存储。请勿公开 backend/.env 或 backend/.local/settings.local.json。</div>
+                <div class="pet-settings-note">本地 backend API Key 与 Backendless Preview Runtime Key 分开保存；content script 只能看到脱敏状态，不会拿到完整 Runtime Key。</div>
               </div>
               </div>
               <div class="pet-settings-actions pet-settings-footer">
@@ -581,6 +588,10 @@
       runtimeSettingsStatus: root.querySelector("#aflodit-pet-runtime-settings-status"),
       runtimeProvider: root.querySelector("#aflodit-pet-runtime-provider"),
       runtimeModel: root.querySelector("#aflodit-pet-runtime-model"),
+      runtimeProviderSelected: root.querySelector("#aflodit-pet-runtime-provider-selected"),
+      runtimeProviderProtocol: root.querySelector("#aflodit-pet-runtime-provider-protocol"),
+      runtimeProviderDefaultModel: root.querySelector("#aflodit-pet-runtime-provider-default-model"),
+      runtimeProviderRequestEnabled: root.querySelector("#aflodit-pet-runtime-provider-request-enabled"),
       runtimeApiKey: root.querySelector("#aflodit-pet-runtime-api-key"),
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
       runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
