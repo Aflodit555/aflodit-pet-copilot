@@ -20,6 +20,5 @@ export function hasProvider(id) {
   return Boolean(getProvider(id));
 }
 
-// Phase 2+ can add provider descriptors here after permissions and secret handling
-// are migrated. Phase 1 intentionally does not add OpenAI, DeepSeek, DashScope,
-// OpenRouter, custom endpoint support, or host permissions.
+// Future phases can add provider descriptors here after permissions, secrets,
+// and explicit allowlist UI are designed. Phase 3 remains mock-only.

@@ -22,19 +22,26 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.8.0 Backendless Runtime Phase 2`。
+当前实现是 `v0.8.0 Backendless Runtime Phase 3`。
 
-### v0.8.0 Phase 2 Background Public Settings Migration
+### v0.8.0 Phase 3 Background Secret Store
 
-`v0.8.0 Phase 2` 是 Backendless 迁移的 public settings 预览阶段，不是最终 Backendless 用户版。当前普通功能仍需要本地 backend。
+`v0.8.0 Phase 3` 是 Backendless Preview 的密钥存储阶段，不是最终 Backendless 用户版。当前普通功能仍需要本地 backend。
 
-本阶段在 Phase 1 background runtime skeleton 基础上，新增 Background Runtime / Backendless Preview 的 public settings UI 闭环。AI 主链路仍保持不变：
+本阶段在 Phase 2 public settings UI 闭环基础上，新增 Background Secret Store 和 Runtime Key 的保存、清除、脱敏展示能力。AI 主链路仍保持不变：
 
 ```text
 content.js -> http://127.0.0.1:3001/api/pet -> Local Backend -> LLM Runtime
 ```
 
-Phase 2 的 background runtime 当前只用于状态探测和脱敏 public settings preview，支持消息：`runtime:getStatus`、`settings:getPublic`、`settings:savePublic`、`settings:clearKey`。Background Runtime settings 只保存 `provider`、`model`、`saveMode`、`debugEnabled` 等非敏感字段，不保存真实 API Key，不影响旧 backend 模型配置，不迁移真实模型请求，不执行任意 fetch，不引入 `https://*/*`，也不引入 Native Messaging。Chat、Explain、Translate、Summarize 仍走本地 backend。
+Phase 3 的 background runtime 当前用于状态探测、脱敏 public settings preview 和 Backendless Preview Runtime Key 存储，支持消息：`runtime:getStatus`、`settings:getPublic`、`settings:savePublic`、`settings:saveSecret`、`settings:clearKey`。Background Runtime settings 保存 `provider`、`model`、`saveMode`、`debugEnabled` 等 public 字段；Runtime Key 只用于未来 Backendless runtime 预备能力，不影响旧 backend 模型配置，不迁移真实模型请求，不执行任意 fetch，不引入 `https://*/*`，也不引入 Native Messaging。Chat、Explain、Translate、Summarize 仍走本地 backend。
+
+Runtime Key 的保存位置由 `saveMode` 决定：
+
+- `local`：保存到浏览器扩展的 `chrome.storage.local`，浏览器重启后仍可能保留。runtime 会尽力设置 `TRUSTED_CONTEXTS`，避免 content script 直接访问；不支持该能力的浏览器会安全降级。
+- `session`：保存到 `chrome.storage.session`，用于更短生命周期；扩展重载或浏览器重启后可能失效。不支持 session storage 的浏览器会安全降级为 background 内存态。
+
+`settings:getPublic` 只返回 `hasApiKey` 和 `apiKeyPreview`，不会返回完整 Runtime Key。Runtime Key 不会写入 `backend/.env`，也不会写入 `backend/.local/settings.local.json`。
 
 当前仍保留此前版本中的本地模型设置能力：
 
@@ -53,7 +60,7 @@ Phase 2 的 background runtime 当前只用于状态探测和脱敏 public setti
 - **Translate Selected Text**：选中网页文本后，翻译或润色为自然的简体中文。
 - **Summarize Current Page**：提取当前页面可读内容并总结。
 - **Settings Panel**：在 UI 中配置 Base URL、Model、API Key、Provider。模型请求超时固定为 40000ms。
-- **Backendless Preview**：预览 background public settings，当前只保存非敏感占位设置，不驱动真实模型请求。
+- **Backendless Preview**：预览 background public settings 和 Runtime Key 存储，当前不驱动真实模型请求。
 - **Mock Mode**：无需 API Key 的本地演示模式，适合首次运行和测试。
 - **OpenAI-Compatible Provider**：支持标准 `/v1/chat/completions` 风格的模型服务。
 - **Experimental Streaming**：实验性 `/api/pet-stream` 流式回复。
@@ -62,7 +69,7 @@ Phase 2 的 background runtime 当前只用于状态探测和脱敏 public setti
 
 ## 快速开始
 
-在最终 Backendless 版本完成前，当前 Phase 2 仍按本地后端流程运行。
+在最终 Backendless 版本完成前，当前 Phase 3 仍按本地后端流程运行。
 
 ### 1. 准备环境
 
@@ -222,7 +229,7 @@ LLM_DEBUG=false
 - 后端默认绑定到 `127.0.0.1`。
 - Settings API 需要本地 token。
 - API Key 保存在 `backend/.local/settings.local.json`。
-- Background Runtime settings 不保存真实 API Key，也不影响 `backend/.local/settings.local.json`。
+- Background Runtime settings 不影响 `backend/.local/settings.local.json`；Runtime Key 只保存在扩展 background secret store 中。
 - `backend/.local/` 和 `*.local.json` 已加入 `.gitignore`。
 - `GET /api/settings` 只返回 `apiKeySet` 和 `apiKeyPreview`。
 - API Key 不会保存在扩展的 `localStorage` 或 `chrome.storage`。
@@ -421,7 +428,7 @@ PORT=3002
 ## 已知限制
 
 - 使用扩展时必须运行本地后端。
-- 这是 Phase 2 的临时限制，后续 Phase 计划继续迁移到 background runtime。
+- 这是 Phase 3 的临时限制，后续 Phase 计划继续迁移到 background runtime。
 - 后端不是 production hardened 服务。
 - OpenAI-Compatible provider 的兼容性取决于对方 `/chat/completions` 行为。
 - 网页内容提取质量会因网站结构而变化。

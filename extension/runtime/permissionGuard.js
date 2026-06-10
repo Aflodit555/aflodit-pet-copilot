@@ -51,6 +51,38 @@ export function validatePublicSettings(settings = {}) {
   return { ok: true };
 }
 
+export function validateSecretPayload(payload = {}) {
+  const allowedKeys = new Set(["apiKey", "secret"]);
+  const keys = Object.keys(payload || {});
+  const unsupportedKey = keys.find((key) => !allowedKeys.has(key));
+  if (unsupportedKey) {
+    return {
+      ok: false,
+      error: {
+        code: "SECRET_PAYLOAD_FORBIDDEN",
+        message: `Runtime secret payload cannot include ${unsupportedKey}.`
+      }
+    };
+  }
+
+  const hasApiKey = typeof payload.apiKey === "string" && payload.apiKey.trim();
+  const hasSecret = typeof payload.secret === "string" && payload.secret.trim();
+  if ((hasApiKey && hasSecret) || (!hasApiKey && !hasSecret)) {
+    return {
+      ok: false,
+      error: {
+        code: "SECRET_PAYLOAD_INVALID",
+        message: "Runtime secret payload must include exactly one apiKey or secret."
+      }
+    };
+  }
+
+  return {
+    ok: true,
+    secret: (payload.apiKey || payload.secret).trim()
+  };
+}
+
 export function assertNoArbitraryNetworkAccess(value = {}) {
   const text = JSON.stringify(value);
   if (/https:\/\/\*\/\*|https?:\/\//i.test(text)) {

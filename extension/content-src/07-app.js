@@ -651,6 +651,13 @@
       });
     },
 
+    async saveSecret(apiKey = "") {
+      return this.request({
+        type: "settings:saveSecret",
+        payload: { apiKey }
+      });
+    },
+
     async clearKey() {
       return this.request({ type: "settings:clearKey" });
     },
@@ -672,6 +679,7 @@
     setBusy(busy) {
       this.busy = busy;
       dom.runtimeSave.disabled = busy;
+      dom.runtimeSaveKey.disabled = busy;
       dom.runtimeReload.disabled = busy;
       dom.runtimeClearKey.disabled = busy;
     },
@@ -707,9 +715,13 @@
 
       dom.runtimeProvider.value = provider === "mock" ? "mock" : "mock";
       dom.runtimeModel.value = state.runtimePublicSettings.model;
+      dom.runtimeApiKey.value = "";
+      dom.runtimeApiKey.placeholder = state.runtimePublicSettings.hasApiKey
+        ? `Saved: ${state.runtimePublicSettings.apiKeyPreview || "configured"}`
+        : "Enter API Key for future backendless runtime";
       dom.runtimeSaveMode.value = state.runtimePublicSettings.saveMode;
       dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
-      dom.runtimeHasKey.textContent = String(state.runtimePublicSettings.hasApiKey);
+      dom.runtimeHasKey.textContent = state.runtimePublicSettings.hasApiKey ? "yes" : "no";
       dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
     },
 
@@ -720,6 +732,10 @@
         saveMode: dom.runtimeSaveMode.value === "session" ? "session" : "local",
         debugEnabled: Boolean(dom.runtimeDebug.checked)
       };
+    },
+
+    readSecretForm() {
+      return String(dom.runtimeApiKey.value || "").trim();
     },
 
     async refreshStatus() {
@@ -764,6 +780,31 @@
         this.setMessage("Runtime settings saved. Legacy backend model settings are unchanged.");
       } catch (error) {
         this.setMessage(error?.message || "Runtime settings request failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async saveKey() {
+      if (this.busy) return;
+      const apiKey = this.readSecretForm();
+      if (!apiKey) {
+        this.setMessage("Enter a Runtime API Key before saving.");
+        return;
+      }
+
+      this.setBusy(true);
+      this.setMessage("Saving runtime key...");
+      try {
+        const response = await BackgroundRuntimeClient.saveSecret(apiKey);
+        if (!response.ok) {
+          this.setMessage(this.userMessage(response, "Runtime key save failed."));
+          return;
+        }
+        this.hydrate(response);
+        this.setMessage("Runtime key saved for Backendless Preview only. Backend key is unchanged.");
+      } catch (error) {
+        this.setMessage(error?.message || "Runtime key save failed.");
       } finally {
         this.setBusy(false);
       }
@@ -1329,6 +1370,11 @@
     on(dom.runtimeSave, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.save();
+    });
+
+    on(dom.runtimeSaveKey, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.saveKey();
     });
 
     on(dom.runtimeReload, "click", (event) => {

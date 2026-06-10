@@ -852,6 +852,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
               </label>
               <label class="pet-settings-field">
+                <span>API Key</span>
+                <input id="aflodit-pet-runtime-api-key" type="password" autocomplete="off" placeholder="Enter API Key for future backendless runtime" />
+              </label>
+              <label class="pet-settings-field">
                 <span>Save mode</span>
                 <select id="aflodit-pet-runtime-save-mode">
                   <option value="local">local</option>
@@ -862,12 +866,14 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <input id="aflodit-pet-runtime-debug" type="checkbox" />
                 <span>Debug enabled</span>
               </label>
+              <div class="pet-settings-message pet-runtime-warning">此 Key 仅用于 Backendless Preview，不影响当前本地后端模型配置。当前 AI 功能仍走本地 backend，也不会修改 backend/.env 或 backend/.local/settings.local.json。</div>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
               </div>
               <div class="pet-settings-actions pet-settings-footer">
                 <button id="aflodit-pet-runtime-save" class="pet-primary-button">Save Runtime Settings</button>
+                <button id="aflodit-pet-runtime-save-key" class="pet-primary-button">Save Runtime Key</button>
                 <button id="aflodit-pet-runtime-reload" class="pet-secondary-button">Reload Runtime Settings</button>
-                <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button">Clear Runtime Key</button>
+                <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears Backendless Preview key, not backend key.">Clear Runtime Key</button>
                 <button id="aflodit-pet-runtime-back" class="pet-secondary-button">Back</button>
               </div>
             </div>
@@ -1346,12 +1352,14 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeSettingsStatus: root.querySelector("#aflodit-pet-runtime-settings-status"),
       runtimeProvider: root.querySelector("#aflodit-pet-runtime-provider"),
       runtimeModel: root.querySelector("#aflodit-pet-runtime-model"),
+      runtimeApiKey: root.querySelector("#aflodit-pet-runtime-api-key"),
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
       runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
       runtimeHasKey: root.querySelector("#aflodit-pet-runtime-has-key"),
       runtimeKeyPreview: root.querySelector("#aflodit-pet-runtime-key-preview"),
       runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),
       runtimeSave: root.querySelector("#aflodit-pet-runtime-save"),
+      runtimeSaveKey: root.querySelector("#aflodit-pet-runtime-save-key"),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
       runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
       runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),
@@ -3419,6 +3427,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       });
     },
 
+    async saveSecret(apiKey = "") {
+      return this.request({
+        type: "settings:saveSecret",
+        payload: { apiKey }
+      });
+    },
+
     async clearKey() {
       return this.request({ type: "settings:clearKey" });
     },
@@ -3440,6 +3455,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     setBusy(busy) {
       this.busy = busy;
       dom.runtimeSave.disabled = busy;
+      dom.runtimeSaveKey.disabled = busy;
       dom.runtimeReload.disabled = busy;
       dom.runtimeClearKey.disabled = busy;
     },
@@ -3475,9 +3491,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
       dom.runtimeProvider.value = provider === "mock" ? "mock" : "mock";
       dom.runtimeModel.value = state.runtimePublicSettings.model;
+      dom.runtimeApiKey.value = "";
+      dom.runtimeApiKey.placeholder = state.runtimePublicSettings.hasApiKey
+        ? `Saved: ${state.runtimePublicSettings.apiKeyPreview || "configured"}`
+        : "Enter API Key for future backendless runtime";
       dom.runtimeSaveMode.value = state.runtimePublicSettings.saveMode;
       dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
-      dom.runtimeHasKey.textContent = String(state.runtimePublicSettings.hasApiKey);
+      dom.runtimeHasKey.textContent = state.runtimePublicSettings.hasApiKey ? "yes" : "no";
       dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
     },
 
@@ -3488,6 +3508,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         saveMode: dom.runtimeSaveMode.value === "session" ? "session" : "local",
         debugEnabled: Boolean(dom.runtimeDebug.checked)
       };
+    },
+
+    readSecretForm() {
+      return String(dom.runtimeApiKey.value || "").trim();
     },
 
     async refreshStatus() {
@@ -3532,6 +3556,31 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         this.setMessage("Runtime settings saved. Legacy backend model settings are unchanged.");
       } catch (error) {
         this.setMessage(error?.message || "Runtime settings request failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async saveKey() {
+      if (this.busy) return;
+      const apiKey = this.readSecretForm();
+      if (!apiKey) {
+        this.setMessage("Enter a Runtime API Key before saving.");
+        return;
+      }
+
+      this.setBusy(true);
+      this.setMessage("Saving runtime key...");
+      try {
+        const response = await BackgroundRuntimeClient.saveSecret(apiKey);
+        if (!response.ok) {
+          this.setMessage(this.userMessage(response, "Runtime key save failed."));
+          return;
+        }
+        this.hydrate(response);
+        this.setMessage("Runtime key saved for Backendless Preview only. Backend key is unchanged.");
+      } catch (error) {
+        this.setMessage(error?.message || "Runtime key save failed.");
       } finally {
         this.setBusy(false);
       }
@@ -4097,6 +4146,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     on(dom.runtimeSave, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.save();
+    });
+
+    on(dom.runtimeSaveKey, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.saveKey();
     });
 
     on(dom.runtimeReload, "click", (event) => {

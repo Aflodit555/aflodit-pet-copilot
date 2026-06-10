@@ -81,6 +81,10 @@
                 <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
               </label>
               <label class="pet-settings-field">
+                <span>API Key</span>
+                <input id="aflodit-pet-runtime-api-key" type="password" autocomplete="off" placeholder="Enter API Key for future backendless runtime" />
+              </label>
+              <label class="pet-settings-field">
                 <span>Save mode</span>
                 <select id="aflodit-pet-runtime-save-mode">
                   <option value="local">local</option>
@@ -91,12 +95,14 @@
                 <input id="aflodit-pet-runtime-debug" type="checkbox" />
                 <span>Debug enabled</span>
               </label>
+              <div class="pet-settings-message pet-runtime-warning">此 Key 仅用于 Backendless Preview，不影响当前本地后端模型配置。当前 AI 功能仍走本地 backend，也不会修改 backend/.env 或 backend/.local/settings.local.json。</div>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
               </div>
               <div class="pet-settings-actions pet-settings-footer">
                 <button id="aflodit-pet-runtime-save" class="pet-primary-button">Save Runtime Settings</button>
+                <button id="aflodit-pet-runtime-save-key" class="pet-primary-button">Save Runtime Key</button>
                 <button id="aflodit-pet-runtime-reload" class="pet-secondary-button">Reload Runtime Settings</button>
-                <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button">Clear Runtime Key</button>
+                <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears Backendless Preview key, not backend key.">Clear Runtime Key</button>
                 <button id="aflodit-pet-runtime-back" class="pet-secondary-button">Back</button>
               </div>
             </div>
@@ -575,12 +581,14 @@
       runtimeSettingsStatus: root.querySelector("#aflodit-pet-runtime-settings-status"),
       runtimeProvider: root.querySelector("#aflodit-pet-runtime-provider"),
       runtimeModel: root.querySelector("#aflodit-pet-runtime-model"),
+      runtimeApiKey: root.querySelector("#aflodit-pet-runtime-api-key"),
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
       runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
       runtimeHasKey: root.querySelector("#aflodit-pet-runtime-has-key"),
       runtimeKeyPreview: root.querySelector("#aflodit-pet-runtime-key-preview"),
       runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),
       runtimeSave: root.querySelector("#aflodit-pet-runtime-save"),
+      runtimeSaveKey: root.querySelector("#aflodit-pet-runtime-save-key"),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
       runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
       runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),

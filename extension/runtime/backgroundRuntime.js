@@ -1,5 +1,5 @@
 import { validateMessage } from "./messageProtocol.js";
-import { assertNoArbitraryNetworkAccess } from "./permissionGuard.js";
+import { assertNoArbitraryNetworkAccess, validateSecretPayload } from "./permissionGuard.js";
 import { createSafeLogger } from "./safeLog.js";
 import { createSecretStore } from "./secretStore.js";
 import { createSettingsStore } from "./settingsStore.js";
@@ -20,8 +20,8 @@ function publicSettingsResponse(settings, hasApiKey, apiKeyPreview) {
 
 export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
   const settingsStore = createSettingsStore(chromeApi);
-  const secretStore = createSecretStore();
   const logger = createSafeLogger({ enabled: false });
+  const secretStore = createSecretStore(chromeApi, logger);
 
   return {
     async handleMessage(message) {
@@ -37,7 +37,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           ok: true,
           runtime: "background",
           version,
-          backendlessPhase: 2
+          backendlessPhase: 3
         };
       }
 
@@ -57,6 +57,21 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           saved.settings,
           await secretStore.hasSecret(),
           await secretStore.getMaskedPreview()
+        );
+      }
+
+      if (parsed.type === "settings:saveSecret") {
+        const guard = validateSecretPayload(parsed.payload || {});
+        if (!guard.ok) return guard;
+
+        const settings = await settingsStore.getPublicSettings();
+        const saved = await secretStore.saveSecret(guard.secret, { saveMode: settings.saveMode });
+        if (!saved.ok) return saved;
+
+        return publicSettingsResponse(
+          settings,
+          await secretStore.hasSecret(settings.saveMode),
+          await secretStore.getMaskedPreview(settings.saveMode)
         );
       }
 

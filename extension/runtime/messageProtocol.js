@@ -2,6 +2,7 @@ export const ALLOWED_MESSAGE_TYPES = Object.freeze([
   "runtime:getStatus",
   "settings:getPublic",
   "settings:savePublic",
+  "settings:saveSecret",
   "settings:clearKey"
 ]);
 
@@ -10,9 +11,11 @@ export const BLOCKED_MESSAGE_TYPES = Object.freeze([
   "proxy",
   "request:url",
   "settings:getSecret",
-  "settings:saveSecret",
   "provider:rawCall",
-  "debug:getRawRequest"
+  "debug:getRawRequest",
+  "debug:getSecret",
+  "storage:getRaw",
+  "storage:dump"
 ]);
 
 const FORBIDDEN_PAYLOAD_KEYS = Object.freeze([
@@ -23,9 +26,10 @@ const FORBIDDEN_PAYLOAD_KEYS = Object.freeze([
   "authorization",
   "method",
   "body",
-  "rawBody",
-  "apiKey"
+  "rawBody"
 ]);
+
+const SECRET_PAYLOAD_KEYS = Object.freeze(["apiKey", "secret"]);
 
 function hasOwn(value, key) {
   return Object.prototype.hasOwnProperty.call(value, key);
@@ -107,6 +111,41 @@ export function validateMessage(message) {
       error: {
         code: "MESSAGE_PAYLOAD_INVALID",
         message: "Runtime message payload must be an object when provided."
+      }
+    };
+  }
+
+  if (type === "settings:saveSecret") {
+    const payload = message.payload || {};
+    const keys = Object.keys(payload);
+    const secretKeys = keys.filter((key) => SECRET_PAYLOAD_KEYS.includes(key));
+    const unsupportedKey = keys.find((key) => !SECRET_PAYLOAD_KEYS.includes(key));
+
+    if (unsupportedKey) {
+      return {
+        ok: false,
+        error: {
+          code: "MESSAGE_PAYLOAD_FORBIDDEN",
+          message: `Runtime secret payload contains forbidden field: ${unsupportedKey}`
+        }
+      };
+    }
+
+    if (secretKeys.length !== 1) {
+      return {
+        ok: false,
+        error: {
+          code: "SECRET_PAYLOAD_INVALID",
+          message: "Runtime secret payload must include exactly one apiKey or secret field."
+        }
+      };
+    }
+  } else if (findForbiddenKey({ payload: message.payload || {} }) || hasOwn(message.payload || {}, "apiKey") || hasOwn(message.payload || {}, "secret")) {
+    return {
+      ok: false,
+      error: {
+        code: "MESSAGE_PAYLOAD_FORBIDDEN",
+        message: "Runtime message payload contains forbidden secret or request field."
       }
     };
   }
