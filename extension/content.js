@@ -865,9 +865,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <div><b>Provider selected</b>：<span id="aflodit-pet-runtime-provider-selected">Mock</span></div>
                 <div><b>Protocol</b>：<span id="aflodit-pet-runtime-provider-protocol">mock</span></div>
                 <div><b>Default model</b>：<span id="aflodit-pet-runtime-provider-default-model">mock-model</span></div>
+                <div><b>Permission status</b>: <span id="aflodit-pet-runtime-provider-permission-status">unknown</span></div>
                 <div><b>Request enabled</b>：<span id="aflodit-pet-runtime-provider-request-enabled">no</span></div>
               </div>
-              <div class="pet-settings-message pet-runtime-warning">Provider selection is a preview. Real model requests are not enabled in Phase 4.</div>
+              <div class="pet-settings-message pet-runtime-warning">Provider selection and permission status are preview-only. Permission granted does not mean provider connected. Real model requests are still disabled.</div>
               <label class="pet-settings-field">
                 <span>API Key</span>
                 <input id="aflodit-pet-runtime-api-key" type="password" autocomplete="off" placeholder="Enter API Key for future backendless runtime" />
@@ -886,13 +887,26 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
               <div class="pet-settings-message pet-runtime-warning">此 Key 仅用于 Backendless Preview，不影响当前本地后端模型配置。当前 AI 功能仍走本地 backend，也不会修改 backend/.env 或 backend/.local/settings.local.json。</div>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
               </div>
-              <div class="pet-settings-actions pet-settings-footer">
-                <button id="aflodit-pet-runtime-save" class="pet-primary-button">Save Runtime Settings</button>
-                <button id="aflodit-pet-runtime-save-key" class="pet-primary-button">Save Runtime Key</button>
-                <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test Runtime Connection</button>
-                <button id="aflodit-pet-runtime-reload" class="pet-secondary-button">Reload Runtime Settings</button>
-                <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears Backendless Preview key, not backend key.">Clear Runtime Key</button>
-                <button id="aflodit-pet-runtime-back" class="pet-secondary-button">Back</button>
+              <div class="pet-settings-actions pet-settings-footer pet-runtime-actions">
+                <div class="pet-runtime-actions-group">
+                  <div class="pet-runtime-actions-title">Runtime Actions</div>
+                  <div class="pet-runtime-actions-row">
+                    <button id="aflodit-pet-runtime-save" class="pet-primary-button">Save Settings</button>
+                    <button id="aflodit-pet-runtime-save-key" class="pet-primary-button">Save Key</button>
+                    <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears Backendless Preview key, not backend key.">Clear Key</button>
+                  </div>
+                </div>
+                <div class="pet-runtime-actions-group">
+                  <div class="pet-runtime-actions-title">Preview Checks</div>
+                  <div class="pet-runtime-actions-row">
+                    <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test</button>
+                    <button id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission</button>
+                  </div>
+                </div>
+                <div class="pet-runtime-actions-row pet-runtime-nav-row">
+                  <button id="aflodit-pet-runtime-reload" class="pet-secondary-button">Reload</button>
+                  <button id="aflodit-pet-runtime-back" class="pet-secondary-button pet-runtime-back-button">Back</button>
+                </div>
               </div>
             </div>
 
@@ -1373,6 +1387,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeProviderSelected: root.querySelector("#aflodit-pet-runtime-provider-selected"),
       runtimeProviderProtocol: root.querySelector("#aflodit-pet-runtime-provider-protocol"),
       runtimeProviderDefaultModel: root.querySelector("#aflodit-pet-runtime-provider-default-model"),
+      runtimeProviderPermissionStatus: root.querySelector("#aflodit-pet-runtime-provider-permission-status"),
       runtimeProviderRequestEnabled: root.querySelector("#aflodit-pet-runtime-provider-request-enabled"),
       runtimeApiKey: root.querySelector("#aflodit-pet-runtime-api-key"),
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
@@ -1383,6 +1398,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeSave: root.querySelector("#aflodit-pet-runtime-save"),
       runtimeSaveKey: root.querySelector("#aflodit-pet-runtime-save-key"),
       runtimeTestMock: root.querySelector("#aflodit-pet-runtime-test-mock"),
+      runtimeCheckPermission: root.querySelector("#aflodit-pet-runtime-check-permission"),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
       runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
       runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),
@@ -3460,6 +3476,15 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       });
     },
 
+    async getProviderPermissionStatus(payload = {}) {
+      return this.request({
+        type: "runtime:getProviderPermissionStatus",
+        payload: {
+          providerId: payload.providerId
+        }
+      });
+    },
+
     async saveSecret(apiKey = "") {
       return this.request({
         type: "settings:saveSecret",
@@ -3490,6 +3515,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       dom.runtimeSave.disabled = busy;
       dom.runtimeSaveKey.disabled = busy;
       dom.runtimeTestMock.disabled = busy;
+      dom.runtimeCheckPermission.disabled = busy;
       dom.runtimeReload.disabled = busy;
       dom.runtimeClearKey.disabled = busy;
     },
@@ -3507,6 +3533,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         SETTING_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
         PROVIDER_NOT_ALLOWED: "Provider is not available in Backendless Preview.",
+        PERMISSION_NOT_CONFIGURED: "Provider permission is not configured in this preview phase.",
+        INVALID_PAYLOAD: "Provider permission status rejected invalid payload.",
         RUNTIME_TEST_PAYLOAD_FORBIDDEN: "Runtime mock test rejected unsafe fields.",
         RUNTIME_TEST_PAYLOAD_UNKNOWN: "Runtime mock test rejected unsupported fields."
       };
@@ -3558,6 +3586,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       if (dom.runtimeProviderSelected) dom.runtimeProviderSelected.textContent = provider.displayName;
       if (dom.runtimeProviderProtocol) dom.runtimeProviderProtocol.textContent = provider.protocol || "unknown";
       if (dom.runtimeProviderDefaultModel) dom.runtimeProviderDefaultModel.textContent = provider.defaultModel || "";
+      if (dom.runtimeProviderPermissionStatus) dom.runtimeProviderPermissionStatus.textContent = "unknown";
       if (dom.runtimeProviderRequestEnabled) {
         dom.runtimeProviderRequestEnabled.textContent = provider.requestEnabled ? "yes" : "no";
       }
@@ -3707,9 +3736,46 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           this.setMessage(response.message || this.userMessage(response, "Mock runtime test failed."));
           return;
         }
-        this.setMessage(response.message || "Mock runtime test passed. Real provider requests are still disabled.");
+        this.setMessage(response.message || "Mock test passed. Real provider requests are still disabled.");
       } catch (error) {
         this.setMessage(error?.message || "Mock runtime test failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async checkPermission() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("Checking provider permission status...");
+      try {
+        const form = this.readForm();
+        const response = await BackgroundRuntimeClient.getProviderPermissionStatus({
+          providerId: form.provider
+        });
+        const providerLabel = response.providerName || this.providerById(form.provider)?.displayName || form.provider;
+        if (dom.runtimeProviderPermissionStatus) {
+          if (response.ok && response.permissionGranted) {
+            dom.runtimeProviderPermissionStatus.textContent = "granted";
+          } else if (response.ok && response.permissionConfigured) {
+            dom.runtimeProviderPermissionStatus.textContent = "missing";
+          } else if (response.errorCode === "PERMISSION_NOT_CONFIGURED") {
+            dom.runtimeProviderPermissionStatus.textContent = "not configured";
+          } else {
+            dom.runtimeProviderPermissionStatus.textContent = "unknown";
+          }
+        }
+        if (dom.runtimeProviderRequestEnabled) {
+          dom.runtimeProviderRequestEnabled.textContent = "no";
+        }
+        if (response.ok) {
+          const permissionText = response.permissionGranted ? "is granted" : "is not granted";
+          this.setMessage(`${providerLabel} permission ${permissionText}. Real provider requests are still disabled.`);
+          return;
+        }
+        this.setMessage(response.message || this.userMessage(response, "Provider permission status check failed."));
+      } catch (error) {
+        this.setMessage(error?.message || "Provider permission status check failed.");
       } finally {
         this.setBusy(false);
       }
@@ -4289,6 +4355,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     on(dom.runtimeTestMock, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.testMock();
+    });
+
+    on(dom.runtimeCheckPermission, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.checkPermission();
     });
 
     on(dom.runtimeReload, "click", (event) => {

@@ -1,10 +1,21 @@
+export const MESSAGE_TYPES = Object.freeze({
+  runtimeGetStatus: "runtime:getStatus",
+  runtimeTestConnectionMock: "runtime:testConnectionMock",
+  runtimeGetProviderPermissionStatus: "runtime:getProviderPermissionStatus",
+  settingsGetPublic: "settings:getPublic",
+  settingsSavePublic: "settings:savePublic",
+  settingsSaveSecret: "settings:saveSecret",
+  settingsClearKey: "settings:clearKey"
+});
+
 export const ALLOWED_MESSAGE_TYPES = Object.freeze([
-  "runtime:getStatus",
-  "runtime:testConnectionMock",
-  "settings:getPublic",
-  "settings:savePublic",
-  "settings:saveSecret",
-  "settings:clearKey"
+  MESSAGE_TYPES.runtimeGetStatus,
+  MESSAGE_TYPES.runtimeTestConnectionMock,
+  MESSAGE_TYPES.runtimeGetProviderPermissionStatus,
+  MESSAGE_TYPES.settingsGetPublic,
+  MESSAGE_TYPES.settingsSavePublic,
+  MESSAGE_TYPES.settingsSaveSecret,
+  MESSAGE_TYPES.settingsClearKey
 ]);
 
 export const BLOCKED_MESSAGE_TYPES = Object.freeze([
@@ -109,7 +120,7 @@ export function validateMessage(message) {
     };
   }
 
-  if (type === "runtime:testConnectionMock") {
+  if (type === MESSAGE_TYPES.runtimeTestConnectionMock || type === MESSAGE_TYPES.runtimeGetProviderPermissionStatus) {
     return { ok: true, type, payload: message.payload || {} };
   }
 

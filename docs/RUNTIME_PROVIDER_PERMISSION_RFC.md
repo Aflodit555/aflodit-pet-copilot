@@ -2,7 +2,7 @@
 
 ## 1. Goal
 
-Phase 5A defines the permission strategy for future real provider requests from the extension background runtime. Phase 5B adds a mock-only Test Connection skeleton that exercises the UI and message path without contacting real providers.
+Phase 5A defines the permission strategy for future real provider requests from the extension background runtime. Phase 5B adds a mock-only Test Connection skeleton that exercises the UI and message path without contacting real providers. Phase 5C.0 adds a DeepSeek-only optional host permission status check.
 
 The goals are:
 
@@ -12,14 +12,18 @@ The goals are:
 
 Phase 5B does not change the current AI request path. Chat, explain, translate, and summarize continue to use the local backend.
 
+Phase 5C.0 also does not change the current AI request path. It only checks whether the exact DeepSeek optional host permission is already granted. It does not request permission, does not request a model, does not mean the provider is connected, and keeps `requestEnabled=false`.
+
+Phase 5C.0.1 fixes the permission status message wire and adds lightweight tests for `runtime:getProviderPermissionStatus`. It also compacts the Backendless Preview UI so Runtime Actions, Preview Checks, and navigation actions are visually distinct. It still does not request permissions or providers.
+
 ## 2. Non-goals
 
-Phase 5A does not:
+Phase 5A/5C.0 does not:
 
 - Switch the AI request path from the local backend to the background runtime.
 - Add real provider network calls.
-- Add host permissions.
-- Add optional host permissions.
+- Add broad host permissions.
+- Request optional host permissions at runtime.
 - Support custom endpoints.
 - Expose the full Runtime Key or backend API Key to the content script.
 - Turn the background runtime into a generic proxy.
@@ -39,6 +43,8 @@ content script -> background runtime settings/secret preview
 ```
 
 The preview path stores and reloads public settings, provider allowlist state, a Runtime Key preview, and a mock Test Connection result. It does not run real AI requests yet.
+
+In Phase 5C.0, the preview path can also ask the background runtime for `runtime:getProviderPermissionStatus` with only `{ "providerId": "deepseek" }`. The background runtime resolves the provider from the allowlist and checks `chrome.permissions.contains` for `https://api.deepseek.com/*`. This is status-only; `chrome.permissions.request` remains out of scope.
 
 ## 4. Permission Strategy Options
 
@@ -241,6 +247,8 @@ Recommended rollout:
 
 Phase 4 intentionally has every provider set to `requestEnabled=false`. Phase 5B does not change that state.
 
+Phase 5C.0 keeps every provider at `requestEnabled=false`. A granted DeepSeek optional host permission only means the browser permission is present; it is not a successful provider connection and it does not enable real provider requests.
+
 ## 9. Logging and Redaction
 
 Logging rules:
@@ -257,7 +265,10 @@ Recommended follow-up phases:
 
 ```text
 Phase 5B: mock Test Connection skeleton
-Phase 5C: permission request UI + one provider real Test Connection
+Phase 5C.0: DeepSeek optional host permission status skeleton
+Phase 5C.0.1: permission status wire fix + compact runtime preview UI
+Phase 5C.1: permission request UI
+Phase 5C.2: one provider real Test Connection
 Phase 5D: provider adapter hardening
 Phase 6: optional background AI route for one action
 ```

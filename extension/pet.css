@@ -546,6 +546,34 @@
   margin-top: 8px;
 }
 
+#aflodit-pet-root .pet-runtime-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+
+#aflodit-pet-root .pet-runtime-actions-group {
+  display: grid;
+  gap: 4px;
+}
+
+#aflodit-pet-root .pet-runtime-actions-title {
+  color: #666;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+#aflodit-pet-root .pet-runtime-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+#aflodit-pet-root .pet-runtime-nav-row {
+  margin-top: 1px;
+}
+
 #aflodit-pet-root .pet-pomodoro-panel {
   margin: 8px 0 10px;
   padding: 10px;
@@ -557,10 +585,18 @@
 #aflodit-pet-root .pet-primary-button,
 #aflodit-pet-root .pet-secondary-button {
   border: none;
-  border-radius: 10px;
-  padding: 7px 10px;
+  border-radius: 8px;
+  padding: 6px 9px;
   font-size: 12px;
+  line-height: 1.25;
   cursor: pointer;
+}
+
+#aflodit-pet-root .pet-runtime-actions .pet-primary-button,
+#aflodit-pet-root .pet-runtime-actions .pet-secondary-button {
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 12px;
 }
 
 #aflodit-pet-root .pet-primary-button {
@@ -579,6 +615,15 @@
 
 #aflodit-pet-root .pet-secondary-button:hover {
   background: #e5e5e5;
+}
+
+#aflodit-pet-root .pet-runtime-back-button {
+  background: transparent;
+  color: #666;
+}
+
+#aflodit-pet-root .pet-runtime-back-button:hover {
+  background: #f3f3f3;
 }
 
 .pet-section-title {

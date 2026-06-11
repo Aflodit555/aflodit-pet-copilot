@@ -84,9 +84,10 @@
                 <div><b>Provider selected</b>：<span id="aflodit-pet-runtime-provider-selected">Mock</span></div>
                 <div><b>Protocol</b>：<span id="aflodit-pet-runtime-provider-protocol">mock</span></div>
                 <div><b>Default model</b>：<span id="aflodit-pet-runtime-provider-default-model">mock-model</span></div>
+                <div><b>Permission status</b>: <span id="aflodit-pet-runtime-provider-permission-status">unknown</span></div>
                 <div><b>Request enabled</b>：<span id="aflodit-pet-runtime-provider-request-enabled">no</span></div>
               </div>
-              <div class="pet-settings-message pet-runtime-warning">Provider selection is a preview. Real model requests are not enabled in Phase 4.</div>
+              <div class="pet-settings-message pet-runtime-warning">Provider selection and permission status are preview-only. Permission granted does not mean provider connected. Real model requests are still disabled.</div>
               <label class="pet-settings-field">
                 <span>API Key</span>
                 <input id="aflodit-pet-runtime-api-key" type="password" autocomplete="off" placeholder="Enter API Key for future backendless runtime" />
@@ -105,13 +106,26 @@
               <div class="pet-settings-message pet-runtime-warning">此 Key 仅用于 Backendless Preview，不影响当前本地后端模型配置。当前 AI 功能仍走本地 backend，也不会修改 backend/.env 或 backend/.local/settings.local.json。</div>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
               </div>
-              <div class="pet-settings-actions pet-settings-footer">
-                <button id="aflodit-pet-runtime-save" class="pet-primary-button">Save Runtime Settings</button>
-                <button id="aflodit-pet-runtime-save-key" class="pet-primary-button">Save Runtime Key</button>
-                <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test Runtime Connection</button>
-                <button id="aflodit-pet-runtime-reload" class="pet-secondary-button">Reload Runtime Settings</button>
-                <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears Backendless Preview key, not backend key.">Clear Runtime Key</button>
-                <button id="aflodit-pet-runtime-back" class="pet-secondary-button">Back</button>
+              <div class="pet-settings-actions pet-settings-footer pet-runtime-actions">
+                <div class="pet-runtime-actions-group">
+                  <div class="pet-runtime-actions-title">Runtime Actions</div>
+                  <div class="pet-runtime-actions-row">
+                    <button id="aflodit-pet-runtime-save" class="pet-primary-button">Save Settings</button>
+                    <button id="aflodit-pet-runtime-save-key" class="pet-primary-button">Save Key</button>
+                    <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears Backendless Preview key, not backend key.">Clear Key</button>
+                  </div>
+                </div>
+                <div class="pet-runtime-actions-group">
+                  <div class="pet-runtime-actions-title">Preview Checks</div>
+                  <div class="pet-runtime-actions-row">
+                    <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test</button>
+                    <button id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission</button>
+                  </div>
+                </div>
+                <div class="pet-runtime-actions-row pet-runtime-nav-row">
+                  <button id="aflodit-pet-runtime-reload" class="pet-secondary-button">Reload</button>
+                  <button id="aflodit-pet-runtime-back" class="pet-secondary-button pet-runtime-back-button">Back</button>
+                </div>
               </div>
             </div>
 
@@ -592,6 +606,7 @@
       runtimeProviderSelected: root.querySelector("#aflodit-pet-runtime-provider-selected"),
       runtimeProviderProtocol: root.querySelector("#aflodit-pet-runtime-provider-protocol"),
       runtimeProviderDefaultModel: root.querySelector("#aflodit-pet-runtime-provider-default-model"),
+      runtimeProviderPermissionStatus: root.querySelector("#aflodit-pet-runtime-provider-permission-status"),
       runtimeProviderRequestEnabled: root.querySelector("#aflodit-pet-runtime-provider-request-enabled"),
       runtimeApiKey: root.querySelector("#aflodit-pet-runtime-api-key"),
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
@@ -602,6 +617,7 @@
       runtimeSave: root.querySelector("#aflodit-pet-runtime-save"),
       runtimeSaveKey: root.querySelector("#aflodit-pet-runtime-save-key"),
       runtimeTestMock: root.querySelector("#aflodit-pet-runtime-test-mock"),
+      runtimeCheckPermission: root.querySelector("#aflodit-pet-runtime-check-permission"),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
       runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
       runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),

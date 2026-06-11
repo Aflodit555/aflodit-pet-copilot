@@ -22,7 +22,22 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.8.0 Backendless Runtime Phase 5B`。
+当前实现是 `v0.8.0 Backendless Runtime Phase 5C.0`。
+
+### v0.8.0 Phase 5C.0.1 Permission Status Wire Fix
+
+Phase 5C.0.1 fixes the `runtime:getProviderPermissionStatus` message wire across the content script and background runtime, adds a lightweight runtime test for permission status responses, and compacts the Backendless Preview action area.
+
+The phase remains status-only: it does not request permissions, does not call a provider, and keeps `requestEnabled=false`.
+
+### v0.8.0 Phase 5C.0 Provider Permission Status Skeleton
+
+Phase 5C.0 only checks DeepSeek optional host permission status from the background runtime. It adds the exact optional host permission `https://api.deepseek.com/*` and a Backendless Preview button for `runtime:getProviderPermissionStatus`.
+
+This phase does not request permissions, does not call a model provider, does not mean the provider is connected, and does not move Chat/Explain/Translate/Summarize to the background runtime. `requestEnabled` remains `false` for every provider.
+
+OpenAI, DashScope, and OpenRouter permissions are intentionally not configured in this preview phase. Their permission status response is `PERMISSION_NOT_CONFIGURED`.
+
 
 ### v0.8.0 Phase 5B Mock Test Connection Skeleton
 
@@ -73,7 +88,7 @@ Runtime Key 的保存位置由 `saveMode` 决定：
 
 ## 快速开始
 
-在最终 Backendless 版本完成前，当前 Phase 5B 仍按本地后端流程运行。
+在最终 Backendless 版本完成前，当前 Phase 5C.0 仍按本地后端流程运行。
 
 ### 1. 准备环境
 
@@ -434,7 +449,7 @@ PORT=3002
 ## 已知限制
 
 - 使用扩展时必须运行本地后端。
-- 这是 Phase 5B 的临时限制，后续 Phase 计划继续迁移到 background runtime。
+- 这是 Phase 5C.0 的临时限制，后续 Phase 计划继续迁移到 background runtime。
 - Backendless Preview 的 Mock Test Connection 只验证安全消息链路，不请求真实模型。
 - 后端不是 production hardened 服务。
 - OpenAI-Compatible provider 的兼容性取决于对方 `/chat/completions` 行为。

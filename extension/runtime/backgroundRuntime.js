@@ -1,9 +1,34 @@
-import { validateMessage } from "./messageProtocol.js";
-import { assertNoArbitraryNetworkAccess, validateRuntimeTestPayload, validateSecretPayload } from "./permissionGuard.js";
+import { MESSAGE_TYPES, validateMessage } from "./messageProtocol.js";
+import {
+  assertNoArbitraryNetworkAccess,
+  validateProviderPermissionStatusPayload,
+  validateRuntimeTestPayload,
+  validateSecretPayload
+} from "./permissionGuard.js";
 import { createSafeLogger } from "./safeLog.js";
 import { createSecretStore } from "./secretStore.js";
 import { createSettingsStore } from "./settingsStore.js";
 import { getProvider, listPublicProviders } from "./providerRegistry.js";
+
+function containsPermission(chromeApi, requiredHostPermission) {
+  if (!chromeApi?.permissions?.contains || !requiredHostPermission) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    try {
+      chromeApi.permissions.contains({ origins: [requiredHostPermission] }, (granted) => {
+        if (chromeApi.runtime?.lastError) {
+          resolve(false);
+          return;
+        }
+        resolve(Boolean(granted));
+      });
+    } catch (error) {
+      resolve(false);
+    }
+  });
+}
 
 function publicSettingsResponse(settings, hasApiKey, apiKeyPreview) {
   return {
@@ -30,10 +55,53 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
       const parsed = validateMessage(message);
       if (!parsed.ok) return parsed;
 
+      if (parsed.type === MESSAGE_TYPES.runtimeGetProviderPermissionStatus) {
+        const guard = validateProviderPermissionStatusPayload(parsed.payload || {});
+        if (!guard.ok) return guard;
+
+        const providerId = parsed.payload.providerId.trim();
+        const provider = getProvider(providerId);
+        if (!provider) {
+          return {
+            ok: false,
+            mode: "permission-status",
+            providerId,
+            errorCode: "UNKNOWN_PROVIDER",
+            message: "Unknown provider.",
+            requestEnabled: false
+          };
+        }
+
+        if (!provider.requiredHostPermission) {
+          return {
+            ok: false,
+            mode: "permission-status",
+            providerId: provider.id,
+            errorCode: "PERMISSION_NOT_CONFIGURED",
+            message: "Provider permission is not configured in this preview phase.",
+            requestEnabled: false
+          };
+        }
+
+        const permissionGranted = await containsPermission(chromeApi, provider.requiredHostPermission);
+        return {
+          ok: true,
+          providerId: provider.id,
+          providerName: provider.displayName,
+          mode: "permission-status",
+          permissionConfigured: true,
+          permissionGranted,
+          requestEnabled: false,
+          message: permissionGranted
+            ? "Provider permission is granted. Real provider requests are still disabled."
+            : "Provider permission is not granted yet. Real provider requests are still disabled."
+        };
+      }
+
       const networkGuard = assertNoArbitraryNetworkAccess(parsed.payload);
       if (!networkGuard.ok) return networkGuard;
 
-      if (parsed.type === "runtime:getStatus") {
+      if (parsed.type === MESSAGE_TYPES.runtimeGetStatus) {
         logger.debug("runtime status requested");
         return {
           ok: true,
@@ -45,7 +113,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         };
       }
 
-      if (parsed.type === "runtime:testConnectionMock") {
+      if (parsed.type === MESSAGE_TYPES.runtimeTestConnectionMock) {
         const guard = validateRuntimeTestPayload(parsed.payload || {});
         if (!guard.ok) return guard;
 
@@ -99,7 +167,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         };
       }
 
-      if (parsed.type === "settings:getPublic") {
+      if (parsed.type === MESSAGE_TYPES.settingsGetPublic) {
         const settings = await settingsStore.getPublicSettings();
         return publicSettingsResponse(
           settings,
@@ -108,7 +176,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         );
       }
 
-      if (parsed.type === "settings:savePublic") {
+      if (parsed.type === MESSAGE_TYPES.settingsSavePublic) {
         const saved = await settingsStore.savePublicSettings(parsed.payload || {});
         if (!saved.ok) return saved;
         return publicSettingsResponse(
@@ -118,7 +186,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         );
       }
 
-      if (parsed.type === "settings:saveSecret") {
+      if (parsed.type === MESSAGE_TYPES.settingsSaveSecret) {
         const guard = validateSecretPayload(parsed.payload || {});
         if (!guard.ok) return guard;
 
@@ -133,7 +201,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         );
       }
 
-      if (parsed.type === "settings:clearKey") {
+      if (parsed.type === MESSAGE_TYPES.settingsClearKey) {
         const result = await secretStore.clearSecret();
         const settings = await settingsStore.getPublicSettings();
         return {

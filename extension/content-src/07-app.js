@@ -661,6 +661,15 @@
       });
     },
 
+    async getProviderPermissionStatus(payload = {}) {
+      return this.request({
+        type: "runtime:getProviderPermissionStatus",
+        payload: {
+          providerId: payload.providerId
+        }
+      });
+    },
+
     async saveSecret(apiKey = "") {
       return this.request({
         type: "settings:saveSecret",
@@ -691,6 +700,7 @@
       dom.runtimeSave.disabled = busy;
       dom.runtimeSaveKey.disabled = busy;
       dom.runtimeTestMock.disabled = busy;
+      dom.runtimeCheckPermission.disabled = busy;
       dom.runtimeReload.disabled = busy;
       dom.runtimeClearKey.disabled = busy;
     },
@@ -708,6 +718,8 @@
         SETTING_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
         PROVIDER_NOT_ALLOWED: "Provider is not available in Backendless Preview.",
+        PERMISSION_NOT_CONFIGURED: "Provider permission is not configured in this preview phase.",
+        INVALID_PAYLOAD: "Provider permission status rejected invalid payload.",
         RUNTIME_TEST_PAYLOAD_FORBIDDEN: "Runtime mock test rejected unsafe fields.",
         RUNTIME_TEST_PAYLOAD_UNKNOWN: "Runtime mock test rejected unsupported fields."
       };
@@ -759,6 +771,7 @@
       if (dom.runtimeProviderSelected) dom.runtimeProviderSelected.textContent = provider.displayName;
       if (dom.runtimeProviderProtocol) dom.runtimeProviderProtocol.textContent = provider.protocol || "unknown";
       if (dom.runtimeProviderDefaultModel) dom.runtimeProviderDefaultModel.textContent = provider.defaultModel || "";
+      if (dom.runtimeProviderPermissionStatus) dom.runtimeProviderPermissionStatus.textContent = "unknown";
       if (dom.runtimeProviderRequestEnabled) {
         dom.runtimeProviderRequestEnabled.textContent = provider.requestEnabled ? "yes" : "no";
       }
@@ -908,9 +921,46 @@
           this.setMessage(response.message || this.userMessage(response, "Mock runtime test failed."));
           return;
         }
-        this.setMessage(response.message || "Mock runtime test passed. Real provider requests are still disabled.");
+        this.setMessage(response.message || "Mock test passed. Real provider requests are still disabled.");
       } catch (error) {
         this.setMessage(error?.message || "Mock runtime test failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async checkPermission() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("Checking provider permission status...");
+      try {
+        const form = this.readForm();
+        const response = await BackgroundRuntimeClient.getProviderPermissionStatus({
+          providerId: form.provider
+        });
+        const providerLabel = response.providerName || this.providerById(form.provider)?.displayName || form.provider;
+        if (dom.runtimeProviderPermissionStatus) {
+          if (response.ok && response.permissionGranted) {
+            dom.runtimeProviderPermissionStatus.textContent = "granted";
+          } else if (response.ok && response.permissionConfigured) {
+            dom.runtimeProviderPermissionStatus.textContent = "missing";
+          } else if (response.errorCode === "PERMISSION_NOT_CONFIGURED") {
+            dom.runtimeProviderPermissionStatus.textContent = "not configured";
+          } else {
+            dom.runtimeProviderPermissionStatus.textContent = "unknown";
+          }
+        }
+        if (dom.runtimeProviderRequestEnabled) {
+          dom.runtimeProviderRequestEnabled.textContent = "no";
+        }
+        if (response.ok) {
+          const permissionText = response.permissionGranted ? "is granted" : "is not granted";
+          this.setMessage(`${providerLabel} permission ${permissionText}. Real provider requests are still disabled.`);
+          return;
+        }
+        this.setMessage(response.message || this.userMessage(response, "Provider permission status check failed."));
+      } catch (error) {
+        this.setMessage(error?.message || "Provider permission status check failed.");
       } finally {
         this.setBusy(false);
       }
@@ -1490,6 +1540,11 @@
     on(dom.runtimeTestMock, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.testMock();
+    });
+
+    on(dom.runtimeCheckPermission, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.checkPermission();
     });
 
     on(dom.runtimeReload, "click", (event) => {

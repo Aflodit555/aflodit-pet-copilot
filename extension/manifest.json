@@ -8,6 +8,9 @@
     "http://localhost:3001/*",
     "http://127.0.0.1:3001/*"
   ],
+  "optional_host_permissions": [
+    "https://api.deepseek.com/*"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
