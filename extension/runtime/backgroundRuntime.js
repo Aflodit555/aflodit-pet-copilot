@@ -1,6 +1,7 @@
 import { MESSAGE_TYPES, validateMessage } from "./messageProtocol.js";
 import {
   assertNoArbitraryNetworkAccess,
+  validateProviderPermissionRequestPayload,
   validateProviderPermissionStatusPayload,
   validateRuntimeTestPayload,
   validateSecretPayload
@@ -9,6 +10,9 @@ import { createSafeLogger } from "./safeLog.js";
 import { createSecretStore } from "./secretStore.js";
 import { createSettingsStore } from "./settingsStore.js";
 import { getProvider, listPublicProviders } from "./providerRegistry.js";
+
+const DEEPSEEK_PROVIDER_ID = "deepseek";
+const DEEPSEEK_REQUIRED_HOST_PERMISSION = "https://api.deepseek.com/*";
 
 function containsPermission(chromeApi, requiredHostPermission) {
   if (!chromeApi?.permissions?.contains || !requiredHostPermission) {
@@ -19,6 +23,26 @@ function containsPermission(chromeApi, requiredHostPermission) {
     try {
       chromeApi.permissions.contains({ origins: [requiredHostPermission] }, (granted) => {
         if (chromeApi.runtime?.lastError) {
+          resolve(false);
+          return;
+        }
+        resolve(Boolean(granted));
+      });
+    } catch (error) {
+      resolve(false);
+    }
+  });
+}
+
+function requestPermission(chrome, requiredHostPermission) {
+  if (!chrome?.permissions?.request || !requiredHostPermission) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    try {
+      chrome.permissions.request({ origins: [requiredHostPermission] }, (granted) => {
+        if (chrome.runtime?.lastError) {
           resolve(false);
           return;
         }
@@ -95,6 +119,61 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           message: permissionGranted
             ? "Provider permission is granted. Real provider requests are still disabled."
             : "Provider permission is not granted yet. Real provider requests are still disabled."
+        };
+      }
+
+      if (parsed.type === MESSAGE_TYPES.runtimeRequestProviderPermission) {
+        const guard = validateProviderPermissionRequestPayload(parsed.payload || {});
+        if (!guard.ok) return guard;
+
+        const providerId = parsed.payload.providerId.trim();
+        const provider = getProvider(providerId);
+        if (!provider) {
+          return {
+            ok: false,
+            mode: "permission-request",
+            errorCode: "UNKNOWN_PROVIDER",
+            message: "Unknown provider.",
+            requestEnabled: false
+          };
+        }
+
+        if (
+          provider.id !== DEEPSEEK_PROVIDER_ID
+          || provider.requiredHostPermission !== DEEPSEEK_REQUIRED_HOST_PERMISSION
+        ) {
+          return {
+            ok: false,
+            mode: "permission-request",
+            providerId: provider.id,
+            errorCode: "PERMISSION_NOT_CONFIGURED",
+            message: "Provider permission request is not configured in this preview phase.",
+            requestEnabled: false
+          };
+        }
+
+        const permissionGranted = await requestPermission(chromeApi, provider.requiredHostPermission);
+        if (!permissionGranted) {
+          return {
+            ok: false,
+            mode: "permission-request",
+            providerId: provider.id,
+            providerName: provider.displayName,
+            errorCode: "PERMISSION_DENIED",
+            permissionGranted: false,
+            requestEnabled: false,
+            message: "DeepSeek permission was not granted. Real provider requests are still disabled."
+          };
+        }
+
+        return {
+          ok: true,
+          mode: "permission-request",
+          providerId: provider.id,
+          providerName: provider.displayName,
+          permissionGranted: true,
+          requestEnabled: false,
+          message: "DeepSeek permission granted. Real provider requests are still disabled."
         };
       }
 

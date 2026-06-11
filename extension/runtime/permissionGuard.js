@@ -140,6 +140,36 @@ export function validateProviderPermissionStatusPayload(payload = {}) {
   return { ok: true };
 }
 
+export function validateProviderPermissionRequestPayload(payload = {}) {
+  const allowedKeys = new Set(["providerId"]);
+  for (const key of Object.keys(payload || {})) {
+    if (!allowedKeys.has(key)) {
+      return invalidProviderPermissionRequestPayload();
+    }
+  }
+
+  if (typeof payload.providerId !== "string") {
+    return invalidProviderPermissionRequestPayload();
+  }
+
+  const providerId = payload.providerId.trim();
+  if (!providerId || providerId.length > 64) {
+    return invalidProviderPermissionRequestPayload();
+  }
+
+  return { ok: true };
+}
+
+function invalidProviderPermissionRequestPayload() {
+  return {
+    ok: false,
+    mode: "permission-request",
+    errorCode: "INVALID_PAYLOAD",
+    message: "Invalid permission request payload.",
+    requestEnabled: false
+  };
+}
+
 function invalidProviderPermissionStatusPayload() {
   return {
     ok: false,

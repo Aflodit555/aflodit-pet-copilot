@@ -22,7 +22,13 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.8.0 Backendless Runtime Phase 5C.0`。
+当前实现是 `v0.8.0 Backendless Runtime Phase 5C.1`。
+
+### v0.8.0 Phase 5C.1 DeepSeek Permission Request UI
+
+Phase 5C.1 only requests the exact DeepSeek optional host permission `https://api.deepseek.com/*` from the background runtime. It does not request a model, does not connect to the provider, and keeps `requestEnabled=false`.
+
+OpenAI, DashScope, and OpenRouter permission requests are intentionally not configured in this preview phase. Real provider fetch remains reserved for Phase 5C.2.
 
 ### v0.8.0 Phase 5C.0.1 Permission Status Wire Fix
 
@@ -88,7 +94,7 @@ Runtime Key 的保存位置由 `saveMode` 决定：
 
 ## 快速开始
 
-在最终 Backendless 版本完成前，当前 Phase 5C.0 仍按本地后端流程运行。
+在最终 Backendless 版本完成前，当前 Phase 5C.1 仍按本地后端流程运行。
 
 ### 1. 准备环境
 
@@ -449,7 +455,7 @@ PORT=3002
 ## 已知限制
 
 - 使用扩展时必须运行本地后端。
-- 这是 Phase 5C.0 的临时限制，后续 Phase 计划继续迁移到 background runtime。
+- 这是 Phase 5C.1 的临时限制，后续 Phase 计划继续迁移到 background runtime。
 - Backendless Preview 的 Mock Test Connection 只验证安全消息链路，不请求真实模型。
 - 后端不是 production hardened 服务。
 - OpenAI-Compatible provider 的兼容性取决于对方 `/chat/completions` 行为。

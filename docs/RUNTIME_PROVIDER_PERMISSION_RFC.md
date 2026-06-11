@@ -16,6 +16,8 @@ Phase 5C.0 also does not change the current AI request path. It only checks whet
 
 Phase 5C.0.1 fixes the permission status message wire and adds lightweight tests for `runtime:getProviderPermissionStatus`. It also compacts the Backendless Preview UI so Runtime Actions, Preview Checks, and navigation actions are visually distinct. It still does not request permissions or providers.
 
+Phase 5C.1 adds a DeepSeek-only permission request UI. The background runtime may call `chrome.permissions.request` only for the exact allowlisted origin `https://api.deepseek.com/*`. This does not request a model, does not indicate provider connection, and keeps `requestEnabled=false`. OpenAI, DashScope, and OpenRouter permission requests remain unconfigured.
+
 ## 2. Non-goals
 
 Phase 5A/5C.0 does not:
@@ -267,8 +269,8 @@ Recommended follow-up phases:
 Phase 5B: mock Test Connection skeleton
 Phase 5C.0: DeepSeek optional host permission status skeleton
 Phase 5C.0.1: permission status wire fix + compact runtime preview UI
-Phase 5C.1: permission request UI
-Phase 5C.2: one provider real Test Connection
+Phase 5C.1: DeepSeek permission request UI
+Phase 5C.2: DeepSeek-only real Test Connection
 Phase 5D: provider adapter hardening
 Phase 6: optional background AI route for one action
 ```

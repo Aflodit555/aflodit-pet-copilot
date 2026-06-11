@@ -2,6 +2,7 @@ export const MESSAGE_TYPES = Object.freeze({
   runtimeGetStatus: "runtime:getStatus",
   runtimeTestConnectionMock: "runtime:testConnectionMock",
   runtimeGetProviderPermissionStatus: "runtime:getProviderPermissionStatus",
+  runtimeRequestProviderPermission: "runtime:requestProviderPermission",
   settingsGetPublic: "settings:getPublic",
   settingsSavePublic: "settings:savePublic",
   settingsSaveSecret: "settings:saveSecret",
@@ -12,6 +13,7 @@ export const ALLOWED_MESSAGE_TYPES = Object.freeze([
   MESSAGE_TYPES.runtimeGetStatus,
   MESSAGE_TYPES.runtimeTestConnectionMock,
   MESSAGE_TYPES.runtimeGetProviderPermissionStatus,
+  MESSAGE_TYPES.runtimeRequestProviderPermission,
   MESSAGE_TYPES.settingsGetPublic,
   MESSAGE_TYPES.settingsSavePublic,
   MESSAGE_TYPES.settingsSaveSecret,
@@ -120,7 +122,11 @@ export function validateMessage(message) {
     };
   }
 
-  if (type === MESSAGE_TYPES.runtimeTestConnectionMock || type === MESSAGE_TYPES.runtimeGetProviderPermissionStatus) {
+  if (
+    type === MESSAGE_TYPES.runtimeTestConnectionMock
+    || type === MESSAGE_TYPES.runtimeGetProviderPermissionStatus
+    || type === MESSAGE_TYPES.runtimeRequestProviderPermission
+  ) {
     return { ok: true, type, payload: message.payload || {} };
   }
 

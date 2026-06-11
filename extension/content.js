@@ -901,6 +901,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                   <div class="pet-runtime-actions-row">
                     <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test</button>
                     <button id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission</button>
+                    <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button">Request Permission</button>
                   </div>
                 </div>
                 <div class="pet-runtime-actions-row pet-runtime-nav-row">
@@ -1399,6 +1400,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeSaveKey: root.querySelector("#aflodit-pet-runtime-save-key"),
       runtimeTestMock: root.querySelector("#aflodit-pet-runtime-test-mock"),
       runtimeCheckPermission: root.querySelector("#aflodit-pet-runtime-check-permission"),
+      runtimeRequestPermission: root.querySelector("#aflodit-pet-runtime-request-permission"),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
       runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
       runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),
@@ -3485,6 +3487,15 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       });
     },
 
+    async requestProviderPermission(payload = {}) {
+      return this.request({
+        type: "runtime:requestProviderPermission",
+        payload: {
+          providerId: payload.providerId
+        }
+      });
+    },
+
     async saveSecret(apiKey = "") {
       return this.request({
         type: "settings:saveSecret",
@@ -3516,6 +3527,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       dom.runtimeSaveKey.disabled = busy;
       dom.runtimeTestMock.disabled = busy;
       dom.runtimeCheckPermission.disabled = busy;
+      this.updatePermissionRequestButton();
       dom.runtimeReload.disabled = busy;
       dom.runtimeClearKey.disabled = busy;
     },
@@ -3534,6 +3546,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
         PROVIDER_NOT_ALLOWED: "Provider is not available in Backendless Preview.",
         PERMISSION_NOT_CONFIGURED: "Provider permission is not configured in this preview phase.",
+        PERMISSION_DENIED: "Provider permission was not granted. Real provider requests are still disabled.",
         INVALID_PAYLOAD: "Provider permission status rejected invalid payload.",
         RUNTIME_TEST_PAYLOAD_FORBIDDEN: "Runtime mock test rejected unsafe fields.",
         RUNTIME_TEST_PAYLOAD_UNKNOWN: "Runtime mock test rejected unsupported fields."
@@ -3590,6 +3603,33 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       if (dom.runtimeProviderRequestEnabled) {
         dom.runtimeProviderRequestEnabled.textContent = provider.requestEnabled ? "yes" : "no";
       }
+      this.updatePermissionRequestButton(provider.id);
+    },
+
+    updatePermissionRequestButton(providerId = dom.runtimeProvider?.value || "mock") {
+      if (!dom.runtimeRequestPermission) return;
+      dom.runtimeRequestPermission.disabled = this.busy || providerId !== "deepseek";
+      dom.runtimeRequestPermission.title = providerId === "deepseek"
+        ? "Request DeepSeek optional host permission."
+        : "Permission request is only configured for DeepSeek in this preview phase.";
+    },
+
+    applyPermissionStatus(response = {}, providerId = dom.runtimeProvider?.value || "mock") {
+      if (dom.runtimeProviderPermissionStatus) {
+        if (response.ok && response.permissionGranted) {
+          dom.runtimeProviderPermissionStatus.textContent = "granted";
+        } else if (response.ok && response.permissionConfigured) {
+          dom.runtimeProviderPermissionStatus.textContent = "missing";
+        } else if (response.errorCode === "PERMISSION_NOT_CONFIGURED") {
+          dom.runtimeProviderPermissionStatus.textContent = "not configured";
+        } else {
+          dom.runtimeProviderPermissionStatus.textContent = "unknown";
+        }
+      }
+      if (dom.runtimeProviderRequestEnabled) {
+        dom.runtimeProviderRequestEnabled.textContent = "no";
+      }
+      this.updatePermissionRequestButton(providerId);
     },
 
     handleProviderChange() {
@@ -3754,20 +3794,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           providerId: form.provider
         });
         const providerLabel = response.providerName || this.providerById(form.provider)?.displayName || form.provider;
-        if (dom.runtimeProviderPermissionStatus) {
-          if (response.ok && response.permissionGranted) {
-            dom.runtimeProviderPermissionStatus.textContent = "granted";
-          } else if (response.ok && response.permissionConfigured) {
-            dom.runtimeProviderPermissionStatus.textContent = "missing";
-          } else if (response.errorCode === "PERMISSION_NOT_CONFIGURED") {
-            dom.runtimeProviderPermissionStatus.textContent = "not configured";
-          } else {
-            dom.runtimeProviderPermissionStatus.textContent = "unknown";
-          }
-        }
-        if (dom.runtimeProviderRequestEnabled) {
-          dom.runtimeProviderRequestEnabled.textContent = "no";
-        }
+        this.applyPermissionStatus(response, form.provider);
         if (response.ok) {
           const permissionText = response.permissionGranted ? "is granted" : "is not granted";
           this.setMessage(`${providerLabel} permission ${permissionText}. Real provider requests are still disabled.`);
@@ -3776,6 +3803,28 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         this.setMessage(response.message || this.userMessage(response, "Provider permission status check failed."));
       } catch (error) {
         this.setMessage(error?.message || "Provider permission status check failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async requestPermission() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("Requesting provider permission...");
+      try {
+        const form = this.readForm();
+        const response = await BackgroundRuntimeClient.requestProviderPermission({
+          providerId: form.provider
+        });
+        this.setMessage(response.message || this.userMessage(response, "Provider permission request failed."));
+
+        const status = await BackgroundRuntimeClient.getProviderPermissionStatus({
+          providerId: form.provider
+        });
+        this.applyPermissionStatus(status, form.provider);
+      } catch (error) {
+        this.setMessage(error?.message || "Provider permission request failed.");
       } finally {
         this.setBusy(false);
       }
@@ -4360,6 +4409,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     on(dom.runtimeCheckPermission, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.checkPermission();
+    });
+
+    on(dom.runtimeRequestPermission, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.requestPermission();
     });
 
     on(dom.runtimeReload, "click", (event) => {
