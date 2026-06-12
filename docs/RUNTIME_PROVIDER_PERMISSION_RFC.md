@@ -30,9 +30,11 @@ Phase 6.3 adds a public `backgroundChatPreviewEnabled` setting and a compact Bac
 
 Phase 6.4 adds `runtime:getBackgroundChatReadiness` and a compact Backendless Preview checklist. The readiness API checks only local/background state: provider, Runtime Key presence, DeepSeek host permission, model fallback, preview toggle state, and Real Test optional status. It does not call a provider, request permission, run Real Test, expose secrets, or change `requestEnabled`.
 
+Phase 7.0 adds `runtime:action` and renames the preview setting to `backgroundRuntimePreviewEnabled`. The old `backgroundChatPreviewEnabled` value is still accepted for migration. When Runtime Preview is enabled, Chat, Explain, Translate, and Summarize can use the Background Runtime. When it is disabled, ordinary actions remain on the Local Backend except explicit Chat `/bg` or `@background`.
+
 ## 2. Non-goals
 
-Phase 5A through Phase 6.4 does not:
+Phase 5A through Phase 7.0 does not:
 
 - Switch the main AI request path from the local backend to the background runtime.
 - Add broad real provider network calls beyond DeepSeek-only Real Test Connection and optional DeepSeek background Chat.
@@ -68,6 +70,8 @@ In Phase 6.1, the preview path can ask the background runtime for `runtime:chat`
 In Phase 6.3, the Chat UI also supports `/local ` and `@local ` as explicit Local Backend overrides. With `backgroundChatPreviewEnabled=false`, ordinary Chat still uses the local backend. With `backgroundChatPreviewEnabled=true`, ordinary Chat uses the same `runtime:chat` readiness guard as `/bg`; it does not auto-request permission or run a real provider test during Chat.
 
 In Phase 6.4, the preview path can ask the background runtime for `runtime:getBackgroundChatReadiness` with only `{ "providerId": "deepseek", "model": "deepseek-chat" }`. The response is a safe checklist for UI display and never includes API keys, Authorization headers, URLs from content, raw provider responses, or request bodies.
+
+In Phase 7.0, the preview path can ask the background runtime for `runtime:action` with only `providerId`, optional `model`, `action`, `userText`, optional `pageText`, and optional `selectionText`. The background runtime chooses the prompt internally from the action type. Content scripts cannot provide custom prompt templates, URLs, headers, request bodies, or secrets.
 
 ## 4. Permission Strategy Options
 
@@ -261,30 +265,31 @@ Responses must not include:
 
 ## 6.1 Optional Background Chat Design And Audit
 
-Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior. Phase 6.2 adds release-gate source labels and explicit failure UX. Phase 6.3 adds a disabled-by-default Background Chat Preview toggle plus explicit Local Backend overrides. Phase 6.4 adds a read-only readiness checklist before users try Background Chat.
+Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior. Phase 6.2 adds release-gate source labels and explicit failure UX. Phase 6.3 adds a disabled-by-default Background Chat Preview toggle plus explicit Local Backend overrides. Phase 6.4 adds a read-only readiness checklist before users try Background Chat. Phase 7.0 generalizes the preview into Background Runtime Preview for Chat, Explain, Translate, and Summarize.
 
 Rules:
 
-- With `backgroundChatPreviewEnabled=false`, ordinary Chat uses the local backend.
-- With `backgroundChatPreviewEnabled=true`, ordinary Chat uses Background Runtime.
+- With `backgroundRuntimePreviewEnabled=false`, ordinary Chat, Explain, Translate, and Summarize use the local backend.
+- With `backgroundRuntimePreviewEnabled=true`, ordinary Chat, Explain, Translate, and Summarize use Background Runtime.
 - `/bg ` and `@background ` force Background Runtime Chat.
 - `/local ` and `@local ` force Local Backend Chat.
-- Explain, Translate, and Summarize still use the local backend.
-- The content script may send only `providerId`, `model`, and `userText`.
-- `userText` must be a trimmed 1-512 character string.
+- The content script may send only `providerId`, `model`, and `userText` to legacy `runtime:chat`.
+- The content script may send only `providerId`, `model`, `action`, `userText`, `pageText`, and `selectionText` to `runtime:action`.
+- `runtime:chat` user text must be 1-512 characters; `runtime:action` validates typed text, page text, and selected text with strict per-field limits.
 - Any extra payload field returns `INVALID_PAYLOAD`.
 - The background runtime reads the Runtime Key only from `secretStore`.
 - The URL, headers, and request body are generated inside the background runtime helper.
 - The response is normalized to the existing pet UI shape: `reply`, `emotion`, `motion`, `bubble_type`, and `confidence`.
 - The Chat input placeholder names `/bg`, `@background`, `/local`, and `@local`.
-- Background Chat output must identify background runtime as the source.
+- Background Runtime output must identify background runtime as the source.
 - Local backend results must identify Local Backend as the source.
 - Mock Test, Permission Check, and Real Provider Test messages must keep visible labels.
-- Background Chat failures must say the Background Runtime failed and Local Backend Chat remains available.
-- Preview-mode Background Chat failures must tell users to use `/local` or turn off Background Chat Preview.
+- Background Runtime failures must say the Background Runtime failed and Local Backend remains available.
+- Preview-mode Background Runtime failures must tell users to disable Background Runtime Preview.
 - Explicit `/bg` and `@background` failures must keep the remove-prefix recovery copy.
 - Background Chat failures must not trigger automatic fallback to `/api/pet`.
 - Readiness checks must not call fetch, request permission, run Real Test, save secrets, or modify provider settings.
+- Runtime action failures must not automatically fall back to `/api/pet`.
 - `requestEnabled` remains `false`.
 
 ## 7. Token and Cost Policy
@@ -349,11 +354,12 @@ Phase 6.1: background chat route audit and UI improvement
 Phase 6.2: background chat preview release gate
 Phase 6.3: background chat preview toggle and local override
 Phase 6.4: background chat readiness checklist
-Phase 6.5: provider adapter hardening
+Phase 7.0: background runtime actions preview
+Phase 7.1: provider adapter hardening
 Phase 7: optional background AI route expansion
 ```
 
-Phase 6.4 should not migrate Explain, Translate, or Summarize. Validate explicit Chat preview readiness and failure behavior before considering any route expansion.
+Phase 7.0 should remain experimental and DeepSeek-only. Validate explicit Runtime Preview readiness and failure behavior before considering broader provider support.
 
 ## 11. Security Checklist
 

@@ -14,7 +14,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   model: getDefaultModelForProvider(getDefaultProviderId()),
   saveMode: "local",
   debugEnabled: false,
-  backgroundChatPreviewEnabled: false
+  backgroundRuntimePreviewEnabled: false
 });
 
 function sanitizeBoolean(value, fallback) {
@@ -34,13 +34,15 @@ function sanitizeSaveMode(value, fallback) {
 export function sanitizePublicSettings(raw = {}, base = DEFAULT_SETTINGS) {
   const provider = sanitizeString(raw.provider, base.provider, 64);
   const safeProvider = hasProvider(provider) ? provider : base.provider;
+  const previewEnabled = raw.backgroundRuntimePreviewEnabled ?? raw.backgroundChatPreviewEnabled;
+  const basePreviewEnabled = base.backgroundRuntimePreviewEnabled ?? base.backgroundChatPreviewEnabled ?? false;
 
   return {
     provider: safeProvider,
     model: sanitizeModelForProvider(safeProvider, raw.model || base.model),
     saveMode: sanitizeSaveMode(raw.saveMode, base.saveMode),
     debugEnabled: sanitizeBoolean(raw.debugEnabled, base.debugEnabled),
-    backgroundChatPreviewEnabled: sanitizeBoolean(raw.backgroundChatPreviewEnabled, base.backgroundChatPreviewEnabled)
+    backgroundRuntimePreviewEnabled: sanitizeBoolean(previewEnabled, basePreviewEnabled)
   };
 }
 
@@ -100,7 +102,7 @@ export function createSettingsStore(chromeApi) {
         model: nextModel,
         saveMode: input.saveMode ?? current.saveMode,
         debugEnabled: input.debugEnabled ?? current.debugEnabled,
-        backgroundChatPreviewEnabled: input.backgroundChatPreviewEnabled ?? current.backgroundChatPreviewEnabled
+        backgroundRuntimePreviewEnabled: input.backgroundRuntimePreviewEnabled ?? input.backgroundChatPreviewEnabled ?? current.backgroundRuntimePreviewEnabled
       }, current);
 
       await setToStorage(next);

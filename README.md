@@ -22,7 +22,13 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.8.0 Backendless Runtime Phase 6.4`。
+当前实现是 `v0.8.0 Backendless Runtime Phase 7.0`。
+
+### v0.8.0 Phase 7.0 Background Runtime Actions Preview
+
+Phase 7.0 upgrades the experimental preview from Chat-only to core action preview. When `Background Runtime Preview` is off, ordinary Chat / Explain / Translate / Summarize still use the Local Backend. When it is on, those four actions use Background Runtime. Chat still supports `/bg` or `@background` to force Background Runtime, and `/local` or `@local` to force Local Backend.
+
+Background Runtime currently supports DeepSeek only. Readiness Check explains whether Runtime Preview can work without contacting the provider, requesting permission, running Real Test, or changing `requestEnabled`. Real Test remains separate. Background failures do not automatically fall back; disable Preview to return ordinary actions to Local Backend.
 
 ### v0.8.0 Phase 6.4 Background Chat Readiness
 
@@ -132,7 +138,7 @@ Runtime Key 的保存位置由 `saveMode` 决定：
 
 ## 快速开始
 
-在最终 Backendless 版本完成前，当前 Phase 6.4 默认仍按本地后端流程运行；只有显式 `/bg` / `@background` 或开启 Background Chat Preview 后的普通 Chat 会走 background runtime。`/local` / `@local` 可强制普通 Chat 走本地后端，`Check Readiness` 可在不请求真实 provider 的情况下检查 Background Chat 是否可用。
+在最终 Backendless 版本完成前，当前 Phase 7.0 默认仍按本地后端流程运行；只有显式 `/bg` / `@background`，或开启 Background Runtime Preview 后的 Chat / Explain / Translate / Summarize，会走 background runtime。`/local` / `@local` 可强制普通 Chat 走本地后端，`Check Readiness` 可在不请求真实 provider 的情况下检查 Runtime Preview 是否可用。
 
 ### 1. 准备环境
 
@@ -493,7 +499,7 @@ PORT=3002
 ## 已知限制
 
 - 使用扩展时必须运行本地后端。
-- 这是 Phase 6.4 的临时限制，后续 Phase 计划继续评估 background runtime 路由扩展。
+- 这是 Phase 7.0 的实验性限制，后续 Phase 计划继续评估 background runtime 路由扩展。
 - Backendless Preview 的 Mock Test Connection 只验证安全消息链路，不请求真实模型。
 - 后端不是 production hardened 服务。
 - OpenAI-Compatible provider 的兼容性取决于对方 `/chat/completions` 行为。

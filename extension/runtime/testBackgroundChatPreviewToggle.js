@@ -51,7 +51,7 @@ function decideChatRoute(input, previewEnabled) {
 
 function backgroundFailureRecovery(source) {
   return source === "preview"
-    ? "Use /local or turn off Background Chat Preview to use Local Backend."
+    ? "Disable Background Runtime Preview to use Local Backend."
     : "Remove /bg or @background to use ordinary Chat.";
 }
 
@@ -111,14 +111,31 @@ function sendBackgroundChat(runtime) {
 await check("setting defaults to false", async () => {
   const response = await getPublic(createRuntime());
   assert.equal(response.ok, true);
-  assert.equal(response.settings.backgroundChatPreviewEnabled, false);
+  assert.equal(response.settings.backgroundRuntimePreviewEnabled, false);
   assert.equal(response.settings.hasApiKey, false);
   assert.equal(response.settings.apiKeyPreview, "");
 });
 
-await check("settings save accepts backgroundChatPreviewEnabled", async () => {
+await check("settings save accepts backgroundRuntimePreviewEnabled", async () => {
   const runtime = createRuntime();
   let response = await savePublic(runtime, {
+    provider: "deepseek",
+    model: "deepseek-chat",
+    saveMode: "local",
+    debugEnabled: false,
+    backgroundRuntimePreviewEnabled: true
+  });
+  assert.equal(response.ok, true);
+  assert.equal(response.settings.backgroundRuntimePreviewEnabled, true);
+  assert.equal(response.settings.provider, "deepseek");
+
+  response = await getPublic(runtime);
+  assert.equal(response.settings.backgroundRuntimePreviewEnabled, true);
+});
+
+await check("settings save migrates legacy backgroundChatPreviewEnabled", async () => {
+  const runtime = createRuntime();
+  const response = await savePublic(runtime, {
     provider: "deepseek",
     model: "deepseek-chat",
     saveMode: "local",
@@ -126,11 +143,7 @@ await check("settings save accepts backgroundChatPreviewEnabled", async () => {
     backgroundChatPreviewEnabled: true
   });
   assert.equal(response.ok, true);
-  assert.equal(response.settings.backgroundChatPreviewEnabled, true);
-  assert.equal(response.settings.provider, "deepseek");
-
-  response = await getPublic(runtime);
-  assert.equal(response.settings.backgroundChatPreviewEnabled, true);
+  assert.equal(response.settings.backgroundRuntimePreviewEnabled, true);
 });
 
 await check("settings save rejects dangerous public fields", async () => {
@@ -182,7 +195,7 @@ await check("preview background failure does not call local fallback", async () 
   assert.equal(response.ok, false);
   assert.equal(response.source, "preview");
   assert.equal(response.message, "Background Runtime failed.");
-  assert.equal(response.recovery, "Use /local or turn off Background Chat Preview to use Local Backend.");
+  assert.equal(response.recovery, "Disable Background Runtime Preview to use Local Backend.");
   assert.equal(backgroundCalls, 1);
   assert.equal(localCalls, 0);
 });
@@ -228,9 +241,9 @@ await check("missing Runtime Key in preview route guard fails without fetch", as
   });
 });
 
-await check("non-chat actions remain documented as local-only", async () => {
-  const localOnlyActions = ["explain_selection", "translate", "summarize_page"];
-  assert.deepEqual(localOnlyActions, ["explain_selection", "translate", "summarize_page"]);
+await check("core non-chat actions are available for runtime preview routing", async () => {
+  const previewActions = ["explain_selection", "translate", "summarize_page"];
+  assert.deepEqual(previewActions, ["explain_selection", "translate", "summarize_page"]);
 });
 
 await check("content source labels cover local and background success/failure", async () => {

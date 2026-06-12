@@ -653,7 +653,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       model: "mock-model",
       saveMode: "local",
       debugEnabled: false,
-      backgroundChatPreviewEnabled: false,
+      backgroundRuntimePreviewEnabled: false,
       hasApiKey: false,
       apiKeyPreview: ""
     },
@@ -885,13 +885,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <input id="aflodit-pet-runtime-debug" type="checkbox" />
                 <span>Debug enabled</span>
               </label>
-              <label class="pet-settings-check" title="When enabled, ordinary Chat uses Background Runtime. Explain / Translate / Summarize still use Local Backend.">
-                <input id="aflodit-pet-runtime-background-chat-preview" type="checkbox" />
-                <span>Background Chat Preview</span>
+              <label class="pet-settings-check" title="When enabled, Chat / Explain / Translate / Summarize use Background Runtime. Disable to use Local Backend.">
+                <input id="aflodit-pet-runtime-background-preview" type="checkbox" />
+                <span>Background Runtime Preview</span>
               </label>
-              <div class="pet-settings-message pet-runtime-compact-note">When enabled, ordinary Chat uses Background Runtime. Explain / Translate / Summarize still use Local Backend.</div>
+              <div class="pet-settings-message pet-runtime-compact-note">When enabled, Chat / Explain / Translate / Summarize use Background Runtime. Disable to use Local Backend.</div>
               <div class="pet-runtime-provider-card" aria-live="polite">
-                <div><b>Background Chat Readiness</b>: <span id="aflodit-pet-runtime-readiness-summary">not checked</span></div>
+                <div><b>Background Runtime Readiness</b>: <span id="aflodit-pet-runtime-readiness-summary">not checked</span></div>
                 <div><b>Provider</b>: <span id="aflodit-pet-runtime-readiness-provider">not checked</span></div>
                 <div><b>Runtime Key</b>: <span id="aflodit-pet-runtime-readiness-key">not checked</span></div>
                 <div><b>Permission</b>: <span id="aflodit-pet-runtime-readiness-permission">not checked</span></div>
@@ -1410,7 +1410,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeApiKey: root.querySelector("#aflodit-pet-runtime-api-key"),
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
       runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
-      runtimeBackgroundChatPreview: root.querySelector("#aflodit-pet-runtime-background-chat-preview"),
+      runtimeBackgroundPreview: root.querySelector("#aflodit-pet-runtime-background-preview"),
       runtimeReadinessSummary: root.querySelector("#aflodit-pet-runtime-readiness-summary"),
       runtimeReadinessProvider: root.querySelector("#aflodit-pet-runtime-readiness-provider"),
       runtimeReadinessKey: root.querySelector("#aflodit-pet-runtime-readiness-key"),
@@ -3375,21 +3375,22 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         TIMEOUT: "Background Runtime timed out.",
         NETWORK_ERROR: "Background Runtime network request failed.",
         PROVIDER_UNAVAILABLE: "DeepSeek is unavailable. Try again later.",
-        PROVIDER_BAD_REQUEST: "DeepSeek rejected the background chat request.",
-        PROVIDER_ERROR: "DeepSeek returned no usable background chat result.",
-        INVALID_PAYLOAD: "The background chat payload was rejected.",
-        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek."
+        PROVIDER_BAD_REQUEST: "DeepSeek rejected the background runtime request.",
+        PROVIDER_ERROR: "DeepSeek returned no usable background runtime result.",
+        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek.",
+        BACKGROUND_ACTION_NOT_CONFIGURED: "Background Runtime actions are only configured for DeepSeek.",
+        INVALID_PAYLOAD: "The background runtime payload was rejected."
       };
       const detail = details[code] || error.message || "Background Runtime failed.";
       const recovery = error.backgroundChatSource === "preview"
-        ? "Use /local or turn off Background Chat Preview to use Local Backend."
+        ? "Disable Background Runtime Preview to use Local Backend."
         : "Remove /bg or @background to use ordinary Chat.";
 
       dom.status.textContent = "Source: Background Runtime. Background route failed.";
       dom.reply.textContent = [
         "Background Runtime failed.",
         detail,
-        "Local Backend Chat is still available.",
+        "Local Backend is still available.",
         recovery
       ].join("\n");
       delete dom.reply.dataset.streaming;
@@ -3531,6 +3532,20 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       }, 45000);
     },
 
+    async action(payload = {}) {
+      return this.request({
+        type: "runtime:action",
+        payload: {
+          providerId: payload.providerId,
+          model: payload.model,
+          action: payload.action,
+          userText: payload.userText,
+          pageText: payload.pageText,
+          selectionText: payload.selectionText
+        }
+      }, 45000);
+    },
+
     async getPublicSettings() {
       return this.request({ type: "settings:getPublic" });
     },
@@ -3543,7 +3558,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           model: payload.model,
           saveMode: payload.saveMode,
           debugEnabled: payload.debugEnabled,
-          backgroundChatPreviewEnabled: payload.backgroundChatPreviewEnabled
+          backgroundRuntimePreviewEnabled: payload.backgroundRuntimePreviewEnabled
         }
       });
     },
@@ -3618,59 +3633,70 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     }
   };
 
-  function installBackgroundChatRoute() {
-    if (!ActionRunner || ActionRunner.backgroundChatRouteInstalled) return;
+  function installBackgroundRuntimeRoute() {
+    if (!ActionRunner || ActionRunner.backgroundRuntimeRouteInstalled) return;
 
     const originalRunAction = ActionRunner.runAction.bind(ActionRunner);
-    const backgroundChatUserTextLimit = 512;
+    const runtimeActionUserTextLimit = 1000;
+
+    function runtimeActionName(action) {
+      if (action === ACTION.EXPLAIN) return "explain";
+      if (action === ACTION.TRANSLATE) return "translate";
+      if (action === ACTION.SUMMARY) return "summarize";
+      return "chat";
+    }
 
     ActionRunner.applyBackgroundChatInputHint = function applyBackgroundChatInputHint() {
       if (!dom.chatInput) return;
       dom.chatInput.placeholder = "Chat message. Use /bg for Background Runtime or /local for Local Backend.";
-      dom.chatInput.title = "Background Chat Preview can route ordinary Chat to Background Runtime. Use /bg or @background for Background Runtime; use /local or @local for Local Backend.";
+      dom.chatInput.title = "Background Runtime Preview can route Chat, Explain, Translate, and Summarize to Background Runtime. Use /bg or @background for Chat; use /local or @local for Local Backend Chat.";
     };
 
-    ActionRunner.parseBackgroundChatInput = function parseBackgroundChatInput(userText = "") {
+    ActionRunner.parseBackgroundRuntimeRoute = function parseBackgroundRuntimeRoute(action, userText = "") {
       const trimmed = String(userText || "").trim();
-      const lower = trimmed.toLowerCase();
-      const backgroundPrefixes = ["/bg ", "@background "];
-      const localPrefixes = ["/local ", "@local "];
-      const backgroundPrefix = backgroundPrefixes.find((item) => lower.startsWith(item));
-      if (backgroundPrefix) {
-        return {
-          route: "background",
-          source: "explicit-background",
-          userText: trimmed.slice(backgroundPrefix.length).trim()
-        };
+      if (action === ACTION.CHAT) {
+        const lower = trimmed.toLowerCase();
+        const backgroundPrefixes = ["/bg ", "@background "];
+        const localPrefixes = ["/local ", "@local "];
+        const backgroundPrefix = backgroundPrefixes.find((item) => lower.startsWith(item));
+        if (backgroundPrefix) {
+          return {
+            route: "background",
+            source: "explicit-background",
+            userText: trimmed.slice(backgroundPrefix.length).trim()
+          };
+        }
+        const localPrefix = localPrefixes.find((item) => lower.startsWith(item));
+        if (localPrefix) {
+          return {
+            route: "local",
+            source: "explicit-local",
+            userText: trimmed.slice(localPrefix.length).trim()
+          };
+        }
       }
-      const localPrefix = localPrefixes.find((item) => lower.startsWith(item));
-      if (localPrefix) {
-        return {
-          route: "local",
-          source: "explicit-local",
-          userText: trimmed.slice(localPrefix.length).trim()
-        };
-      }
+
+      const previewEnabled = Boolean(state.runtimePublicSettings.backgroundRuntimePreviewEnabled);
       return {
-        route: state.runtimePublicSettings.backgroundChatPreviewEnabled ? "background" : "local",
-        source: state.runtimePublicSettings.backgroundChatPreviewEnabled ? "preview" : "default-local",
+        route: previewEnabled ? "background" : "local",
+        source: previewEnabled ? "preview" : "default-local",
         userText: trimmed
       };
     };
 
-    ActionRunner.syncBackgroundChatPreviewSetting = async function syncBackgroundChatPreviewSetting(userText = "") {
+    ActionRunner.syncBackgroundRuntimePreviewSetting = async function syncBackgroundRuntimePreviewSetting(action, userText = "") {
       const lower = String(userText || "").trim().toLowerCase();
-      if (lower.startsWith("/bg ") || lower.startsWith("@background ") || lower.startsWith("/local ") || lower.startsWith("@local ")) {
+      if (action === ACTION.CHAT && (lower.startsWith("/bg ") || lower.startsWith("@background ") || lower.startsWith("/local ") || lower.startsWith("@local "))) {
         return;
       }
 
       const response = await BackgroundRuntimeClient.getPublicSettings();
       if (response?.ok && response.settings) {
-        state.runtimePublicSettings.backgroundChatPreviewEnabled = Boolean(response.settings.backgroundChatPreviewEnabled);
+        state.runtimePublicSettings.backgroundRuntimePreviewEnabled = Boolean(response.settings.backgroundRuntimePreviewEnabled);
       }
     };
 
-    ActionRunner.callBackgroundChat = async function callBackgroundChat(userText = "") {
+    ActionRunner.callBackgroundRuntimeAction = async function callBackgroundRuntimeAction(payload = {}) {
       const settingsResponse = await BackgroundRuntimeClient.getPublicSettings();
       if (!settingsResponse?.ok) {
         const error = new Error(settingsResponse?.message || settingsResponse?.error?.message || "Background runtime settings unavailable.");
@@ -3679,14 +3705,17 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       }
 
       const settings = settingsResponse.settings || {};
-      const response = await BackgroundRuntimeClient.chat({
+      const response = await BackgroundRuntimeClient.action({
         providerId: settings.provider,
         model: settings.model,
-        userText
+        action: runtimeActionName(payload.action),
+        userText: payload.user_text,
+        pageText: payload.page_text_snippet,
+        selectionText: payload.selected_text
       });
 
       if (!response?.ok) {
-        const error = new Error(response?.message || response?.error?.message || "Background chat failed.");
+        const error = new Error(response?.message || response?.error?.message || "Background Runtime failed.");
         error.code = response?.errorCode || response?.error?.code;
         error.data = response;
         throw error;
@@ -3702,45 +3731,46 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       };
     };
 
-    ActionRunner.runAction = async function runActionWithOptionalBackgroundChat(action, userText = "") {
-      if (action === ACTION.CHAT) {
-        await this.syncBackgroundChatPreviewSetting(userText).catch(() => {});
-      }
-      const backgroundChat = action === ACTION.CHAT
-        ? this.parseBackgroundChatInput(userText)
-        : { route: "local", userText };
-      if (backgroundChat.route === "local") return originalRunAction(action, backgroundChat.userText ?? userText);
+    ActionRunner.runAction = async function runActionWithOptionalBackgroundRuntime(action, userText = "") {
+      await this.syncBackgroundRuntimePreviewSetting(action, userText).catch(() => {});
+      const backgroundRoute = this.parseBackgroundRuntimeRoute(action, userText);
+      if (backgroundRoute.route === "local") return originalRunAction(action, backgroundRoute.userText ?? userText);
       if (state.running) return;
 
       UIController.openPanel(action);
-      if (!backgroundChat.userText) {
-        UIController.showWarning(actionConfig(action).empty);
+      const validationError = this.validate(action, backgroundRoute.userText);
+      if (validationError) {
+        UIController.showWarning(validationError);
         return;
       }
-      if (backgroundChat.userText.length > backgroundChatUserTextLimit) {
-        UIController.showWarning("Background chat accepts 1-512 characters. Shorten the message or use normal chat.");
+      if (backgroundRoute.userText.length > runtimeActionUserTextLimit) {
+        UIController.showWarning("Background Runtime accepts up to 1000 characters of typed input. Shorten the message or disable preview.");
+        return;
+      }
+      if (action === ACTION.CHAT && !backgroundRoute.userText) {
+        UIController.showWarning(actionConfig(action).empty);
         return;
       }
 
       const requestId = ++state.requestId;
-      const payload = this.buildPayload(action, backgroundChat.userText);
+      const payload = this.buildPayload(action, backgroundRoute.userText);
       state.pendingRequest = {
         action,
-        selectedText: "",
-        fingerprint: `background-chat|${payload.user_text}`
+        selectedText: payload.selected_text || "",
+        fingerprint: `background-runtime|${payload.action}|${payload.selected_text || ""}|${payload.page_text_snippet || ""}|${payload.user_text || ""}`
       };
       UIController.showLoading(action);
-      if (dom.mode) dom.mode.textContent = "Background Chat";
-      if (dom.status) dom.status.textContent = "Source: Background Runtime. Sending preview Chat. Local Backend remains available.";
+      if (dom.mode) dom.mode.textContent = "Background Runtime";
+      if (dom.status) dom.status.textContent = "Source: Background Runtime. Sending preview action. Local Backend remains available.";
       setRunning(true);
 
       try {
-        const result = await this.callBackgroundChat(payload.user_text);
+        const result = await this.callBackgroundRuntimeAction(payload);
         if (requestId !== state.requestId || state.ui !== UI.PANEL) return;
         UIController.showResult(result);
       } catch (error) {
         if (requestId !== state.requestId || state.ui !== UI.PANEL) return;
-        error.backgroundChatSource = backgroundChat.source;
+        error.backgroundChatSource = backgroundRoute.source;
         console.error(error);
         UIController.showBackgroundChatError(error);
       } finally {
@@ -3749,10 +3779,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       }
     };
 
-    ActionRunner.backgroundChatRouteInstalled = true;
+    ActionRunner.backgroundRuntimeRouteInstalled = true;
   }
 
-  installBackgroundChatRoute();
+  installBackgroundRuntimeRoute();
 
   const RuntimeSettingsManager = {
     busy: false,
@@ -3762,7 +3792,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       this.busy = busy;
       dom.runtimeSave.disabled = busy;
       dom.runtimeSaveKey.disabled = busy;
-      if (dom.runtimeBackgroundChatPreview) dom.runtimeBackgroundChatPreview.disabled = busy;
+      if (dom.runtimeBackgroundPreview) dom.runtimeBackgroundPreview.disabled = busy;
       dom.runtimeTestMock.disabled = busy;
       dom.runtimeCheckPermission.disabled = busy;
       if (dom.runtimeCheckReadiness) dom.runtimeCheckReadiness.disabled = busy;
@@ -3910,7 +3940,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
       if (dom.runtimeReadinessSummary) {
         dom.runtimeReadinessSummary.textContent = response
-          ? (response.canUseBackgroundChat ? "ready" : "not ready")
+          ? (response.canUseBackgroundRuntimePreview ? "ready" : "not ready")
           : "not checked";
       }
       if (dom.runtimeReadinessProvider) dom.runtimeReadinessProvider.textContent = this.readinessText(byId.provider);
@@ -3925,8 +3955,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     },
 
     warnIfPreviewEnabledWithoutReadiness() {
-      if (!dom.runtimeBackgroundChatPreview?.checked || !this.lastReadiness || this.lastReadiness.canUseBackgroundChat) return;
-      this.setMessage(`[Readiness] ${this.lastReadiness.nextAction || "Background Chat is not ready yet."}`);
+      if (!dom.runtimeBackgroundPreview?.checked || !this.lastReadiness || this.lastReadiness.canUseBackgroundRuntimePreview) return;
+      this.setMessage(`[Readiness] ${this.lastReadiness.nextAction || "Background Runtime Preview is not ready yet."}`);
     },
 
     handleProviderChange() {
@@ -3956,7 +3986,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         model: settings.model || "mock-model",
         saveMode: settings.saveMode === "session" ? "session" : "local",
         debugEnabled: Boolean(settings.debugEnabled),
-        backgroundChatPreviewEnabled: Boolean(settings.backgroundChatPreviewEnabled),
+        backgroundRuntimePreviewEnabled: Boolean(settings.backgroundRuntimePreviewEnabled),
         hasApiKey: Boolean(settings.hasApiKey),
         apiKeyPreview: settings.apiKeyPreview || ""
       };
@@ -3970,8 +4000,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         : "Enter API Key for future backendless runtime";
       dom.runtimeSaveMode.value = state.runtimePublicSettings.saveMode;
       dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
-      if (dom.runtimeBackgroundChatPreview) {
-        dom.runtimeBackgroundChatPreview.checked = state.runtimePublicSettings.backgroundChatPreviewEnabled;
+      if (dom.runtimeBackgroundPreview) {
+        dom.runtimeBackgroundPreview.checked = state.runtimePublicSettings.backgroundRuntimePreviewEnabled;
       }
       dom.runtimeHasKey.textContent = state.runtimePublicSettings.hasApiKey ? "yes" : "no";
       dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
@@ -3988,7 +4018,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         model,
         saveMode: dom.runtimeSaveMode.value === "session" ? "session" : "local",
         debugEnabled: Boolean(dom.runtimeDebug.checked),
-        backgroundChatPreviewEnabled: Boolean(dom.runtimeBackgroundChatPreview?.checked)
+        backgroundRuntimePreviewEnabled: Boolean(dom.runtimeBackgroundPreview?.checked)
       };
     },
 
@@ -4118,7 +4148,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     async checkReadiness() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setMessage("[Readiness] Checking Background Chat readiness...");
+      this.setMessage("[Readiness] Checking Background Runtime Preview readiness...");
       try {
         const form = this.readForm();
         const response = await BackgroundRuntimeClient.getBackgroundChatReadiness({
@@ -4128,14 +4158,14 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         this.lastReadiness = response?.ok ? response : null;
         this.renderReadiness(response?.ok ? response : null);
         if (!response.ok) {
-          this.setMessage(`[Readiness] ${response.message || this.userMessage(response, "Background Chat readiness check failed.")}`);
+          this.setMessage(`[Readiness] ${response.message || this.userMessage(response, "Background Runtime Preview readiness check failed.")}`);
           return;
         }
-        this.setMessage(`[Readiness] ${response.nextAction || (response.canUseBackgroundChat ? "Background Chat is ready." : "Background Chat is not ready yet.")}`);
+        this.setMessage(`[Readiness] ${response.nextAction || (response.canUseBackgroundRuntimePreview ? "Background Runtime Preview is ready." : "Background Runtime Preview is not ready yet.")}`);
       } catch (error) {
         this.lastReadiness = null;
         this.renderReadiness(null);
-        this.setMessage(`[Readiness] ${error?.message || "Background Chat readiness check failed."}`);
+        this.setMessage(`[Readiness] ${error?.message || "Background Runtime Preview readiness check failed."}`);
       } finally {
         this.setBusy(false);
       }
@@ -4781,7 +4811,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       RuntimeSettingsManager.checkReadiness();
     });
 
-    on(dom.runtimeBackgroundChatPreview, "change", () => {
+    on(dom.runtimeBackgroundPreview, "change", () => {
       RuntimeSettingsManager.warnIfPreviewEnabledWithoutReadiness();
     });
 

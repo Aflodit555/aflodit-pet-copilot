@@ -5,6 +5,7 @@ import {
   validateProviderConnectionTestPayload,
   validateProviderPermissionRequestPayload,
   validateProviderPermissionStatusPayload,
+  validateRuntimeActionPayload,
   validateRuntimeChatPayload,
   validateRuntimeTestPayload,
   validateSecretPayload
@@ -13,7 +14,7 @@ import { createSafeLogger } from "./safeLog.js";
 import { createSecretStore } from "./secretStore.js";
 import { createSettingsStore } from "./settingsStore.js";
 import { getProvider, listPublicProviders } from "./providerRegistry.js";
-import { requiredDeepSeekHostPermission, runDeepSeekBackgroundChat, testDeepSeekRealConnection } from "./deepseekTestConnection.js";
+import { requiredDeepSeekHostPermission, runDeepSeekBackgroundAction, runDeepSeekBackgroundChat, testDeepSeekRealConnection } from "./deepseekTestConnection.js";
 
 const DEEPSEEK_PROVIDER_ID = "deepseek";
 const DEEPSEEK_REQUIRED_HOST_PERMISSION = "https://api.deepseek.com/*";
@@ -66,7 +67,7 @@ function publicSettingsResponse(settings, hasApiKey, apiKeyPreview) {
       model: settings.model,
       saveMode: settings.saveMode,
       debugEnabled: settings.debugEnabled,
-      backgroundChatPreviewEnabled: Boolean(settings.backgroundChatPreviewEnabled),
+      backgroundRuntimePreviewEnabled: Boolean(settings.backgroundRuntimePreviewEnabled),
       hasApiKey: Boolean(hasApiKey),
       apiKeyPreview: apiKeyPreview || ""
     },
@@ -101,12 +102,12 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         if (!provider) {
           return {
             ok: false,
-            mode: "background-chat-readiness",
-            providerId,
-            errorCode: "UNKNOWN_PROVIDER",
-            message: "Unknown provider.",
-            canUseBackgroundChat: false,
-            requestEnabled: false,
+          mode: "background-runtime-readiness",
+          providerId,
+          errorCode: "UNKNOWN_PROVIDER",
+          message: "Unknown provider.",
+          canUseBackgroundRuntimePreview: false,
+          requestEnabled: false,
             checks: [
               readinessCheck("provider", "Provider", false, "Provider is not registered.")
             ],
@@ -134,7 +135,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
               ? "Provider is disabled."
               : provider.id === DEEPSEEK_PROVIDER_ID
                 ? "DeepSeek is selected."
-                : "Background Chat currently supports DeepSeek only."
+                : "Background Runtime Preview currently supports DeepSeek only."
           ),
           readinessCheck(
             "runtimeKey",
@@ -162,9 +163,9 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             "preview",
             "Preview",
             true,
-            settings.backgroundChatPreviewEnabled
-              ? "Background Chat Preview is on."
-              : "Background Chat Preview is off."
+            settings.backgroundRuntimePreviewEnabled
+              ? "Background Runtime Preview is on."
+              : "Background Runtime Preview is off."
           ),
           readinessCheck(
             "realTest",
@@ -177,15 +178,15 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
 
         return {
           ok: true,
-          mode: "background-chat-readiness",
+          mode: "background-runtime-readiness",
           providerId: provider.id,
           providerName: provider.displayName,
           model: selectedModel.trim(),
-          backgroundChatPreviewEnabled: Boolean(settings.backgroundChatPreviewEnabled),
-          canUseBackgroundChat: !blocker,
+          backgroundRuntimePreviewEnabled: Boolean(settings.backgroundRuntimePreviewEnabled),
+          canUseBackgroundRuntimePreview: !blocker,
           checks,
           requestEnabled: false,
-          nextAction: blocker ? blocker.message : "Background Chat is ready."
+          nextAction: blocker ? blocker.message : "Background Runtime Preview is ready."
         };
       }
 
@@ -285,6 +286,73 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           requestEnabled: false,
           message: "DeepSeek permission granted. Real provider requests are still disabled."
         };
+      }
+
+      if (parsed.type === MESSAGE_TYPES.runtimeAction) {
+        const guard = validateRuntimeActionPayload(parsed.payload || {});
+        if (!guard.ok) return guard;
+
+        const providerId = parsed.payload.providerId.trim();
+        const model = typeof parsed.payload.model === "string" ? parsed.payload.model.trim() : "";
+        const action = parsed.payload.action;
+        const userText = parsed.payload.userText.trim();
+        const pageText = typeof parsed.payload.pageText === "string" ? parsed.payload.pageText.trim() : "";
+        const selectionText = typeof parsed.payload.selectionText === "string" ? parsed.payload.selectionText.trim() : "";
+        const provider = getProvider(providerId);
+        const failure = (errorCode, message, extra = {}) => ({
+          ok: false,
+          source: "Background Runtime",
+          mode: "background-action",
+          action,
+          providerId: provider?.id || providerId,
+          providerName: provider?.displayName,
+          errorCode,
+          message,
+          recoveryHint: action === "chat"
+            ? "Disable Background Runtime Preview or use /local to use Local Backend."
+            : "Disable Background Runtime Preview to use Local Backend.",
+          requestEnabled: false,
+          ...extra
+        });
+
+        if (!provider) {
+          return failure("UNKNOWN_PROVIDER", "Unknown provider.");
+        }
+
+        if (!provider.enabled) {
+          return failure("PROVIDER_DISABLED", "Provider is disabled.");
+        }
+
+        if (provider.id !== DEEPSEEK_PROVIDER_ID) {
+          return failure("BACKGROUND_ACTION_NOT_CONFIGURED", "Background Runtime actions are only configured for DeepSeek in this preview phase.");
+        }
+
+        if (provider.requiredHostPermission !== requiredDeepSeekHostPermission()) {
+          return failure("PERMISSION_NOT_CONFIGURED", "DeepSeek permission is not configured in this preview phase.");
+        }
+
+        const permissionGranted = await containsPermission(chromeApi, provider.requiredHostPermission);
+        if (!permissionGranted) {
+          return failure("MISSING_PROVIDER_PERMISSION", "DeepSeek permission is missing. Grant provider permission before running background runtime actions.");
+        }
+
+        const settings = await settingsStore.getPublicSettings();
+        const hasApiKey = await secretStore.hasSecret(settings.saveMode);
+        if (!hasApiKey) {
+          return failure("MISSING_RUNTIME_KEY", "Runtime key is missing. Save a Runtime Key before running background runtime actions.");
+        }
+
+        return runDeepSeekBackgroundAction({
+          provider,
+          model,
+          action,
+          userText,
+          pageText,
+          selectionText,
+          secretStore,
+          saveMode: settings.saveMode,
+          logger
+        });
       }
 
       if (parsed.type === MESSAGE_TYPES.runtimeChat) {

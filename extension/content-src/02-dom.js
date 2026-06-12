@@ -103,13 +103,13 @@
                 <input id="aflodit-pet-runtime-debug" type="checkbox" />
                 <span>Debug enabled</span>
               </label>
-              <label class="pet-settings-check" title="When enabled, ordinary Chat uses Background Runtime. Explain / Translate / Summarize still use Local Backend.">
-                <input id="aflodit-pet-runtime-background-chat-preview" type="checkbox" />
-                <span>Background Chat Preview</span>
+              <label class="pet-settings-check" title="When enabled, Chat / Explain / Translate / Summarize use Background Runtime. Disable to use Local Backend.">
+                <input id="aflodit-pet-runtime-background-preview" type="checkbox" />
+                <span>Background Runtime Preview</span>
               </label>
-              <div class="pet-settings-message pet-runtime-compact-note">When enabled, ordinary Chat uses Background Runtime. Explain / Translate / Summarize still use Local Backend.</div>
+              <div class="pet-settings-message pet-runtime-compact-note">When enabled, Chat / Explain / Translate / Summarize use Background Runtime. Disable to use Local Backend.</div>
               <div class="pet-runtime-provider-card" aria-live="polite">
-                <div><b>Background Chat Readiness</b>: <span id="aflodit-pet-runtime-readiness-summary">not checked</span></div>
+                <div><b>Background Runtime Readiness</b>: <span id="aflodit-pet-runtime-readiness-summary">not checked</span></div>
                 <div><b>Provider</b>: <span id="aflodit-pet-runtime-readiness-provider">not checked</span></div>
                 <div><b>Runtime Key</b>: <span id="aflodit-pet-runtime-readiness-key">not checked</span></div>
                 <div><b>Permission</b>: <span id="aflodit-pet-runtime-readiness-permission">not checked</span></div>
@@ -628,7 +628,7 @@
       runtimeApiKey: root.querySelector("#aflodit-pet-runtime-api-key"),
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
       runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
-      runtimeBackgroundChatPreview: root.querySelector("#aflodit-pet-runtime-background-chat-preview"),
+      runtimeBackgroundPreview: root.querySelector("#aflodit-pet-runtime-background-preview"),
       runtimeReadinessSummary: root.querySelector("#aflodit-pet-runtime-readiness-summary"),
       runtimeReadinessProvider: root.querySelector("#aflodit-pet-runtime-readiness-provider"),
       runtimeReadinessKey: root.querySelector("#aflodit-pet-runtime-readiness-key"),

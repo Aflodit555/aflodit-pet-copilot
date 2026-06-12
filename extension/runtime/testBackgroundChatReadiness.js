@@ -58,7 +58,7 @@ async function saveDeepSeekSettings(runtime, overrides = {}) {
       model: "deepseek-chat",
       saveMode: "local",
       debugEnabled: false,
-      backgroundChatPreviewEnabled: false,
+      backgroundRuntimePreviewEnabled: false,
       ...overrides
     }
   });
@@ -87,19 +87,19 @@ function checkById(response, id) {
 
 await check("readiness succeeds with DeepSeek model key and permission", async () => {
   await withRuntime({ permissionGranted: true }, async (runtime, getFetchCount) => {
-    await saveDeepSeekSettings(runtime, { backgroundChatPreviewEnabled: true });
+    await saveDeepSeekSettings(runtime, { backgroundRuntimePreviewEnabled: true });
     await saveKey(runtime);
     const response = await send(runtime, { providerId: "deepseek", model: "deepseek-chat" });
 
     assert.equal(response.ok, true);
-    assert.equal(response.mode, "background-chat-readiness");
+    assert.equal(response.mode, "background-runtime-readiness");
     assert.equal(response.providerId, "deepseek");
     assert.equal(response.providerName, "DeepSeek");
     assert.equal(response.model, "deepseek-chat");
-    assert.equal(response.backgroundChatPreviewEnabled, true);
-    assert.equal(response.canUseBackgroundChat, true);
+    assert.equal(response.backgroundRuntimePreviewEnabled, true);
+    assert.equal(response.canUseBackgroundRuntimePreview, true);
     assert.equal(response.requestEnabled, false);
-    assert.equal(response.nextAction, "Background Chat is ready.");
+    assert.equal(response.nextAction, "Background Runtime Preview is ready.");
     assert.equal(checkById(response, "provider").ok, true);
     assert.equal(checkById(response, "runtimeKey").ok, true);
     assert.equal(checkById(response, "permission").ok, true);
@@ -117,7 +117,7 @@ await check("missing Runtime Key returns not ready", async () => {
     const response = await send(runtime, { providerId: "deepseek", model: "deepseek-chat" });
 
     assert.equal(response.ok, true);
-    assert.equal(response.canUseBackgroundChat, false);
+    assert.equal(response.canUseBackgroundRuntimePreview, false);
     assert.equal(checkById(response, "runtimeKey").ok, false);
     assert.equal(response.requestEnabled, false);
     assert.equal(getFetchCount(), 0);
@@ -132,7 +132,7 @@ await check("missing permission returns not ready", async () => {
     const response = await send(runtime, { providerId: "deepseek", model: "deepseek-chat" });
 
     assert.equal(response.ok, true);
-    assert.equal(response.canUseBackgroundChat, false);
+    assert.equal(response.canUseBackgroundRuntimePreview, false);
     assert.equal(checkById(response, "permission").ok, false);
     assert.equal(response.requestEnabled, false);
     assert.equal(getFetchCount(), 0);
@@ -147,7 +147,7 @@ await check("OpenAI returns provider not supported", async () => {
 
     assert.equal(response.ok, true);
     assert.equal(response.providerId, "openai");
-    assert.equal(response.canUseBackgroundChat, false);
+    assert.equal(response.canUseBackgroundRuntimePreview, false);
     assert.equal(checkById(response, "provider").ok, false);
     assert.equal(checkById(response, "permission").ok, false);
     assert.equal(response.requestEnabled, false);
@@ -161,7 +161,7 @@ await check("unknown provider rejected", async () => {
 
     assert.equal(response.ok, false);
     assert.equal(response.errorCode, "UNKNOWN_PROVIDER");
-    assert.equal(response.canUseBackgroundChat, false);
+    assert.equal(response.canUseBackgroundRuntimePreview, false);
     assert.equal(response.requestEnabled, false);
     assert.equal(getFetchCount(), 0);
   });
@@ -220,7 +220,7 @@ await check("model default fallback works", async () => {
     assert.equal(response.ok, true);
     assert.equal(response.model, "deepseek-chat");
     assert.equal(checkById(response, "model").ok, true);
-    assert.equal(response.canUseBackgroundChat, true);
+    assert.equal(response.canUseBackgroundRuntimePreview, true);
   });
 });
 

@@ -24,7 +24,7 @@ function forbiddenPublicKeyIn(value = {}) {
 }
 
 export function validatePublicSettings(settings = {}) {
-  const allowedKeys = new Set(["provider", "model", "saveMode", "debugEnabled", "backgroundChatPreviewEnabled"]);
+  const allowedKeys = new Set(["provider", "model", "saveMode", "debugEnabled", "backgroundRuntimePreviewEnabled", "backgroundChatPreviewEnabled"]);
 
   if (settings.provider !== undefined && (typeof settings.provider !== "string" || !hasProvider(settings.provider))) {
     return {
@@ -91,12 +91,22 @@ export function validatePublicSettings(settings = {}) {
     };
   }
 
+  if (settings.backgroundRuntimePreviewEnabled !== undefined && typeof settings.backgroundRuntimePreviewEnabled !== "boolean") {
+    return {
+      ok: false,
+      error: {
+        code: "BACKGROUND_RUNTIME_PREVIEW_FLAG_INVALID",
+        message: "Background Runtime Preview flag must be boolean."
+      }
+    };
+  }
+
   if (settings.backgroundChatPreviewEnabled !== undefined && typeof settings.backgroundChatPreviewEnabled !== "boolean") {
     return {
       ok: false,
       error: {
         code: "BACKGROUND_CHAT_PREVIEW_FLAG_INVALID",
-        message: "Background Chat Preview flag must be boolean."
+        message: "Background Chat Preview legacy flag must be boolean."
       }
     };
   }
@@ -186,6 +196,58 @@ export function validateRuntimeChatPayload(payload = {}) {
   const userText = payload.userText.trim();
   if (!userText || userText.length > 512) {
     return invalidRuntimeChatPayload();
+  }
+
+  return { ok: true };
+}
+
+export function validateRuntimeActionPayload(payload = {}) {
+  const allowedKeys = new Set(["providerId", "model", "action", "userText", "pageText", "selectionText"]);
+  for (const key of Object.keys(payload || {})) {
+    if (!allowedKeys.has(key)) {
+      return invalidRuntimeActionPayload();
+    }
+  }
+
+  if (typeof payload.providerId !== "string") {
+    return invalidRuntimeActionPayload();
+  }
+
+  const providerId = payload.providerId.trim();
+  if (!providerId || providerId.length > 64) {
+    return invalidRuntimeActionPayload();
+  }
+
+  if (payload.model !== undefined && (typeof payload.model !== "string" || payload.model.trim().length > 128)) {
+    return invalidRuntimeActionPayload();
+  }
+
+  const allowedActions = new Set(["chat", "explain", "translate", "summarize"]);
+  if (typeof payload.action !== "string" || !allowedActions.has(payload.action)) {
+    return invalidRuntimeActionPayload();
+  }
+
+  if (typeof payload.userText !== "string" || payload.userText.trim().length > 1000) {
+    return invalidRuntimeActionPayload();
+  }
+
+  if (payload.pageText !== undefined && (typeof payload.pageText !== "string" || payload.pageText.trim().length > 6000)) {
+    return invalidRuntimeActionPayload();
+  }
+
+  if (payload.selectionText !== undefined && (typeof payload.selectionText !== "string" || payload.selectionText.trim().length > 3000)) {
+    return invalidRuntimeActionPayload();
+  }
+
+  const userText = payload.userText.trim();
+  const pageText = typeof payload.pageText === "string" ? payload.pageText.trim() : "";
+  const selectionText = typeof payload.selectionText === "string" ? payload.selectionText.trim() : "";
+  if (!userText && !pageText && !selectionText) {
+    return invalidRuntimeActionPayload();
+  }
+
+  if (payload.action === "chat" && !userText) {
+    return invalidRuntimeActionPayload();
   }
 
   return { ok: true };
@@ -303,6 +365,18 @@ function invalidRuntimeChatPayload() {
     mode: "background-chat",
     errorCode: "INVALID_PAYLOAD",
     message: "Invalid background chat payload.",
+    requestEnabled: false
+  };
+}
+
+function invalidRuntimeActionPayload() {
+  return {
+    ok: false,
+    source: "Background Runtime",
+    mode: "background-action",
+    errorCode: "INVALID_PAYLOAD",
+    message: "Invalid background runtime action payload.",
+    recoveryHint: "Disable Background Runtime Preview to use Local Backend.",
     requestEnabled: false
   };
 }
