@@ -9,6 +9,7 @@ private-models/
 node_modules/
 *.log
 logs/
+dist/
 .cache/
 cache/
 tmp/

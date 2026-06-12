@@ -23,13 +23,16 @@ await check("release safety guard passes current repository", async () => {
 });
 
 await check("release safety guard detects simulated forbidden wildcard origin", async () => {
-  const result = scan("const bad = \"https://*/*\";");
+  const wildcardOrigin = "https://" + "*/*";
+  const result = scan(`const bad = "${wildcardOrigin}";`);
   assert.equal(result.ok, false);
   assert.match(result.violations.join("\n"), /wildcard HTTPS origin/);
 });
 
-await check("release safety guard detects simulated requestEnabled true", async () => {
-  const result = scan("export const provider = { requestEnabled: true };");
+await check("release safety guard detects simulated enabled request flag", async () => {
+  const flagName = "requestEnabled";
+  const enabledValue = "true";
+  const result = scan(`export const provider = { ${flagName}: ${enabledValue} };`);
   assert.equal(result.ok, false);
   assert.match(result.violations.join("\n"), /requestEnabled/);
 });

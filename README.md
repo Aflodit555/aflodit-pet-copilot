@@ -24,6 +24,38 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 当前实现是 `v0.8.0 Backendless Runtime Phase 9.0`。
 
+### v0.8.0 Backendless Beta
+
+v0.8.0 can be used in two ways.
+
+Path A: Background Runtime Beta
+
+1. Load the Chromium extension from `dist/aflodit-pet-copilot-v0.8.0/` after running `node scripts\buildReleasePackage.js`.
+2. Open Runtime Setup.
+3. Select DeepSeek.
+4. Save Runtime Key.
+5. Request DeepSeek permission.
+6. Check Readiness.
+7. Run Real Test.
+8. Select Background Runtime Beta.
+9. Test Chat, Explain, Translate, and Summarize.
+
+Path B: Local Backend Dev
+
+1. Start the local backend.
+2. Load the extension from `extension/` for development, or the release package for a packaged smoke test.
+3. Keep Runtime Mode as Local Backend.
+4. Use normal Chat, Explain, Translate, and Summarize actions.
+
+Packaging commands:
+
+```powershell
+node scripts\buildReleasePackage.js
+node scripts\checkReleasePackage.js
+```
+
+Chromium notes are in `docs/CHROMIUM_COMPATIBILITY.md`; release checks are in `docs/RELEASE_CHECKLIST.md`.
+
 ### v0.8.0 Phase 9.0 Backendless Beta Setup Flow / Release Candidate
 
 Phase 9.0 renames the extension setup area to `Runtime Setup` and turns Background Runtime Beta into a guided release-candidate flow. The setup checklist covers Runtime Mode, Provider, Model, Runtime Key, Host Permission, Readiness, and Real Test. Local Backend remains the default.

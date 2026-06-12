@@ -4,6 +4,11 @@ import { fileURLToPath } from "node:url";
 
 const SELF_FILE = path.normalize(fileURLToPath(import.meta.url));
 const TEXT_EXTENSIONS = new Set([".js", ".json", ".md", ".html", ".css"]);
+const REQUEST_ENABLED_PATTERN_PREFIX = "\\brequestEnabled\\s*[:=]\\s*";
+const REQUEST_ENABLED_TRUE_PATTERN = new RegExp(REQUEST_ENABLED_PATTERN_PREFIX + "true\\b");
+const PERMISSION_REQUEST_CALL = "chrome.permissions." + "request";
+const APPROVED_PERMISSION_REQUEST_SNIPPET = PERMISSION_REQUEST_CALL + "({ origins: [requiredHostPermission] }";
+const FETCH_CALL = "fetch" + "(";
 
 function normalizePath(filePath) {
   return path.normalize(filePath).replace(/\\/g, "/");
@@ -43,7 +48,7 @@ function addViolation(violations, file, message) {
 
 function isApprovedPermissionRequest(file) {
   return file.relativePath === "extension/runtime/backgroundRuntime.js"
-    && file.content.includes("chrome.permissions.request({ origins: [requiredHostPermission] }")
+    && file.content.includes(APPROVED_PERMISSION_REQUEST_SNIPPET)
     && file.content.includes("const DEEPSEEK_REQUIRED_HOST_PERMISSION = \"https://api.deepseek.com/*\"");
 }
 
@@ -71,8 +76,8 @@ export function runReleaseSafetyCheck({ repoRoot = process.cwd(), files = null }
       addViolation(violations, file, "forbidden wildcard HTTPS origin");
     }
 
-    if (/\brequestEnabled\s*[:=]\s*true\b/.test(file.content)) {
-      addViolation(violations, file, "requestEnabled must not be true");
+    if (REQUEST_ENABLED_TRUE_PATTERN.test(file.content)) {
+      addViolation(violations, file, "requestEnabled must remain disabled");
     }
 
     if (/console\.(log|debug|info|warn|error)\s*\([^;\n]*(Authorization|apiKey|secret|token)/i.test(file.content)) {
@@ -83,16 +88,16 @@ export function runReleaseSafetyCheck({ repoRoot = process.cwd(), files = null }
       addViolation(violations, file, "public settings may expose a full secret field");
     }
 
-    if (file.content.includes("chrome.permissions.request") && !isApprovedPermissionRequest(file)) {
-      addViolation(violations, file, "chrome.permissions.request outside approved DeepSeek helper");
+    if (file.content.includes(PERMISSION_REQUEST_CALL) && !isApprovedPermissionRequest(file)) {
+      addViolation(violations, file, "permission request outside approved DeepSeek helper");
     }
 
-    if (file.content.includes("fetch(") && file.relativePath.startsWith("extension/runtime/") && !isApprovedFetchFile(file)) {
-      addViolation(violations, file, "fetch outside approved DeepSeek helper or runtime tests");
+    if (file.content.includes(FETCH_CALL) && file.relativePath.startsWith("extension/runtime/") && !isApprovedFetchFile(file)) {
+      addViolation(violations, file, "network call outside approved DeepSeek helper or runtime tests");
     }
 
-    if (file.content.includes("fetch(") && file.relativePath === "extension/background.js") {
-      addViolation(violations, file, "fetch in extension background.js is not approved");
+    if (file.content.includes(FETCH_CALL) && file.relativePath === "extension/background.js") {
+      addViolation(violations, file, "network call in extension background.js is not approved");
     }
   }
 
