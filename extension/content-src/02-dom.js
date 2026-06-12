@@ -103,6 +103,11 @@
                 <input id="aflodit-pet-runtime-debug" type="checkbox" />
                 <span>Debug enabled</span>
               </label>
+              <label class="pet-settings-check" title="When enabled, ordinary Chat uses Background Runtime. Explain / Translate / Summarize still use Local Backend.">
+                <input id="aflodit-pet-runtime-background-chat-preview" type="checkbox" />
+                <span>Background Chat Preview</span>
+              </label>
+              <div class="pet-settings-message pet-runtime-compact-note">When enabled, ordinary Chat uses Background Runtime. Explain / Translate / Summarize still use Local Backend.</div>
               <div class="pet-settings-message pet-runtime-warning">此 Key 仅用于 Backendless Preview，不影响当前本地后端模型配置。当前 AI 功能仍走本地 backend，也不会修改 backend/.env 或 backend/.local/settings.local.json。</div>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
               </div>
@@ -613,6 +618,7 @@
       runtimeApiKey: root.querySelector("#aflodit-pet-runtime-api-key"),
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
       runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
+      runtimeBackgroundChatPreview: root.querySelector("#aflodit-pet-runtime-background-chat-preview"),
       runtimeHasKey: root.querySelector("#aflodit-pet-runtime-has-key"),
       runtimeKeyPreview: root.querySelector("#aflodit-pet-runtime-key-preview"),
       runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),

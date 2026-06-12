@@ -22,7 +22,13 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.8.0 Backendless Runtime Phase 6.2`。
+当前实现是 `v0.8.0 Backendless Runtime Phase 6.3`。
+
+### v0.8.0 Phase 6.3 Background Chat Preview Toggle
+
+Phase 6.3 adds an explicit `Background Chat Preview` toggle in Backendless Preview. The toggle is off by default. When enabled, ordinary Chat uses Background Runtime; `/local your message` and `@local your message` force Local Backend Chat. `/bg your message` and `@background your message` still force Background Runtime Chat.
+
+Explain, Translate, and Summarize always stay on the Local Backend. Background Runtime Chat remains DeepSeek-only, still requires a saved Runtime Key and the exact DeepSeek optional host permission, and failures do not silently fall back. If preview-mode Background Chat fails, the UI tells you that Local Backend Chat is still available and to use `/local` or turn off Background Chat Preview.
 
 ### v0.8.0 Phase 6.2 Background Chat Preview Release Gate
 
@@ -120,7 +126,7 @@ Runtime Key 的保存位置由 `saveMode` 决定：
 
 ## 快速开始
 
-在最终 Backendless 版本完成前，当前 Phase 6.1 仍按本地后端流程运行，只有显式 background Chat 预览走 background runtime。
+在最终 Backendless 版本完成前，当前 Phase 6.3 默认仍按本地后端流程运行；只有显式 `/bg` / `@background` 或开启 Background Chat Preview 后的普通 Chat 会走 background runtime。`/local` / `@local` 可强制普通 Chat 走本地后端。
 
 ### 1. 准备环境
 
@@ -481,7 +487,7 @@ PORT=3002
 ## 已知限制
 
 - 使用扩展时必须运行本地后端。
-- 这是 Phase 6.1 的临时限制，后续 Phase 计划继续迁移到 background runtime。
+- 这是 Phase 6.3 的临时限制，后续 Phase 计划继续评估 background runtime 路由扩展。
 - Backendless Preview 的 Mock Test Connection 只验证安全消息链路，不请求真实模型。
 - 后端不是 production hardened 服务。
 - OpenAI-Compatible provider 的兼容性取决于对方 `/chat/completions` 行为。

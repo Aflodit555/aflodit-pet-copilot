@@ -65,6 +65,7 @@ function publicSettingsResponse(settings, hasApiKey, apiKeyPreview) {
       model: settings.model,
       saveMode: settings.saveMode,
       debugEnabled: settings.debugEnabled,
+      backgroundChatPreviewEnabled: Boolean(settings.backgroundChatPreviewEnabled),
       hasApiKey: Boolean(hasApiKey),
       apiKeyPreview: apiKeyPreview || ""
     },

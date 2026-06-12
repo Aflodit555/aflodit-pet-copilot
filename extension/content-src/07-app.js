@@ -510,7 +510,7 @@
 
     showError(error) {
       FaceController.stopReplyPeekLoop(true);
-      dom.status.textContent = "请求本地后端失败。";
+      dom.status.textContent = "Source: Local Backend. Local backend request failed.";
       dom.reply.textContent = normalizeUserErrorMessage(error);
       delete dom.reply.dataset.streaming;
       scrollReplyToTop();
@@ -537,13 +537,16 @@
         BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek."
       };
       const detail = details[code] || error.message || "Background Runtime failed.";
+      const recovery = error.backgroundChatSource === "preview"
+        ? "Use /local or turn off Background Chat Preview to use Local Backend."
+        : "Remove /bg or @background to use ordinary Chat.";
 
       dom.status.textContent = "Source: Background Runtime. Background route failed.";
       dom.reply.textContent = [
         "Background Runtime failed.",
         detail,
         "Local Backend Chat is still available.",
-        "Remove /bg or @background to use ordinary Chat."
+        recovery
       ].join("\n");
       delete dom.reply.dataset.streaming;
       scrollReplyToTop();
@@ -695,7 +698,8 @@
           provider: payload.provider,
           model: payload.model,
           saveMode: payload.saveMode,
-          debugEnabled: payload.debugEnabled
+          debugEnabled: payload.debugEnabled,
+          backgroundChatPreviewEnabled: payload.backgroundChatPreviewEnabled
         }
       });
     },
@@ -768,20 +772,48 @@
 
     ActionRunner.applyBackgroundChatInputHint = function applyBackgroundChatInputHint() {
       if (!dom.chatInput) return;
-      dom.chatInput.placeholder = "Chat message. Use /bg or @background for background runtime.";
-      dom.chatInput.title = "Normal chat uses the local backend. Prefix with /bg or @background to test background runtime chat.";
+      dom.chatInput.placeholder = "Chat message. Use /bg for Background Runtime or /local for Local Backend.";
+      dom.chatInput.title = "Background Chat Preview can route ordinary Chat to Background Runtime. Use /bg or @background for Background Runtime; use /local or @local for Local Backend.";
     };
 
     ActionRunner.parseBackgroundChatInput = function parseBackgroundChatInput(userText = "") {
       const trimmed = String(userText || "").trim();
       const lower = trimmed.toLowerCase();
-      const prefixes = ["/bg ", "@background "];
-      const prefix = prefixes.find((item) => lower.startsWith(item));
-      if (!prefix) return { enabled: false, userText: trimmed };
+      const backgroundPrefixes = ["/bg ", "@background "];
+      const localPrefixes = ["/local ", "@local "];
+      const backgroundPrefix = backgroundPrefixes.find((item) => lower.startsWith(item));
+      if (backgroundPrefix) {
+        return {
+          route: "background",
+          source: "explicit-background",
+          userText: trimmed.slice(backgroundPrefix.length).trim()
+        };
+      }
+      const localPrefix = localPrefixes.find((item) => lower.startsWith(item));
+      if (localPrefix) {
+        return {
+          route: "local",
+          source: "explicit-local",
+          userText: trimmed.slice(localPrefix.length).trim()
+        };
+      }
       return {
-        enabled: true,
-        userText: trimmed.slice(prefix.length).trim()
+        route: state.runtimePublicSettings.backgroundChatPreviewEnabled ? "background" : "local",
+        source: state.runtimePublicSettings.backgroundChatPreviewEnabled ? "preview" : "default-local",
+        userText: trimmed
       };
+    };
+
+    ActionRunner.syncBackgroundChatPreviewSetting = async function syncBackgroundChatPreviewSetting(userText = "") {
+      const lower = String(userText || "").trim().toLowerCase();
+      if (lower.startsWith("/bg ") || lower.startsWith("@background ") || lower.startsWith("/local ") || lower.startsWith("@local ")) {
+        return;
+      }
+
+      const response = await BackgroundRuntimeClient.getPublicSettings();
+      if (response?.ok && response.settings) {
+        state.runtimePublicSettings.backgroundChatPreviewEnabled = Boolean(response.settings.backgroundChatPreviewEnabled);
+      }
     };
 
     ActionRunner.callBackgroundChat = async function callBackgroundChat(userText = "") {
@@ -817,10 +849,13 @@
     };
 
     ActionRunner.runAction = async function runActionWithOptionalBackgroundChat(action, userText = "") {
+      if (action === ACTION.CHAT) {
+        await this.syncBackgroundChatPreviewSetting(userText).catch(() => {});
+      }
       const backgroundChat = action === ACTION.CHAT
         ? this.parseBackgroundChatInput(userText)
-        : { enabled: false };
-      if (!backgroundChat.enabled) return originalRunAction(action, userText);
+        : { route: "local", userText };
+      if (backgroundChat.route === "local") return originalRunAction(action, backgroundChat.userText ?? userText);
       if (state.running) return;
 
       UIController.openPanel(action);
@@ -851,6 +886,7 @@
         UIController.showResult(result);
       } catch (error) {
         if (requestId !== state.requestId || state.ui !== UI.PANEL) return;
+        error.backgroundChatSource = backgroundChat.source;
         console.error(error);
         UIController.showBackgroundChatError(error);
       } finally {
@@ -871,6 +907,7 @@
       this.busy = busy;
       dom.runtimeSave.disabled = busy;
       dom.runtimeSaveKey.disabled = busy;
+      if (dom.runtimeBackgroundChatPreview) dom.runtimeBackgroundChatPreview.disabled = busy;
       dom.runtimeTestMock.disabled = busy;
       dom.runtimeCheckPermission.disabled = busy;
       dom.runtimeTestReal.disabled = busy;
@@ -1027,6 +1064,7 @@
         model: settings.model || "mock-model",
         saveMode: settings.saveMode === "session" ? "session" : "local",
         debugEnabled: Boolean(settings.debugEnabled),
+        backgroundChatPreviewEnabled: Boolean(settings.backgroundChatPreviewEnabled),
         hasApiKey: Boolean(settings.hasApiKey),
         apiKeyPreview: settings.apiKeyPreview || ""
       };
@@ -1039,6 +1077,9 @@
         : "Enter API Key for future backendless runtime";
       dom.runtimeSaveMode.value = state.runtimePublicSettings.saveMode;
       dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
+      if (dom.runtimeBackgroundChatPreview) {
+        dom.runtimeBackgroundChatPreview.checked = state.runtimePublicSettings.backgroundChatPreviewEnabled;
+      }
       dom.runtimeHasKey.textContent = state.runtimePublicSettings.hasApiKey ? "yes" : "no";
       dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
       this.updateProviderStatus(dom.runtimeProvider.value);
@@ -1052,7 +1093,8 @@
         provider: providerId,
         model,
         saveMode: dom.runtimeSaveMode.value === "session" ? "session" : "local",
-        debugEnabled: Boolean(dom.runtimeDebug.checked)
+        debugEnabled: Boolean(dom.runtimeDebug.checked),
+        backgroundChatPreviewEnabled: Boolean(dom.runtimeBackgroundChatPreview?.checked)
       };
     },
 

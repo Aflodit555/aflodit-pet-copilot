@@ -24,7 +24,7 @@ function forbiddenPublicKeyIn(value = {}) {
 }
 
 export function validatePublicSettings(settings = {}) {
-  const allowedKeys = new Set(["provider", "model", "saveMode", "debugEnabled"]);
+  const allowedKeys = new Set(["provider", "model", "saveMode", "debugEnabled", "backgroundChatPreviewEnabled"]);
 
   if (settings.provider !== undefined && (typeof settings.provider !== "string" || !hasProvider(settings.provider))) {
     return {
@@ -87,6 +87,16 @@ export function validatePublicSettings(settings = {}) {
       error: {
         code: "DEBUG_FLAG_INVALID",
         message: "Runtime debugEnabled must be boolean."
+      }
+    };
+  }
+
+  if (settings.backgroundChatPreviewEnabled !== undefined && typeof settings.backgroundChatPreviewEnabled !== "boolean") {
+    return {
+      ok: false,
+      error: {
+        code: "BACKGROUND_CHAT_PREVIEW_FLAG_INVALID",
+        message: "Background Chat Preview flag must be boolean."
       }
     };
   }

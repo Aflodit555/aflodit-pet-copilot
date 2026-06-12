@@ -884,6 +884,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <input id="aflodit-pet-runtime-debug" type="checkbox" />
                 <span>Debug enabled</span>
               </label>
+              <label class="pet-settings-check" title="When enabled, ordinary Chat uses Background Runtime. Explain / Translate / Summarize still use Local Backend.">
+                <input id="aflodit-pet-runtime-background-chat-preview" type="checkbox" />
+                <span>Background Chat Preview</span>
+              </label>
+              <div class="pet-settings-message pet-runtime-compact-note">When enabled, ordinary Chat uses Background Runtime. Explain / Translate / Summarize still use Local Backend.</div>
               <div class="pet-settings-message pet-runtime-warning">此 Key 仅用于 Backendless Preview，不影响当前本地后端模型配置。当前 AI 功能仍走本地 backend，也不会修改 backend/.env 或 backend/.local/settings.local.json。</div>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
               </div>
@@ -1394,6 +1399,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeApiKey: root.querySelector("#aflodit-pet-runtime-api-key"),
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
       runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
+      runtimeBackgroundChatPreview: root.querySelector("#aflodit-pet-runtime-background-chat-preview"),
       runtimeHasKey: root.querySelector("#aflodit-pet-runtime-has-key"),
       runtimeKeyPreview: root.querySelector("#aflodit-pet-runtime-key-preview"),
       runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),
@@ -3329,7 +3335,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
     showError(error) {
       FaceController.stopReplyPeekLoop(true);
-      dom.status.textContent = "请求本地后端失败。";
+      dom.status.textContent = "Source: Local Backend. Local backend request failed.";
       dom.reply.textContent = normalizeUserErrorMessage(error);
       delete dom.reply.dataset.streaming;
       scrollReplyToTop();
@@ -3356,13 +3362,16 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek."
       };
       const detail = details[code] || error.message || "Background Runtime failed.";
+      const recovery = error.backgroundChatSource === "preview"
+        ? "Use /local or turn off Background Chat Preview to use Local Backend."
+        : "Remove /bg or @background to use ordinary Chat.";
 
       dom.status.textContent = "Source: Background Runtime. Background route failed.";
       dom.reply.textContent = [
         "Background Runtime failed.",
         detail,
         "Local Backend Chat is still available.",
-        "Remove /bg or @background to use ordinary Chat."
+        recovery
       ].join("\n");
       delete dom.reply.dataset.streaming;
       scrollReplyToTop();
@@ -3514,7 +3523,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           provider: payload.provider,
           model: payload.model,
           saveMode: payload.saveMode,
-          debugEnabled: payload.debugEnabled
+          debugEnabled: payload.debugEnabled,
+          backgroundChatPreviewEnabled: payload.backgroundChatPreviewEnabled
         }
       });
     },
@@ -3587,20 +3597,48 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
     ActionRunner.applyBackgroundChatInputHint = function applyBackgroundChatInputHint() {
       if (!dom.chatInput) return;
-      dom.chatInput.placeholder = "Chat message. Use /bg or @background for background runtime.";
-      dom.chatInput.title = "Normal chat uses the local backend. Prefix with /bg or @background to test background runtime chat.";
+      dom.chatInput.placeholder = "Chat message. Use /bg for Background Runtime or /local for Local Backend.";
+      dom.chatInput.title = "Background Chat Preview can route ordinary Chat to Background Runtime. Use /bg or @background for Background Runtime; use /local or @local for Local Backend.";
     };
 
     ActionRunner.parseBackgroundChatInput = function parseBackgroundChatInput(userText = "") {
       const trimmed = String(userText || "").trim();
       const lower = trimmed.toLowerCase();
-      const prefixes = ["/bg ", "@background "];
-      const prefix = prefixes.find((item) => lower.startsWith(item));
-      if (!prefix) return { enabled: false, userText: trimmed };
+      const backgroundPrefixes = ["/bg ", "@background "];
+      const localPrefixes = ["/local ", "@local "];
+      const backgroundPrefix = backgroundPrefixes.find((item) => lower.startsWith(item));
+      if (backgroundPrefix) {
+        return {
+          route: "background",
+          source: "explicit-background",
+          userText: trimmed.slice(backgroundPrefix.length).trim()
+        };
+      }
+      const localPrefix = localPrefixes.find((item) => lower.startsWith(item));
+      if (localPrefix) {
+        return {
+          route: "local",
+          source: "explicit-local",
+          userText: trimmed.slice(localPrefix.length).trim()
+        };
+      }
       return {
-        enabled: true,
-        userText: trimmed.slice(prefix.length).trim()
+        route: state.runtimePublicSettings.backgroundChatPreviewEnabled ? "background" : "local",
+        source: state.runtimePublicSettings.backgroundChatPreviewEnabled ? "preview" : "default-local",
+        userText: trimmed
       };
+    };
+
+    ActionRunner.syncBackgroundChatPreviewSetting = async function syncBackgroundChatPreviewSetting(userText = "") {
+      const lower = String(userText || "").trim().toLowerCase();
+      if (lower.startsWith("/bg ") || lower.startsWith("@background ") || lower.startsWith("/local ") || lower.startsWith("@local ")) {
+        return;
+      }
+
+      const response = await BackgroundRuntimeClient.getPublicSettings();
+      if (response?.ok && response.settings) {
+        state.runtimePublicSettings.backgroundChatPreviewEnabled = Boolean(response.settings.backgroundChatPreviewEnabled);
+      }
     };
 
     ActionRunner.callBackgroundChat = async function callBackgroundChat(userText = "") {
@@ -3636,10 +3674,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     };
 
     ActionRunner.runAction = async function runActionWithOptionalBackgroundChat(action, userText = "") {
+      if (action === ACTION.CHAT) {
+        await this.syncBackgroundChatPreviewSetting(userText).catch(() => {});
+      }
       const backgroundChat = action === ACTION.CHAT
         ? this.parseBackgroundChatInput(userText)
-        : { enabled: false };
-      if (!backgroundChat.enabled) return originalRunAction(action, userText);
+        : { route: "local", userText };
+      if (backgroundChat.route === "local") return originalRunAction(action, backgroundChat.userText ?? userText);
       if (state.running) return;
 
       UIController.openPanel(action);
@@ -3670,6 +3711,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         UIController.showResult(result);
       } catch (error) {
         if (requestId !== state.requestId || state.ui !== UI.PANEL) return;
+        error.backgroundChatSource = backgroundChat.source;
         console.error(error);
         UIController.showBackgroundChatError(error);
       } finally {
@@ -3690,6 +3732,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       this.busy = busy;
       dom.runtimeSave.disabled = busy;
       dom.runtimeSaveKey.disabled = busy;
+      if (dom.runtimeBackgroundChatPreview) dom.runtimeBackgroundChatPreview.disabled = busy;
       dom.runtimeTestMock.disabled = busy;
       dom.runtimeCheckPermission.disabled = busy;
       dom.runtimeTestReal.disabled = busy;
@@ -3846,6 +3889,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         model: settings.model || "mock-model",
         saveMode: settings.saveMode === "session" ? "session" : "local",
         debugEnabled: Boolean(settings.debugEnabled),
+        backgroundChatPreviewEnabled: Boolean(settings.backgroundChatPreviewEnabled),
         hasApiKey: Boolean(settings.hasApiKey),
         apiKeyPreview: settings.apiKeyPreview || ""
       };
@@ -3858,6 +3902,9 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         : "Enter API Key for future backendless runtime";
       dom.runtimeSaveMode.value = state.runtimePublicSettings.saveMode;
       dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
+      if (dom.runtimeBackgroundChatPreview) {
+        dom.runtimeBackgroundChatPreview.checked = state.runtimePublicSettings.backgroundChatPreviewEnabled;
+      }
       dom.runtimeHasKey.textContent = state.runtimePublicSettings.hasApiKey ? "yes" : "no";
       dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
       this.updateProviderStatus(dom.runtimeProvider.value);
@@ -3871,7 +3918,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         provider: providerId,
         model,
         saveMode: dom.runtimeSaveMode.value === "session" ? "session" : "local",
-        debugEnabled: Boolean(dom.runtimeDebug.checked)
+        debugEnabled: Boolean(dom.runtimeDebug.checked),
+        backgroundChatPreviewEnabled: Boolean(dom.runtimeBackgroundChatPreview?.checked)
       };
     },
 

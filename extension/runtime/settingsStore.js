@@ -13,7 +13,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   provider: getDefaultProviderId(),
   model: getDefaultModelForProvider(getDefaultProviderId()),
   saveMode: "local",
-  debugEnabled: false
+  debugEnabled: false,
+  backgroundChatPreviewEnabled: false
 });
 
 function sanitizeBoolean(value, fallback) {
@@ -38,7 +39,8 @@ export function sanitizePublicSettings(raw = {}, base = DEFAULT_SETTINGS) {
     provider: safeProvider,
     model: sanitizeModelForProvider(safeProvider, raw.model || base.model),
     saveMode: sanitizeSaveMode(raw.saveMode, base.saveMode),
-    debugEnabled: sanitizeBoolean(raw.debugEnabled, base.debugEnabled)
+    debugEnabled: sanitizeBoolean(raw.debugEnabled, base.debugEnabled),
+    backgroundChatPreviewEnabled: sanitizeBoolean(raw.backgroundChatPreviewEnabled, base.backgroundChatPreviewEnabled)
   };
 }
 
@@ -97,7 +99,8 @@ export function createSettingsStore(chromeApi) {
         provider: nextProvider,
         model: nextModel,
         saveMode: input.saveMode ?? current.saveMode,
-        debugEnabled: input.debugEnabled ?? current.debugEnabled
+        debugEnabled: input.debugEnabled ?? current.debugEnabled,
+        backgroundChatPreviewEnabled: input.backgroundChatPreviewEnabled ?? current.backgroundChatPreviewEnabled
       }, current);
 
       await setToStorage(next);
