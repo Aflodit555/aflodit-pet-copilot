@@ -1,6 +1,7 @@
 export const MESSAGE_TYPES = Object.freeze({
   runtimeGetStatus: "runtime:getStatus",
   runtimeChat: "runtime:chat",
+  runtimeGetBackgroundChatReadiness: "runtime:getBackgroundChatReadiness",
   runtimeTestConnectionMock: "runtime:testConnectionMock",
   runtimeTestProviderConnection: "runtime:testProviderConnection",
   runtimeGetProviderPermissionStatus: "runtime:getProviderPermissionStatus",
@@ -14,6 +15,7 @@ export const MESSAGE_TYPES = Object.freeze({
 export const ALLOWED_MESSAGE_TYPES = Object.freeze([
   MESSAGE_TYPES.runtimeGetStatus,
   MESSAGE_TYPES.runtimeChat,
+  MESSAGE_TYPES.runtimeGetBackgroundChatReadiness,
   MESSAGE_TYPES.runtimeTestConnectionMock,
   MESSAGE_TYPES.runtimeTestProviderConnection,
   MESSAGE_TYPES.runtimeGetProviderPermissionStatus,
@@ -129,6 +131,7 @@ export function validateMessage(message) {
   if (
     type === MESSAGE_TYPES.runtimeTestConnectionMock
     || type === MESSAGE_TYPES.runtimeChat
+    || type === MESSAGE_TYPES.runtimeGetBackgroundChatReadiness
     || type === MESSAGE_TYPES.runtimeTestProviderConnection
     || type === MESSAGE_TYPES.runtimeGetProviderPermissionStatus
     || type === MESSAGE_TYPES.runtimeRequestProviderPermission

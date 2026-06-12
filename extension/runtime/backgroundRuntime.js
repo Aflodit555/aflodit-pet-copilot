@@ -1,6 +1,7 @@
 import { MESSAGE_TYPES, validateMessage } from "./messageProtocol.js";
 import {
   assertNoArbitraryNetworkAccess,
+  validateBackgroundChatReadinessPayload,
   validateProviderConnectionTestPayload,
   validateProviderPermissionRequestPayload,
   validateProviderPermissionStatusPayload,
@@ -73,6 +74,14 @@ function publicSettingsResponse(settings, hasApiKey, apiKeyPreview) {
   };
 }
 
+function readinessCheck(id, label, ok, message) {
+  return { id, label, ok: Boolean(ok), message };
+}
+
+function firstMissingCheck(checks = []) {
+  return checks.find((check) => !check.ok) || null;
+}
+
 export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
   const settingsStore = createSettingsStore(chromeApi);
   const logger = createSafeLogger({ enabled: false });
@@ -82,6 +91,103 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
     async handleMessage(message) {
       const parsed = validateMessage(message);
       if (!parsed.ok) return parsed;
+
+      if (parsed.type === MESSAGE_TYPES.runtimeGetBackgroundChatReadiness) {
+        const guard = validateBackgroundChatReadinessPayload(parsed.payload || {});
+        if (!guard.ok) return guard;
+
+        const providerId = parsed.payload.providerId.trim();
+        const provider = getProvider(providerId);
+        if (!provider) {
+          return {
+            ok: false,
+            mode: "background-chat-readiness",
+            providerId,
+            errorCode: "UNKNOWN_PROVIDER",
+            message: "Unknown provider.",
+            canUseBackgroundChat: false,
+            requestEnabled: false,
+            checks: [
+              readinessCheck("provider", "Provider", false, "Provider is not registered.")
+            ],
+            nextAction: "Choose DeepSeek in Backendless Preview."
+          };
+        }
+
+        const settings = await settingsStore.getPublicSettings();
+        const selectedModel = (typeof parsed.payload.model === "string" ? parsed.payload.model.trim() : "")
+          || settings.model
+          || provider.defaultModel
+          || "";
+        const providerReady = Boolean(provider.enabled) && provider.id === DEEPSEEK_PROVIDER_ID;
+        const permissionConfigured = provider.requiredHostPermission === requiredDeepSeekHostPermission();
+        const permissionGranted = permissionConfigured
+          ? await containsPermission(chromeApi, provider.requiredHostPermission)
+          : false;
+        const hasApiKey = await secretStore.hasSecret(settings.saveMode);
+        const checks = [
+          readinessCheck(
+            "provider",
+            "Provider",
+            providerReady,
+            !provider.enabled
+              ? "Provider is disabled."
+              : provider.id === DEEPSEEK_PROVIDER_ID
+                ? "DeepSeek is selected."
+                : "Background Chat currently supports DeepSeek only."
+          ),
+          readinessCheck(
+            "runtimeKey",
+            "Runtime Key",
+            hasApiKey,
+            hasApiKey ? "Runtime Key saved." : "Save a Runtime Key in Backendless Preview."
+          ),
+          readinessCheck(
+            "permission",
+            "Permission",
+            permissionConfigured && permissionGranted,
+            !permissionConfigured
+              ? "DeepSeek permission is not configured for this provider."
+              : permissionGranted
+                ? "DeepSeek permission granted."
+                : "Grant DeepSeek permission in Backendless Preview."
+          ),
+          readinessCheck(
+            "model",
+            "Model",
+            Boolean(selectedModel.trim()),
+            selectedModel.trim() ? "Model is ready." : "Enter a model name."
+          ),
+          readinessCheck(
+            "preview",
+            "Preview",
+            true,
+            settings.backgroundChatPreviewEnabled
+              ? "Background Chat Preview is on."
+              : "Background Chat Preview is off."
+          ),
+          readinessCheck(
+            "realTest",
+            "Real Test",
+            true,
+            "Real Test: optional / not checked."
+          )
+        ];
+        const blocker = firstMissingCheck(checks);
+
+        return {
+          ok: true,
+          mode: "background-chat-readiness",
+          providerId: provider.id,
+          providerName: provider.displayName,
+          model: selectedModel.trim(),
+          backgroundChatPreviewEnabled: Boolean(settings.backgroundChatPreviewEnabled),
+          canUseBackgroundChat: !blocker,
+          checks,
+          requestEnabled: false,
+          nextAction: blocker ? blocker.message : "Background Chat is ready."
+        };
+      }
 
       if (parsed.type === MESSAGE_TYPES.runtimeGetProviderPermissionStatus) {
         const guard = validateProviderPermissionStatusPayload(parsed.payload || {});

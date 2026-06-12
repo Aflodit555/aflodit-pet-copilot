@@ -191,6 +191,32 @@ export function validateRuntimeChatPayload(payload = {}) {
   return { ok: true };
 }
 
+export function validateBackgroundChatReadinessPayload(payload = {}) {
+  const allowedKeys = new Set(["providerId", "model"]);
+  for (const key of Object.keys(payload || {})) {
+    if (!allowedKeys.has(key)) {
+      return invalidBackgroundChatReadinessPayload();
+    }
+  }
+
+  if (typeof payload.providerId !== "string") {
+    return invalidBackgroundChatReadinessPayload();
+  }
+
+  const providerId = payload.providerId.trim();
+  if (!providerId || providerId.length > 64) {
+    return invalidBackgroundChatReadinessPayload();
+  }
+
+  if (payload.model !== undefined) {
+    if (typeof payload.model !== "string" || payload.model.trim().length > 128) {
+      return invalidBackgroundChatReadinessPayload();
+    }
+  }
+
+  return { ok: true };
+}
+
 export function validateProviderPermissionStatusPayload(payload = {}) {
   const allowedKeys = new Set(["providerId"]);
   for (const key of Object.keys(payload || {})) {
@@ -277,6 +303,16 @@ function invalidRuntimeChatPayload() {
     mode: "background-chat",
     errorCode: "INVALID_PAYLOAD",
     message: "Invalid background chat payload.",
+    requestEnabled: false
+  };
+}
+
+function invalidBackgroundChatReadinessPayload() {
+  return {
+    ok: false,
+    mode: "background-chat-readiness",
+    errorCode: "INVALID_PAYLOAD",
+    message: "Invalid background chat readiness payload.",
     requestEnabled: false
   };
 }

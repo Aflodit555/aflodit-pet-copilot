@@ -241,6 +241,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       model: "mock-model",
       saveMode: "local",
       debugEnabled: false,
+      backgroundChatPreviewEnabled: false,
       hasApiKey: false,
       apiKeyPreview: ""
     },

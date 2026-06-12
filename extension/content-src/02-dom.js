@@ -108,6 +108,15 @@
                 <span>Background Chat Preview</span>
               </label>
               <div class="pet-settings-message pet-runtime-compact-note">When enabled, ordinary Chat uses Background Runtime. Explain / Translate / Summarize still use Local Backend.</div>
+              <div class="pet-runtime-provider-card" aria-live="polite">
+                <div><b>Background Chat Readiness</b>: <span id="aflodit-pet-runtime-readiness-summary">not checked</span></div>
+                <div><b>Provider</b>: <span id="aflodit-pet-runtime-readiness-provider">not checked</span></div>
+                <div><b>Runtime Key</b>: <span id="aflodit-pet-runtime-readiness-key">not checked</span></div>
+                <div><b>Permission</b>: <span id="aflodit-pet-runtime-readiness-permission">not checked</span></div>
+                <div><b>Model</b>: <span id="aflodit-pet-runtime-readiness-model">not checked</span></div>
+                <div><b>Preview</b>: <span id="aflodit-pet-runtime-readiness-preview">not checked</span></div>
+                <div><b>Real Test</b>: <span id="aflodit-pet-runtime-readiness-real-test">optional / not checked</span></div>
+              </div>
               <div class="pet-settings-message pet-runtime-warning">此 Key 仅用于 Backendless Preview，不影响当前本地后端模型配置。当前 AI 功能仍走本地 backend，也不会修改 backend/.env 或 backend/.local/settings.local.json。</div>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
               </div>
@@ -125,6 +134,7 @@
                   <div class="pet-runtime-actions-row">
                     <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test</button>
                     <button id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission</button>
+                    <button id="aflodit-pet-runtime-check-readiness" class="pet-secondary-button">Check Readiness</button>
                     <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button">Request Permission</button>
                     <button id="aflodit-pet-runtime-test-real" class="pet-secondary-button">Real Test</button>
                   </div>
@@ -619,6 +629,13 @@
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
       runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
       runtimeBackgroundChatPreview: root.querySelector("#aflodit-pet-runtime-background-chat-preview"),
+      runtimeReadinessSummary: root.querySelector("#aflodit-pet-runtime-readiness-summary"),
+      runtimeReadinessProvider: root.querySelector("#aflodit-pet-runtime-readiness-provider"),
+      runtimeReadinessKey: root.querySelector("#aflodit-pet-runtime-readiness-key"),
+      runtimeReadinessPermission: root.querySelector("#aflodit-pet-runtime-readiness-permission"),
+      runtimeReadinessModel: root.querySelector("#aflodit-pet-runtime-readiness-model"),
+      runtimeReadinessPreview: root.querySelector("#aflodit-pet-runtime-readiness-preview"),
+      runtimeReadinessRealTest: root.querySelector("#aflodit-pet-runtime-readiness-real-test"),
       runtimeHasKey: root.querySelector("#aflodit-pet-runtime-has-key"),
       runtimeKeyPreview: root.querySelector("#aflodit-pet-runtime-key-preview"),
       runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),
@@ -626,6 +643,7 @@
       runtimeSaveKey: root.querySelector("#aflodit-pet-runtime-save-key"),
       runtimeTestMock: root.querySelector("#aflodit-pet-runtime-test-mock"),
       runtimeCheckPermission: root.querySelector("#aflodit-pet-runtime-check-permission"),
+      runtimeCheckReadiness: root.querySelector("#aflodit-pet-runtime-check-readiness"),
       runtimeRequestPermission: root.querySelector("#aflodit-pet-runtime-request-permission"),
       runtimeTestReal: root.querySelector("#aflodit-pet-runtime-test-real"),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),

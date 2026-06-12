@@ -653,6 +653,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       model: "mock-model",
       saveMode: "local",
       debugEnabled: false,
+      backgroundChatPreviewEnabled: false,
       hasApiKey: false,
       apiKeyPreview: ""
     },
@@ -889,6 +890,15 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <span>Background Chat Preview</span>
               </label>
               <div class="pet-settings-message pet-runtime-compact-note">When enabled, ordinary Chat uses Background Runtime. Explain / Translate / Summarize still use Local Backend.</div>
+              <div class="pet-runtime-provider-card" aria-live="polite">
+                <div><b>Background Chat Readiness</b>: <span id="aflodit-pet-runtime-readiness-summary">not checked</span></div>
+                <div><b>Provider</b>: <span id="aflodit-pet-runtime-readiness-provider">not checked</span></div>
+                <div><b>Runtime Key</b>: <span id="aflodit-pet-runtime-readiness-key">not checked</span></div>
+                <div><b>Permission</b>: <span id="aflodit-pet-runtime-readiness-permission">not checked</span></div>
+                <div><b>Model</b>: <span id="aflodit-pet-runtime-readiness-model">not checked</span></div>
+                <div><b>Preview</b>: <span id="aflodit-pet-runtime-readiness-preview">not checked</span></div>
+                <div><b>Real Test</b>: <span id="aflodit-pet-runtime-readiness-real-test">optional / not checked</span></div>
+              </div>
               <div class="pet-settings-message pet-runtime-warning">此 Key 仅用于 Backendless Preview，不影响当前本地后端模型配置。当前 AI 功能仍走本地 backend，也不会修改 backend/.env 或 backend/.local/settings.local.json。</div>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
               </div>
@@ -906,6 +916,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                   <div class="pet-runtime-actions-row">
                     <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test</button>
                     <button id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission</button>
+                    <button id="aflodit-pet-runtime-check-readiness" class="pet-secondary-button">Check Readiness</button>
                     <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button">Request Permission</button>
                     <button id="aflodit-pet-runtime-test-real" class="pet-secondary-button">Real Test</button>
                   </div>
@@ -1400,6 +1411,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
       runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
       runtimeBackgroundChatPreview: root.querySelector("#aflodit-pet-runtime-background-chat-preview"),
+      runtimeReadinessSummary: root.querySelector("#aflodit-pet-runtime-readiness-summary"),
+      runtimeReadinessProvider: root.querySelector("#aflodit-pet-runtime-readiness-provider"),
+      runtimeReadinessKey: root.querySelector("#aflodit-pet-runtime-readiness-key"),
+      runtimeReadinessPermission: root.querySelector("#aflodit-pet-runtime-readiness-permission"),
+      runtimeReadinessModel: root.querySelector("#aflodit-pet-runtime-readiness-model"),
+      runtimeReadinessPreview: root.querySelector("#aflodit-pet-runtime-readiness-preview"),
+      runtimeReadinessRealTest: root.querySelector("#aflodit-pet-runtime-readiness-real-test"),
       runtimeHasKey: root.querySelector("#aflodit-pet-runtime-has-key"),
       runtimeKeyPreview: root.querySelector("#aflodit-pet-runtime-key-preview"),
       runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),
@@ -1407,6 +1425,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeSaveKey: root.querySelector("#aflodit-pet-runtime-save-key"),
       runtimeTestMock: root.querySelector("#aflodit-pet-runtime-test-mock"),
       runtimeCheckPermission: root.querySelector("#aflodit-pet-runtime-check-permission"),
+      runtimeCheckReadiness: root.querySelector("#aflodit-pet-runtime-check-readiness"),
       runtimeRequestPermission: root.querySelector("#aflodit-pet-runtime-request-permission"),
       runtimeTestReal: root.querySelector("#aflodit-pet-runtime-test-real"),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
@@ -3549,6 +3568,16 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       });
     },
 
+    async getBackgroundChatReadiness(payload = {}) {
+      return this.request({
+        type: "runtime:getBackgroundChatReadiness",
+        payload: {
+          providerId: payload.providerId,
+          model: payload.model
+        }
+      });
+    },
+
     async getProviderPermissionStatus(payload = {}) {
       return this.request({
         type: "runtime:getProviderPermissionStatus",
@@ -3727,6 +3756,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
   const RuntimeSettingsManager = {
     busy: false,
+    lastReadiness: null,
 
     setBusy(busy) {
       this.busy = busy;
@@ -3735,6 +3765,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       if (dom.runtimeBackgroundChatPreview) dom.runtimeBackgroundChatPreview.disabled = busy;
       dom.runtimeTestMock.disabled = busy;
       dom.runtimeCheckPermission.disabled = busy;
+      if (dom.runtimeCheckReadiness) dom.runtimeCheckReadiness.disabled = busy;
       dom.runtimeTestReal.disabled = busy;
       this.updatePermissionRequestButton();
       this.updateRealTestButton();
@@ -3758,6 +3789,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         PERMISSION_NOT_CONFIGURED: "Provider permission is not configured in this preview phase.",
         PERMISSION_DENIED: "Provider permission was not granted. Real provider requests are still disabled.",
         BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek in this preview phase.",
+        UNKNOWN_PROVIDER: "Provider is not available in Backendless Preview.",
         REAL_TEST_NOT_CONFIGURED: "Real provider test is only configured for DeepSeek in this preview phase.",
         MISSING_PROVIDER_PERMISSION: "DeepSeek permission is missing. Grant provider permission before running a real test.",
         MISSING_RUNTIME_KEY: "Runtime key is missing. Save a Runtime Key before running a real test.",
@@ -3864,6 +3896,39 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       this.updateRealTestButton(providerId);
     },
 
+    readinessText(check) {
+      if (!check) return "not checked";
+      const stateText = check.ok ? "ready" : "missing";
+      return `${stateText} - ${check.message || ""}`.trim();
+    },
+
+    renderReadiness(response = null) {
+      const byId = {};
+      (Array.isArray(response?.checks) ? response.checks : []).forEach((check) => {
+        byId[check.id] = check;
+      });
+
+      if (dom.runtimeReadinessSummary) {
+        dom.runtimeReadinessSummary.textContent = response
+          ? (response.canUseBackgroundChat ? "ready" : "not ready")
+          : "not checked";
+      }
+      if (dom.runtimeReadinessProvider) dom.runtimeReadinessProvider.textContent = this.readinessText(byId.provider);
+      if (dom.runtimeReadinessKey) dom.runtimeReadinessKey.textContent = this.readinessText(byId.runtimeKey);
+      if (dom.runtimeReadinessPermission) dom.runtimeReadinessPermission.textContent = this.readinessText(byId.permission);
+      if (dom.runtimeReadinessModel) dom.runtimeReadinessModel.textContent = this.readinessText(byId.model);
+      if (dom.runtimeReadinessPreview) dom.runtimeReadinessPreview.textContent = this.readinessText(byId.preview);
+      if (dom.runtimeReadinessRealTest) {
+        dom.runtimeReadinessRealTest.textContent = byId.realTest?.message || "Real Test: optional / not checked.";
+      }
+      LayoutManager.schedulePetLayout();
+    },
+
+    warnIfPreviewEnabledWithoutReadiness() {
+      if (!dom.runtimeBackgroundChatPreview?.checked || !this.lastReadiness || this.lastReadiness.canUseBackgroundChat) return;
+      this.setMessage(`[Readiness] ${this.lastReadiness.nextAction || "Background Chat is not ready yet."}`);
+    },
+
     handleProviderChange() {
       const nextProviderId = dom.runtimeProvider.value || "mock";
       const previousProvider = this.providerById(state.runtimePublicSettings.provider);
@@ -3876,6 +3941,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       }
 
       state.runtimePublicSettings.provider = nextProviderId;
+      this.lastReadiness = null;
+      this.renderReadiness(null);
       this.updateProviderStatus(nextProviderId);
       LayoutManager.schedulePetLayout();
     },
@@ -3893,6 +3960,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         hasApiKey: Boolean(settings.hasApiKey),
         apiKeyPreview: settings.apiKeyPreview || ""
       };
+      this.lastReadiness = null;
 
       this.renderProviderOptions(provider);
       dom.runtimeModel.value = state.runtimePublicSettings.model;
@@ -3907,6 +3975,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       }
       dom.runtimeHasKey.textContent = state.runtimePublicSettings.hasApiKey ? "yes" : "no";
       dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
+      this.renderReadiness(null);
       this.updateProviderStatus(dom.runtimeProvider.value);
     },
 
@@ -3967,6 +4036,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         }
         this.hydrate(response);
         this.setMessage("Runtime settings saved. Legacy backend model settings are unchanged.");
+        this.warnIfPreviewEnabledWithoutReadiness();
       } catch (error) {
         this.setMessage(error?.message || "Runtime settings request failed.");
       } finally {
@@ -4040,6 +4110,32 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         this.setMessage(`[Permission Check] ${response.message || this.userMessage(response, "Provider permission status check failed.")}`);
       } catch (error) {
         this.setMessage(`[Permission Check] ${error?.message || "Provider permission status check failed."}`);
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async checkReadiness() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("[Readiness] Checking Background Chat readiness...");
+      try {
+        const form = this.readForm();
+        const response = await BackgroundRuntimeClient.getBackgroundChatReadiness({
+          providerId: form.provider,
+          model: form.model
+        });
+        this.lastReadiness = response?.ok ? response : null;
+        this.renderReadiness(response?.ok ? response : null);
+        if (!response.ok) {
+          this.setMessage(`[Readiness] ${response.message || this.userMessage(response, "Background Chat readiness check failed.")}`);
+          return;
+        }
+        this.setMessage(`[Readiness] ${response.nextAction || (response.canUseBackgroundChat ? "Background Chat is ready." : "Background Chat is not ready yet.")}`);
+      } catch (error) {
+        this.lastReadiness = null;
+        this.renderReadiness(null);
+        this.setMessage(`[Readiness] ${error?.message || "Background Chat readiness check failed."}`);
       } finally {
         this.setBusy(false);
       }
@@ -4678,6 +4774,15 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     on(dom.runtimeCheckPermission, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.checkPermission();
+    });
+
+    on(dom.runtimeCheckReadiness, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.checkReadiness();
+    });
+
+    on(dom.runtimeBackgroundChatPreview, "change", () => {
+      RuntimeSettingsManager.warnIfPreviewEnabledWithoutReadiness();
     });
 
     on(dom.runtimeRequestPermission, "click", (event) => {

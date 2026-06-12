@@ -28,9 +28,11 @@ Phase 6.2 makes the optional background Chat route a release-gated preview. The 
 
 Phase 6.3 adds a public `backgroundChatPreviewEnabled` setting and a compact Backendless Preview toggle. The setting defaults to `false`. When enabled, ordinary Chat uses Background Runtime, while `/local` and `@local` force Local Backend Chat. Explain, Translate, and Summarize continue to use the local backend.
 
+Phase 6.4 adds `runtime:getBackgroundChatReadiness` and a compact Backendless Preview checklist. The readiness API checks only local/background state: provider, Runtime Key presence, DeepSeek host permission, model fallback, preview toggle state, and Real Test optional status. It does not call a provider, request permission, run Real Test, expose secrets, or change `requestEnabled`.
+
 ## 2. Non-goals
 
-Phase 5A through Phase 6.3 does not:
+Phase 5A through Phase 6.4 does not:
 
 - Switch the main AI request path from the local backend to the background runtime.
 - Add broad real provider network calls beyond DeepSeek-only Real Test Connection and optional DeepSeek background Chat.
@@ -64,6 +66,8 @@ In Phase 5C.2, the preview path can ask the background runtime for `runtime:test
 In Phase 6.1, the preview path can ask the background runtime for `runtime:chat` with only `{ "providerId": "deepseek", "model": "deepseek-chat", "userText": "hello" }`. It is opt-in from the Chat UI with `/bg ` or `@background ` and does not carry selected text, page text, URLs, headers, raw bodies, or API keys from the content script.
 
 In Phase 6.3, the Chat UI also supports `/local ` and `@local ` as explicit Local Backend overrides. With `backgroundChatPreviewEnabled=false`, ordinary Chat still uses the local backend. With `backgroundChatPreviewEnabled=true`, ordinary Chat uses the same `runtime:chat` readiness guard as `/bg`; it does not auto-request permission or run a real provider test during Chat.
+
+In Phase 6.4, the preview path can ask the background runtime for `runtime:getBackgroundChatReadiness` with only `{ "providerId": "deepseek", "model": "deepseek-chat" }`. The response is a safe checklist for UI display and never includes API keys, Authorization headers, URLs from content, raw provider responses, or request bodies.
 
 ## 4. Permission Strategy Options
 
@@ -257,7 +261,7 @@ Responses must not include:
 
 ## 6.1 Optional Background Chat Design And Audit
 
-Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior. Phase 6.2 adds release-gate source labels and explicit failure UX. Phase 6.3 adds a disabled-by-default Background Chat Preview toggle plus explicit Local Backend overrides.
+Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior. Phase 6.2 adds release-gate source labels and explicit failure UX. Phase 6.3 adds a disabled-by-default Background Chat Preview toggle plus explicit Local Backend overrides. Phase 6.4 adds a read-only readiness checklist before users try Background Chat.
 
 Rules:
 
@@ -280,6 +284,7 @@ Rules:
 - Preview-mode Background Chat failures must tell users to use `/local` or turn off Background Chat Preview.
 - Explicit `/bg` and `@background` failures must keep the remove-prefix recovery copy.
 - Background Chat failures must not trigger automatic fallback to `/api/pet`.
+- Readiness checks must not call fetch, request permission, run Real Test, save secrets, or modify provider settings.
 - `requestEnabled` remains `false`.
 
 ## 7. Token and Cost Policy
@@ -343,11 +348,12 @@ Phase 6: optional background AI route for chat
 Phase 6.1: background chat route audit and UI improvement
 Phase 6.2: background chat preview release gate
 Phase 6.3: background chat preview toggle and local override
-Phase 6.4: provider adapter hardening
+Phase 6.4: background chat readiness checklist
+Phase 6.5: provider adapter hardening
 Phase 7: optional background AI route expansion
 ```
 
-Phase 6.3 should not migrate Explain, Translate, or Summarize. Validate explicit Chat preview behavior before considering any route expansion.
+Phase 6.4 should not migrate Explain, Translate, or Summarize. Validate explicit Chat preview readiness and failure behavior before considering any route expansion.
 
 ## 11. Security Checklist
 
