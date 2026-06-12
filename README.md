@@ -22,7 +22,13 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.8.0 Backendless Runtime Phase 6.1`。
+当前实现是 `v0.8.0 Backendless Runtime Phase 6.2`。
+
+### v0.8.0 Phase 6.2 Background Chat Preview Release Gate
+
+Phase 6.2 makes `/bg your message` and `@background your message` a clearly labeled experimental Background Runtime Chat preview. It currently supports DeepSeek only and requires a saved Runtime Key, granted DeepSeek optional host permission, and a valid model name.
+
+If Background Runtime Chat fails, the extension does not silently fall back. The UI tells you that Local Backend Chat is still available; remove `/bg` or `@background` to use ordinary Chat. Main Chat without the prefix, Explain, Translate, and Summarize still use the local backend.
 
 ### v0.8.0 Phase 6.1 Chat Background Route Audit & UI Improvement
 

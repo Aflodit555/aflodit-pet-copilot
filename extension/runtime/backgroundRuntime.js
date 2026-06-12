@@ -185,6 +185,8 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         if (!guard.ok) return guard;
 
         const providerId = parsed.payload.providerId.trim();
+        const model = typeof parsed.payload.model === "string" ? parsed.payload.model.trim() : "";
+        const userText = parsed.payload.userText.trim();
         const provider = getProvider(providerId);
         if (!provider) {
           return {
@@ -259,8 +261,8 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
 
         return runDeepSeekBackgroundChat({
           provider,
-          model: parsed.payload.model,
-          userText: parsed.payload.userText,
+          model,
+          userText,
           secretStore,
           saveMode: settings.saveMode,
           logger

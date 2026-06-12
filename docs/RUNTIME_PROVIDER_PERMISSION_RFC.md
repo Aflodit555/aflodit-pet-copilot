@@ -24,9 +24,11 @@ Phase 6 adds one optional background AI route for Chat only. The content script 
 
 Phase 6.1 audits the optional background Chat route. `runtime:chat` accepts only `providerId`, `model`, and `userText`; `userText` must be a trimmed 1-512 character string. Extra fields such as URL, headers, raw body, API key, token, or endpoint are rejected before any provider request is attempted.
 
+Phase 6.2 makes the optional background Chat route a release-gated preview. The UI labels Local Backend, Background Runtime, Mock Test, Permission Check, and Real Provider Test sources explicitly. Background Chat failures do not automatically fall back to the local backend; users remove `/bg` or `@background` to use ordinary Chat.
+
 ## 2. Non-goals
 
-Phase 5A through Phase 6.1 does not:
+Phase 5A through Phase 6.2 does not:
 
 - Switch the main AI request path from the local backend to the background runtime.
 - Add broad real provider network calls beyond DeepSeek-only Real Test Connection and optional DeepSeek background Chat.
@@ -251,7 +253,7 @@ Responses must not include:
 
 ## 6.1 Optional Background Chat Design And Audit
 
-Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior.
+Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior. Phase 6.2 adds release-gate source labels and explicit failure UX.
 
 Rules:
 
@@ -266,6 +268,10 @@ Rules:
 - The response is normalized to the existing pet UI shape: `reply`, `emotion`, `motion`, `bubble_type`, and `confidence`.
 - The Chat input placeholder names `/bg` and `@background`.
 - Background Chat output must identify background runtime as the source.
+- Local backend results must identify Local Backend as the source.
+- Mock Test, Permission Check, and Real Provider Test messages must keep visible labels.
+- Background Chat failures must say the Background Runtime failed and Local Backend Chat remains available.
+- Background Chat failures must not trigger automatic fallback to `/api/pet`.
 - `requestEnabled` remains `false`.
 
 ## 7. Token and Cost Policy
@@ -327,11 +333,12 @@ Phase 5C.1: DeepSeek permission request UI
 Phase 5C.2: DeepSeek-only real Test Connection
 Phase 6: optional background AI route for chat
 Phase 6.1: background chat route audit and UI improvement
-Phase 6.2: provider adapter hardening
+Phase 6.2: background chat preview release gate
+Phase 6.3: provider adapter hardening
 Phase 7: optional background AI route expansion
 ```
 
-Phase 6.1 should not migrate all AI actions at once. Validate chat before considering explain, translate, or summarize.
+Phase 6.2 should not migrate all AI actions at once. Validate chat before considering explain, translate, or summarize.
 
 ## 11. Security Checklist
 

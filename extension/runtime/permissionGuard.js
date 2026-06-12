@@ -310,7 +310,7 @@ export function assertNoArbitraryNetworkAccess(value = {}) {
       ok: false,
       error: {
         code: "NETWORK_PERMISSION_FORBIDDEN",
-        message: "Background runtime does not allow arbitrary URLs or https://*/* in Phase 1."
+        message: "Background runtime does not allow arbitrary URLs or wildcard HTTPS origins."
       }
     };
   }

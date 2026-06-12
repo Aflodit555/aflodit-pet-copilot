@@ -3305,7 +3305,9 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       enforceScrollBoxes();
       dom.status.textContent = "本地后端已返回结果。";
       if (result.mode === "background-chat") {
-        dom.status.textContent = "Background runtime returned a chat result. Main AI actions still use the local backend.";
+        dom.status.textContent = "Source: Background Runtime. Main AI actions still use the local backend.";
+      } else {
+        dom.status.textContent = "Source: Local Backend. Main AI actions use the local backend.";
       }
       dom.reply.textContent = normalizeUserErrorMessage(null, {
         result,
@@ -3329,6 +3331,39 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       FaceController.stopReplyPeekLoop(true);
       dom.status.textContent = "请求本地后端失败。";
       dom.reply.textContent = normalizeUserErrorMessage(error);
+      delete dom.reply.dataset.streaming;
+      scrollReplyToTop();
+      setMeta("error", "shake");
+      setBubbleType("error");
+      LayoutManager.updateFloatingLayout();
+      FaceController.reactFace({ emotion: "error", motion: "shake" });
+    },
+
+    showBackgroundChatError(error = {}) {
+      FaceController.stopReplyPeekLoop(true);
+      const code = String(error.code || error.errorCode || error.data?.errorCode || error.data?.error?.code || "").trim();
+      const details = {
+        MISSING_RUNTIME_KEY: "Save a Runtime Key in Backendless Preview.",
+        MISSING_PROVIDER_PERMISSION: "Grant DeepSeek permission in Backendless Preview.",
+        AUTH_FAILED: "DeepSeek authentication failed. Check your Runtime Key.",
+        RATE_LIMITED: "DeepSeek rate limit reached. Try again later.",
+        TIMEOUT: "Background Runtime timed out.",
+        NETWORK_ERROR: "Background Runtime network request failed.",
+        PROVIDER_UNAVAILABLE: "DeepSeek is unavailable. Try again later.",
+        PROVIDER_BAD_REQUEST: "DeepSeek rejected the background chat request.",
+        PROVIDER_ERROR: "DeepSeek returned no usable background chat result.",
+        INVALID_PAYLOAD: "The background chat payload was rejected.",
+        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek."
+      };
+      const detail = details[code] || error.message || "Background Runtime failed.";
+
+      dom.status.textContent = "Source: Background Runtime. Background route failed.";
+      dom.reply.textContent = [
+        "Background Runtime failed.",
+        detail,
+        "Local Backend Chat is still available.",
+        "Remove /bg or @background to use ordinary Chat."
+      ].join("\n");
       delete dom.reply.dataset.streaming;
       scrollReplyToTop();
       setMeta("error", "shake");
@@ -3626,7 +3661,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       };
       UIController.showLoading(action);
       if (dom.mode) dom.mode.textContent = "Background Chat";
-      if (dom.status) dom.status.textContent = "Sending Chat through background runtime. Main AI actions still use the local backend.";
+      if (dom.status) dom.status.textContent = "Source: Background Runtime. Sending preview Chat. Local Backend remains available.";
       setRunning(true);
 
       try {
@@ -3636,7 +3671,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       } catch (error) {
         if (requestId !== state.requestId || state.ui !== UI.PANEL) return;
         console.error(error);
-        UIController.showError(error);
+        UIController.showBackgroundChatError(error);
       } finally {
         if (requestId === state.requestId) state.pendingRequest = null;
         if (requestId === state.requestId) setRunning(false);
@@ -3919,7 +3954,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     async testMock() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setMessage("Running mock runtime test...");
+      this.setMessage("[Mock Test] Running mock runtime test...");
       try {
         const form = this.readForm();
         const response = await BackgroundRuntimeClient.testConnectionMock({
@@ -3927,12 +3962,12 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           model: form.model
         });
         if (!response.ok) {
-          this.setMessage(response.message || this.userMessage(response, "Mock runtime test failed."));
+          this.setMessage(`[Mock Test] ${response.message || this.userMessage(response, "Mock runtime test failed.")}`);
           return;
         }
-        this.setMessage(response.message || "Mock test passed. Real provider requests are still disabled.");
+        this.setMessage(`[Mock Test] ${response.message || "Mock test passed. Real provider requests are still disabled."}`);
       } catch (error) {
-        this.setMessage(error?.message || "Mock runtime test failed.");
+        this.setMessage(`[Mock Test] ${error?.message || "Mock runtime test failed."}`);
       } finally {
         this.setBusy(false);
       }
@@ -3941,7 +3976,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     async checkPermission() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setMessage("Checking provider permission status...");
+      this.setMessage("[Permission Check] Checking provider permission status...");
       try {
         const form = this.readForm();
         const response = await BackgroundRuntimeClient.getProviderPermissionStatus({
@@ -3951,12 +3986,12 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         this.applyPermissionStatus(response, form.provider);
         if (response.ok) {
           const permissionText = response.permissionGranted ? "is granted" : "is not granted";
-          this.setMessage(`${providerLabel} permission ${permissionText}. Real provider requests are still disabled.`);
+          this.setMessage(`[Permission Check] ${providerLabel} permission ${permissionText}. Real provider requests are still disabled.`);
           return;
         }
-        this.setMessage(response.message || this.userMessage(response, "Provider permission status check failed."));
+        this.setMessage(`[Permission Check] ${response.message || this.userMessage(response, "Provider permission status check failed.")}`);
       } catch (error) {
-        this.setMessage(error?.message || "Provider permission status check failed.");
+        this.setMessage(`[Permission Check] ${error?.message || "Provider permission status check failed."}`);
       } finally {
         this.setBusy(false);
       }
@@ -3965,13 +4000,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     async requestPermission() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setMessage("Requesting provider permission...");
+      this.setMessage("[Permission Check] Requesting provider permission...");
       try {
         const form = this.readForm();
         const response = await BackgroundRuntimeClient.requestProviderPermission({
           providerId: form.provider
         });
-        this.setMessage(response.message || this.userMessage(response, "Provider permission request failed."));
+        this.setMessage(`[Permission Check] ${response.message || this.userMessage(response, "Provider permission request failed.")}`);
 
         const status = await BackgroundRuntimeClient.getProviderPermissionStatus({
           providerId: form.provider
@@ -3995,7 +4030,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       }
 
       this.setBusy(true);
-      this.setMessage("Running real provider test...");
+      this.setMessage("[Real Provider Test] Running real provider test...");
       try {
         const response = await BackgroundRuntimeClient.testProviderConnection({
           providerId: form.provider,
@@ -4005,12 +4040,12 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           dom.runtimeProviderRequestEnabled.textContent = "no";
         }
         if (!response.ok) {
-          this.setMessage(response.message || this.userMessage(response, "Real provider test failed."));
+          this.setMessage(`[Real Provider Test] ${response.message || this.userMessage(response, "Real provider test failed.")}`);
           return;
         }
-        this.setMessage(response.message || "DeepSeek real test passed. Main AI actions still use the local backend.");
+        this.setMessage(`[Real Provider Test] ${response.message || "DeepSeek real test passed. Main AI actions still use the local backend."}`);
       } catch (error) {
-        this.setMessage(error?.message || "Real provider test failed.");
+        this.setMessage(`[Real Provider Test] ${error?.message || "Real provider test failed."}`);
       } finally {
         this.setBusy(false);
       }
