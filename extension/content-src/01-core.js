@@ -256,6 +256,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         requestEnabled: false
       }
     ],
+    runtimeSetupViewMode: "user",
     layout: {
       menuVariant: "br",
       panelPlacement: "top"

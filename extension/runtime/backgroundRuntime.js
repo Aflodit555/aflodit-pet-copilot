@@ -223,6 +223,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             providerId: provider?.id || settings.provider,
             providerName: provider?.displayName || settings.provider,
             model,
+            releaseChannel: "backendless-beta",
             hasRuntimeKey: Boolean(hasApiKey),
             apiKeyPreview: await secretStore.getMaskedPreview(settings.saveMode),
             permissionStatus: !permissionConfigured ? "not_configured" : (permissionGranted ? "granted" : "missing"),
@@ -257,7 +258,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             mode: "permission-status",
             providerId: provider.id,
             errorCode: "PERMISSION_NOT_CONFIGURED",
-            message: "Provider permission is not configured in this preview phase.",
+            message: "Provider permission is not configured for Backendless Beta.",
             requestEnabled: false
           };
         }
@@ -302,7 +303,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             mode: "permission-request",
             providerId: provider.id,
             errorCode: "PERMISSION_NOT_CONFIGURED",
-            message: "Provider permission request is not configured in this preview phase.",
+            message: "Provider permission request is not configured for Backendless Beta.",
             requestEnabled: false
           };
         }
@@ -368,11 +369,11 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         }
 
         if (provider.id !== DEEPSEEK_PROVIDER_ID) {
-          return failure("BACKGROUND_ACTION_NOT_CONFIGURED", "Background Runtime actions are only configured for DeepSeek in this preview phase.");
+          return failure("BACKGROUND_ACTION_NOT_CONFIGURED", "Background Runtime actions are only configured for DeepSeek in Backendless Beta.");
         }
 
         if (provider.requiredHostPermission !== requiredDeepSeekHostPermission()) {
-          return failure("PERMISSION_NOT_CONFIGURED", "DeepSeek permission is not configured in this preview phase.");
+          return failure("PERMISSION_NOT_CONFIGURED", "DeepSeek permission is not configured for Backendless Beta.");
         }
 
         const permissionGranted = await containsPermission(chromeApi, provider.requiredHostPermission);
@@ -434,7 +435,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             mode: "background-chat",
             providerId: provider.id,
             errorCode: "BACKGROUND_CHAT_NOT_CONFIGURED",
-            message: "Background chat is only configured for DeepSeek in this preview phase.",
+            message: "Background chat is only configured for DeepSeek in Backendless Beta.",
             requestEnabled: false
           };
         }
@@ -446,7 +447,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             providerId: provider.id,
             providerName: provider.displayName,
             errorCode: "PERMISSION_NOT_CONFIGURED",
-            message: "DeepSeek permission is not configured in this preview phase.",
+            message: "DeepSeek permission is not configured for Backendless Beta.",
             requestEnabled: false
           };
         }
@@ -541,7 +542,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             mode: "real-test",
             providerId: provider.id,
             errorCode: "REAL_TEST_NOT_CONFIGURED",
-            message: "Real provider test is only configured for DeepSeek in this preview phase.",
+            message: "Real provider test is only configured for DeepSeek in Backendless Beta.",
             requestEnabled: false,
             lastRealTestStatus: status
           };
@@ -560,7 +561,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             providerId: provider.id,
             providerName: provider.displayName,
             errorCode: "PERMISSION_NOT_CONFIGURED",
-            message: "DeepSeek permission is not configured in this preview phase.",
+            message: "DeepSeek permission is not configured for Backendless Beta.",
             requestEnabled: false,
             lastRealTestStatus: status
           };

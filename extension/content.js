@@ -668,6 +668,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         requestEnabled: false
       }
     ],
+    runtimeSetupViewMode: "user",
     layout: {
       menuVariant: "br",
       panelPlacement: "top"
@@ -847,7 +848,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
             <div id="aflodit-pet-settings-runtime" class="pet-settings-view pet-settings-fixed-footer hidden">
               <div class="pet-settings-body">
               <div class="pet-settings-title">Runtime Setup</div>
-              <div class="pet-settings-message pet-runtime-warning">Runtime Setup keeps Local Backend as the default. Background Runtime Beta is DeepSeek-only and requires explicit setup.</div>
+              <div class="pet-settings-message pet-runtime-warning">Recommended for v0.8.0: Backendless Beta. Local Backend development mode remains available for local work.</div>
               <div class="pet-runtime-summary">
                 <div><b>Runtime</b>: <span id="aflodit-pet-runtime-summary-mode">Local Backend</span></div>
                 <div><b>Provider</b>: <span id="aflodit-pet-runtime-summary-provider">Mock</span></div>
@@ -863,35 +864,35 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <span>Model</span>
                 <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
               </label>
-              <div class="pet-runtime-provider-card">
+              <div class="pet-runtime-provider-card hidden" data-runtime-developer-only>
                 <div><b>Provider selected</b>：<span id="aflodit-pet-runtime-provider-selected">Mock</span></div>
                 <div><b>Protocol</b>：<span id="aflodit-pet-runtime-provider-protocol">mock</span></div>
                 <div><b>Default model</b>：<span id="aflodit-pet-runtime-provider-default-model">mock-model</span></div>
                 <div><b>Permission status</b>: <span id="aflodit-pet-runtime-provider-permission-status">unknown</span></div>
               </div>
-              <div class="pet-settings-message pet-runtime-warning">Provider selection and permission status are preview-only. Permission granted does not mean provider connected. Real model requests are still disabled.</div>
+              <div class="pet-settings-message pet-runtime-warning">Provider selection is allowlisted for Runtime Setup. Permission only grants browser access; Run Real Test to verify DeepSeek.</div>
               <label class="pet-settings-field">
                 <span>API Key</span>
                 <input id="aflodit-pet-runtime-api-key" type="password" autocomplete="off" placeholder="Enter API Key for future backendless runtime" />
               </label>
-              <label class="pet-settings-field">
+              <label class="pet-settings-field hidden" data-runtime-developer-only>
                 <span>Save mode</span>
                 <select id="aflodit-pet-runtime-save-mode">
                   <option value="local">local</option>
                   <option value="session">session</option>
                 </select>
               </label>
-              <label class="pet-settings-check">
+              <label class="pet-settings-check hidden" data-runtime-developer-only>
                 <input id="aflodit-pet-runtime-debug" type="checkbox" />
                 <span>Debug enabled</span>
               </label>
               <div class="pet-runtime-provider-card">
                 <div><b>Runtime Mode</b>: <span id="aflodit-pet-runtime-mode-label">Local Backend</span></div>
-                <label class="pet-settings-check" title="Uses 127.0.0.1 backend. Best for stable local development.">
+                <label class="pet-settings-check" title="Uses 127.0.0.1 backend for development.">
                   <input id="aflodit-pet-runtime-mode-local" name="aflodit-pet-runtime-mode" type="radio" value="local_backend" />
-                  <span>Local Backend</span>
+                  <span>Local Backend Dev</span>
                 </label>
-                <div class="pet-settings-message pet-runtime-compact-note">Uses 127.0.0.1 backend. Best for stable local development.</div>
+                <div class="pet-settings-message pet-runtime-compact-note">Uses 127.0.0.1 backend for development.</div>
                 <label class="pet-settings-check" title="Uses extension background runtime. No local backend needed after setup.">
                   <input id="aflodit-pet-runtime-mode-background" name="aflodit-pet-runtime-mode" type="radio" value="background_runtime_beta" />
                   <span>Background Runtime Beta</span>
@@ -909,6 +910,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <div><b>7. Real Test</b>: <span id="aflodit-pet-runtime-readiness-real-test">not checked</span></div>
               </div>
               <div class="pet-settings-message pet-runtime-warning">Runtime Key is stored only in extension background secret storage. It does not change backend/.env or local backend settings.</div>
+              <div id="aflodit-pet-runtime-dev-note" class="pet-settings-message pet-runtime-compact-note hidden" data-runtime-developer-only>Developer tools are for local backend development and release troubleshooting only.</div>
               <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button hidden">Request Permission</button>
               <textarea id="aflodit-pet-runtime-diagnostics-output" class="pet-runtime-diagnostics-output hidden" readonly rows="6" spellcheck="false"></textarea>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
@@ -922,10 +924,16 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                     <button id="aflodit-pet-runtime-test-real" class="pet-secondary-button">Run Real Test</button>
                   </div>
                 </div>
-                <details class="pet-runtime-actions-group">
-                  <summary class="pet-runtime-actions-title">Advanced Diagnostics</summary>
+                <div class="pet-runtime-actions-group">
+                  <div class="pet-runtime-actions-title">Diagnostics</div>
                   <div class="pet-runtime-actions-row">
                     <button id="aflodit-pet-runtime-copy-diagnostics" class="pet-secondary-button">Copy Diagnostics</button>
+                    <button id="aflodit-pet-runtime-dev-toggle" class="pet-secondary-button">Developer Tools</button>
+                  </div>
+                </div>
+                <details id="aflodit-pet-runtime-developer-tools" class="pet-runtime-actions-group hidden" data-runtime-developer-only>
+                  <summary class="pet-runtime-actions-title">Advanced Diagnostics</summary>
+                  <div class="pet-runtime-actions-row">
                     <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test</button>
                     <button id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission</button>
                     <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears Runtime Setup key, not backend key.">Clear Key</button>
@@ -1441,6 +1449,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeTestReal: root.querySelector("#aflodit-pet-runtime-test-real"),
       runtimeCopyDiagnostics: root.querySelector("#aflodit-pet-runtime-copy-diagnostics"),
       runtimeDiagnosticsOutput: root.querySelector("#aflodit-pet-runtime-diagnostics-output"),
+      runtimeDeveloperToggle: root.querySelector("#aflodit-pet-runtime-dev-toggle"),
+      runtimeDeveloperTools: root.querySelector("#aflodit-pet-runtime-developer-tools"),
+      runtimeDevNote: root.querySelector("#aflodit-pet-runtime-dev-note"),
+      runtimeDeveloperOnly: Array.from(root.querySelectorAll("[data-runtime-developer-only]")),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
       runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
       runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),
@@ -3764,7 +3776,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         return;
       }
       if (backgroundRoute.userText.length > runtimeActionUserTextLimit) {
-        UIController.showWarning("Background Runtime accepts up to 1000 characters of typed input. Shorten the message or disable preview.");
+        UIController.showWarning("Background Runtime accepts up to 1000 characters of typed input. Shorten the message or switch to Local Backend Dev.");
         return;
       }
       if (action === ACTION.CHAT && !backgroundRoute.userText) {
@@ -3781,7 +3793,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       };
       UIController.showLoading(action);
       if (dom.mode) dom.mode.textContent = "Background Runtime";
-      if (dom.status) dom.status.textContent = "Source: Background Runtime. Sending preview action. Local Backend remains available.";
+      if (dom.status) dom.status.textContent = "Source: Background Runtime. Sending Backendless Beta action. Local Backend Dev remains available.";
       setRunning(true);
 
       try {
@@ -3808,6 +3820,24 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     busy: false,
     lastReadiness: null,
     lastPermissionStatus: null,
+
+    isDeveloperMode() {
+      return state.runtimeSetupViewMode === "developer";
+    },
+
+    setSetupViewMode(mode = "user") {
+      state.runtimeSetupViewMode = mode === "developer" ? "developer" : "user";
+      const developer = this.isDeveloperMode();
+      (dom.runtimeDeveloperOnly || []).forEach((node) => node.classList.toggle("hidden", !developer));
+      if (dom.runtimeDeveloperTools && !developer) dom.runtimeDeveloperTools.open = false;
+      if (dom.runtimeDeveloperToggle) {
+        dom.runtimeDeveloperToggle.textContent = developer ? "Hide Developer Tools" : "Developer Tools";
+      }
+      if (dom.runtimeDiagnosticsOutput && !developer) {
+        dom.runtimeDiagnosticsOutput.classList.add("hidden");
+      }
+      LayoutManager.schedulePetLayout();
+    },
 
     setBusy(busy) {
       this.busy = busy;
@@ -3838,12 +3868,12 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         SETTING_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
         PROVIDER_NOT_ALLOWED: "Provider is not available in Runtime Setup.",
-        PERMISSION_NOT_CONFIGURED: "Provider permission is not configured in this preview phase.",
+        PERMISSION_NOT_CONFIGURED: "Provider permission is not configured for Backendless Beta.",
         PERMISSION_DENIED: "Provider permission was not granted. Real provider requests are still disabled.",
-        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek in this preview phase.",
+        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek in Backendless Beta.",
         UNKNOWN_PROVIDER: "Provider is not available in Runtime Setup.",
         RUNTIME_MODE_INVALID: "Runtime mode must be Local Backend or Background Runtime Beta.",
-        REAL_TEST_NOT_CONFIGURED: "Real provider test is only configured for DeepSeek in this preview phase.",
+        REAL_TEST_NOT_CONFIGURED: "Real provider test is only configured for DeepSeek in Backendless Beta.",
         MISSING_PROVIDER_PERMISSION: "DeepSeek permission is missing. Grant provider permission before running a real test.",
         MISSING_RUNTIME_KEY: "Runtime key is missing. Save a Runtime Key before running a real test.",
         AUTH_FAILED: "DeepSeek authentication failed. Check your Runtime Key.",
@@ -3854,7 +3884,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         NETWORK_ERROR: "DeepSeek real test failed due to a network error.",
         TIMEOUT: "DeepSeek real test timed out.",
         PROVIDER_ERROR: "DeepSeek real test failed.",
-        INVALID_PAYLOAD: "Provider preview request rejected invalid payload.",
+        INVALID_PAYLOAD: "Provider request rejected invalid payload.",
         RUNTIME_TEST_PAYLOAD_FORBIDDEN: "Runtime mock test rejected unsafe fields.",
         RUNTIME_TEST_PAYLOAD_UNKNOWN: "Runtime mock test rejected unsupported fields."
       };
@@ -3928,7 +3958,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       dom.runtimeTestReal.disabled = this.busy;
       dom.runtimeTestReal.title = providerId === "deepseek"
         ? "Run a minimal DeepSeek real test. Main AI actions still use the local backend."
-        : "Real provider test is only configured for DeepSeek in this preview phase.";
+        : "Real provider test is only configured for DeepSeek in Backendless Beta.";
     },
 
     applyPermissionStatus(response = {}, providerId = dom.runtimeProvider?.value || "mock") {
@@ -4012,7 +4042,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     },
 
     runtimeModeLabel(mode = "local_backend") {
-      return mode === "background_runtime_beta" ? "Background Runtime Beta" : "Local Backend";
+      return mode === "background_runtime_beta" ? "Background Runtime Beta" : "Local Backend Dev";
     },
 
     updateRuntimeModeUi(mode = "local_backend") {
@@ -4076,6 +4106,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       };
       this.lastReadiness = null;
       this.lastPermissionStatus = null;
+      this.setSetupViewMode("user");
 
       this.renderProviderOptions(provider);
       dom.runtimeModel.value = state.runtimePublicSettings.model;
@@ -4360,14 +4391,16 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         const text = JSON.stringify(response.diagnostics, null, 2);
         if (dom.runtimeDiagnosticsOutput) {
           dom.runtimeDiagnosticsOutput.value = text;
-          dom.runtimeDiagnosticsOutput.classList.remove("hidden");
+          dom.runtimeDiagnosticsOutput.classList.toggle("hidden", !this.isDeveloperMode());
         }
         if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(text);
           this.setMessage("[Diagnostics] Safe diagnostics copied.");
           return;
         }
-        this.setMessage("[Diagnostics] Clipboard unavailable. Safe diagnostics are shown below.");
+        this.setMessage(this.isDeveloperMode()
+          ? "[Diagnostics] Clipboard unavailable. Safe diagnostics are shown below."
+          : "[Diagnostics] Clipboard unavailable. Turn on Developer Tools to view diagnostics JSON.");
       } catch (error) {
         this.setMessage(`[Diagnostics] ${error?.message || "Diagnostics unavailable."}`);
       } finally {
@@ -4959,6 +4992,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     on(dom.runtimeCopyDiagnostics, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.copyDiagnostics();
+    });
+
+    on(dom.runtimeDeveloperToggle, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.setSetupViewMode(
+        RuntimeSettingsManager.isDeveloperMode() ? "user" : "developer"
+      );
     });
 
     on(dom.runtimeReload, "click", (event) => {

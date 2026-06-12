@@ -42,7 +42,9 @@ For development, select `extension/` instead.
 
 ## Runtime Setup
 
-Local Backend remains the default runtime mode.
+Recommended for v0.8.0: Backendless Beta.
+
+Local Backend Dev remains available for development.
 
 For Background Runtime Beta:
 

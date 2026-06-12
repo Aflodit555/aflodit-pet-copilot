@@ -4,6 +4,10 @@
 
 Use this checklist before publishing or sharing a Chromium release package.
 
+Recommended for v0.8.0: Backendless Beta.
+
+Development fallback: Local Backend Dev.
+
 ## Package
 
 1. Confirm the working tree only contains intended release changes.
@@ -47,7 +51,7 @@ Confirm:
 - No new providers.
 - No new host permissions.
 - `requestEnabled` remains false.
-- Local Backend remains the default runtime mode.
+- Local Backend development mode remains available in source.
 - Background Runtime Beta is not default.
 - Full Runtime Key is never returned to content script public settings.
 - No Authorization header or full API key is logged.
@@ -60,7 +64,7 @@ Confirm:
 3. Load unpacked from `dist/aflodit-pet-copilot-v0.8.0/`.
 4. Open a normal web page.
 5. Confirm the pet UI appears.
-6. Confirm Local Backend mode is selected by default.
+6. Confirm Runtime Setup opens in user mode and hides Mock Test / Check Permission.
 7. Open Runtime Setup.
 8. Select DeepSeek, save Runtime Key, request permission, check readiness, and run Real Test.
 9. Select Background Runtime Beta.
@@ -70,4 +74,4 @@ Confirm:
 
 ## Local Backend Dev Path
 
-For development, load unpacked from `extension/`, start the local backend, and keep Runtime Mode as Local Backend.
+For development, load unpacked from `extension/`, start the local backend, and keep Runtime Mode as Local Backend Dev.

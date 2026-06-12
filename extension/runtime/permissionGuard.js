@@ -112,7 +112,7 @@ export function validatePublicSettings(settings = {}) {
       ok: false,
       error: {
         code: "BACKGROUND_RUNTIME_PREVIEW_FLAG_INVALID",
-        message: "Background Runtime Preview flag must be boolean."
+        message: "Legacy Background Runtime flag must be boolean."
       }
     };
   }

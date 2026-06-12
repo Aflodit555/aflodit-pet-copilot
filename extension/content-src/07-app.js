@@ -907,7 +907,7 @@
         return;
       }
       if (backgroundRoute.userText.length > runtimeActionUserTextLimit) {
-        UIController.showWarning("Background Runtime accepts up to 1000 characters of typed input. Shorten the message or disable preview.");
+        UIController.showWarning("Background Runtime accepts up to 1000 characters of typed input. Shorten the message or switch to Local Backend Dev.");
         return;
       }
       if (action === ACTION.CHAT && !backgroundRoute.userText) {
@@ -924,7 +924,7 @@
       };
       UIController.showLoading(action);
       if (dom.mode) dom.mode.textContent = "Background Runtime";
-      if (dom.status) dom.status.textContent = "Source: Background Runtime. Sending preview action. Local Backend remains available.";
+      if (dom.status) dom.status.textContent = "Source: Background Runtime. Sending Backendless Beta action. Local Backend Dev remains available.";
       setRunning(true);
 
       try {
@@ -951,6 +951,24 @@
     busy: false,
     lastReadiness: null,
     lastPermissionStatus: null,
+
+    isDeveloperMode() {
+      return state.runtimeSetupViewMode === "developer";
+    },
+
+    setSetupViewMode(mode = "user") {
+      state.runtimeSetupViewMode = mode === "developer" ? "developer" : "user";
+      const developer = this.isDeveloperMode();
+      (dom.runtimeDeveloperOnly || []).forEach((node) => node.classList.toggle("hidden", !developer));
+      if (dom.runtimeDeveloperTools && !developer) dom.runtimeDeveloperTools.open = false;
+      if (dom.runtimeDeveloperToggle) {
+        dom.runtimeDeveloperToggle.textContent = developer ? "Hide Developer Tools" : "Developer Tools";
+      }
+      if (dom.runtimeDiagnosticsOutput && !developer) {
+        dom.runtimeDiagnosticsOutput.classList.add("hidden");
+      }
+      LayoutManager.schedulePetLayout();
+    },
 
     setBusy(busy) {
       this.busy = busy;
@@ -981,12 +999,12 @@
         SETTING_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
         PROVIDER_NOT_ALLOWED: "Provider is not available in Runtime Setup.",
-        PERMISSION_NOT_CONFIGURED: "Provider permission is not configured in this preview phase.",
+        PERMISSION_NOT_CONFIGURED: "Provider permission is not configured for Backendless Beta.",
         PERMISSION_DENIED: "Provider permission was not granted. Real provider requests are still disabled.",
-        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek in this preview phase.",
+        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek in Backendless Beta.",
         UNKNOWN_PROVIDER: "Provider is not available in Runtime Setup.",
         RUNTIME_MODE_INVALID: "Runtime mode must be Local Backend or Background Runtime Beta.",
-        REAL_TEST_NOT_CONFIGURED: "Real provider test is only configured for DeepSeek in this preview phase.",
+        REAL_TEST_NOT_CONFIGURED: "Real provider test is only configured for DeepSeek in Backendless Beta.",
         MISSING_PROVIDER_PERMISSION: "DeepSeek permission is missing. Grant provider permission before running a real test.",
         MISSING_RUNTIME_KEY: "Runtime key is missing. Save a Runtime Key before running a real test.",
         AUTH_FAILED: "DeepSeek authentication failed. Check your Runtime Key.",
@@ -997,7 +1015,7 @@
         NETWORK_ERROR: "DeepSeek real test failed due to a network error.",
         TIMEOUT: "DeepSeek real test timed out.",
         PROVIDER_ERROR: "DeepSeek real test failed.",
-        INVALID_PAYLOAD: "Provider preview request rejected invalid payload.",
+        INVALID_PAYLOAD: "Provider request rejected invalid payload.",
         RUNTIME_TEST_PAYLOAD_FORBIDDEN: "Runtime mock test rejected unsafe fields.",
         RUNTIME_TEST_PAYLOAD_UNKNOWN: "Runtime mock test rejected unsupported fields."
       };
@@ -1071,7 +1089,7 @@
       dom.runtimeTestReal.disabled = this.busy;
       dom.runtimeTestReal.title = providerId === "deepseek"
         ? "Run a minimal DeepSeek real test. Main AI actions still use the local backend."
-        : "Real provider test is only configured for DeepSeek in this preview phase.";
+        : "Real provider test is only configured for DeepSeek in Backendless Beta.";
     },
 
     applyPermissionStatus(response = {}, providerId = dom.runtimeProvider?.value || "mock") {
@@ -1155,7 +1173,7 @@
     },
 
     runtimeModeLabel(mode = "local_backend") {
-      return mode === "background_runtime_beta" ? "Background Runtime Beta" : "Local Backend";
+      return mode === "background_runtime_beta" ? "Background Runtime Beta" : "Local Backend Dev";
     },
 
     updateRuntimeModeUi(mode = "local_backend") {
@@ -1219,6 +1237,7 @@
       };
       this.lastReadiness = null;
       this.lastPermissionStatus = null;
+      this.setSetupViewMode("user");
 
       this.renderProviderOptions(provider);
       dom.runtimeModel.value = state.runtimePublicSettings.model;
@@ -1503,14 +1522,16 @@
         const text = JSON.stringify(response.diagnostics, null, 2);
         if (dom.runtimeDiagnosticsOutput) {
           dom.runtimeDiagnosticsOutput.value = text;
-          dom.runtimeDiagnosticsOutput.classList.remove("hidden");
+          dom.runtimeDiagnosticsOutput.classList.toggle("hidden", !this.isDeveloperMode());
         }
         if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(text);
           this.setMessage("[Diagnostics] Safe diagnostics copied.");
           return;
         }
-        this.setMessage("[Diagnostics] Clipboard unavailable. Safe diagnostics are shown below.");
+        this.setMessage(this.isDeveloperMode()
+          ? "[Diagnostics] Clipboard unavailable. Safe diagnostics are shown below."
+          : "[Diagnostics] Clipboard unavailable. Turn on Developer Tools to view diagnostics JSON.");
       } catch (error) {
         this.setMessage(`[Diagnostics] ${error?.message || "Diagnostics unavailable."}`);
       } finally {
@@ -2102,6 +2123,13 @@
     on(dom.runtimeCopyDiagnostics, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.copyDiagnostics();
+    });
+
+    on(dom.runtimeDeveloperToggle, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.setSetupViewMode(
+        RuntimeSettingsManager.isDeveloperMode() ? "user" : "developer"
+      );
     });
 
     on(dom.runtimeReload, "click", (event) => {

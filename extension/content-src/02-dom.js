@@ -64,7 +64,7 @@
             <div id="aflodit-pet-settings-runtime" class="pet-settings-view pet-settings-fixed-footer hidden">
               <div class="pet-settings-body">
               <div class="pet-settings-title">Runtime Setup</div>
-              <div class="pet-settings-message pet-runtime-warning">Runtime Setup keeps Local Backend as the default. Background Runtime Beta is DeepSeek-only and requires explicit setup.</div>
+              <div class="pet-settings-message pet-runtime-warning">Recommended for v0.8.0: Backendless Beta. Local Backend development mode remains available for local work.</div>
               <div class="pet-runtime-summary">
                 <div><b>Runtime</b>: <span id="aflodit-pet-runtime-summary-mode">Local Backend</span></div>
                 <div><b>Provider</b>: <span id="aflodit-pet-runtime-summary-provider">Mock</span></div>
@@ -80,35 +80,35 @@
                 <span>Model</span>
                 <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
               </label>
-              <div class="pet-runtime-provider-card">
+              <div class="pet-runtime-provider-card hidden" data-runtime-developer-only>
                 <div><b>Provider selected</b>：<span id="aflodit-pet-runtime-provider-selected">Mock</span></div>
                 <div><b>Protocol</b>：<span id="aflodit-pet-runtime-provider-protocol">mock</span></div>
                 <div><b>Default model</b>：<span id="aflodit-pet-runtime-provider-default-model">mock-model</span></div>
                 <div><b>Permission status</b>: <span id="aflodit-pet-runtime-provider-permission-status">unknown</span></div>
               </div>
-              <div class="pet-settings-message pet-runtime-warning">Provider selection and permission status are preview-only. Permission granted does not mean provider connected. Real model requests are still disabled.</div>
+              <div class="pet-settings-message pet-runtime-warning">Provider selection is allowlisted for Runtime Setup. Permission only grants browser access; Run Real Test to verify DeepSeek.</div>
               <label class="pet-settings-field">
                 <span>API Key</span>
                 <input id="aflodit-pet-runtime-api-key" type="password" autocomplete="off" placeholder="Enter API Key for future backendless runtime" />
               </label>
-              <label class="pet-settings-field">
+              <label class="pet-settings-field hidden" data-runtime-developer-only>
                 <span>Save mode</span>
                 <select id="aflodit-pet-runtime-save-mode">
                   <option value="local">local</option>
                   <option value="session">session</option>
                 </select>
               </label>
-              <label class="pet-settings-check">
+              <label class="pet-settings-check hidden" data-runtime-developer-only>
                 <input id="aflodit-pet-runtime-debug" type="checkbox" />
                 <span>Debug enabled</span>
               </label>
               <div class="pet-runtime-provider-card">
                 <div><b>Runtime Mode</b>: <span id="aflodit-pet-runtime-mode-label">Local Backend</span></div>
-                <label class="pet-settings-check" title="Uses 127.0.0.1 backend. Best for stable local development.">
+                <label class="pet-settings-check" title="Uses 127.0.0.1 backend for development.">
                   <input id="aflodit-pet-runtime-mode-local" name="aflodit-pet-runtime-mode" type="radio" value="local_backend" />
-                  <span>Local Backend</span>
+                  <span>Local Backend Dev</span>
                 </label>
-                <div class="pet-settings-message pet-runtime-compact-note">Uses 127.0.0.1 backend. Best for stable local development.</div>
+                <div class="pet-settings-message pet-runtime-compact-note">Uses 127.0.0.1 backend for development.</div>
                 <label class="pet-settings-check" title="Uses extension background runtime. No local backend needed after setup.">
                   <input id="aflodit-pet-runtime-mode-background" name="aflodit-pet-runtime-mode" type="radio" value="background_runtime_beta" />
                   <span>Background Runtime Beta</span>
@@ -126,6 +126,7 @@
                 <div><b>7. Real Test</b>: <span id="aflodit-pet-runtime-readiness-real-test">not checked</span></div>
               </div>
               <div class="pet-settings-message pet-runtime-warning">Runtime Key is stored only in extension background secret storage. It does not change backend/.env or local backend settings.</div>
+              <div id="aflodit-pet-runtime-dev-note" class="pet-settings-message pet-runtime-compact-note hidden" data-runtime-developer-only>Developer tools are for local backend development and release troubleshooting only.</div>
               <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button hidden">Request Permission</button>
               <textarea id="aflodit-pet-runtime-diagnostics-output" class="pet-runtime-diagnostics-output hidden" readonly rows="6" spellcheck="false"></textarea>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
@@ -139,10 +140,16 @@
                     <button id="aflodit-pet-runtime-test-real" class="pet-secondary-button">Run Real Test</button>
                   </div>
                 </div>
-                <details class="pet-runtime-actions-group">
-                  <summary class="pet-runtime-actions-title">Advanced Diagnostics</summary>
+                <div class="pet-runtime-actions-group">
+                  <div class="pet-runtime-actions-title">Diagnostics</div>
                   <div class="pet-runtime-actions-row">
                     <button id="aflodit-pet-runtime-copy-diagnostics" class="pet-secondary-button">Copy Diagnostics</button>
+                    <button id="aflodit-pet-runtime-dev-toggle" class="pet-secondary-button">Developer Tools</button>
+                  </div>
+                </div>
+                <details id="aflodit-pet-runtime-developer-tools" class="pet-runtime-actions-group hidden" data-runtime-developer-only>
+                  <summary class="pet-runtime-actions-title">Advanced Diagnostics</summary>
+                  <div class="pet-runtime-actions-row">
                     <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test</button>
                     <button id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission</button>
                     <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears Runtime Setup key, not backend key.">Clear Key</button>
@@ -658,6 +665,10 @@
       runtimeTestReal: root.querySelector("#aflodit-pet-runtime-test-real"),
       runtimeCopyDiagnostics: root.querySelector("#aflodit-pet-runtime-copy-diagnostics"),
       runtimeDiagnosticsOutput: root.querySelector("#aflodit-pet-runtime-diagnostics-output"),
+      runtimeDeveloperToggle: root.querySelector("#aflodit-pet-runtime-dev-toggle"),
+      runtimeDeveloperTools: root.querySelector("#aflodit-pet-runtime-developer-tools"),
+      runtimeDevNote: root.querySelector("#aflodit-pet-runtime-dev-note"),
+      runtimeDeveloperOnly: Array.from(root.querySelectorAll("[data-runtime-developer-only]")),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
       runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
       runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),

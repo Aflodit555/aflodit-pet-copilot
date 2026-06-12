@@ -88,6 +88,7 @@ await check("diagnostics includes runtimeMode and hasRuntimeKey boolean", async 
   await saveKey(runtime);
   const response = await runtime.handleMessage({ type: "runtime:getDiagnostics" });
   assert.equal(response.diagnostics.runtimeMode, "local_backend");
+  assert.equal(response.diagnostics.releaseChannel, "backendless-beta");
   assert.equal(response.diagnostics.hasRuntimeKey, true);
   assert.equal(typeof response.diagnostics.hasRuntimeKey, "boolean");
   assert.equal(response.diagnostics.requestEnabled, false);
@@ -120,11 +121,29 @@ await check("primary visible setup actions are limited", async () => {
 
 await check("diagnostics default collapsed and runtime mode switch button is absent", async () => {
   const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
-  assert.match(source, /<details class="pet-runtime-actions-group">/);
+  assert.match(source, /id="aflodit-pet-runtime-developer-tools" class="pet-runtime-actions-group hidden"/);
   assert.match(source, /Advanced Diagnostics/);
   assert.doesNotMatch(source, /<details class="pet-runtime-actions-group" open>/);
   assert.doesNotMatch(source, /aflodit-pet-runtime-switch-beta/);
   assert.doesNotMatch(source, /Switch to Background Runtime Beta/);
+});
+
+await check("user mode hides developer test tools but keeps Copy Diagnostics", async () => {
+  const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
+  const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
+  assert.match(source, /id="aflodit-pet-runtime-copy-diagnostics" class="pet-secondary-button">Copy Diagnostics/);
+  assert.match(source, /id="aflodit-pet-runtime-developer-tools" class="pet-runtime-actions-group hidden" data-runtime-developer-only/);
+  assert.match(source, /id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test/);
+  assert.match(source, /id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission/);
+  assert.match(appSource, /runtimeSetupViewMode === "developer"/);
+  assert.match(appSource, /setSetupViewMode\("user"\)/);
+});
+
+await check("developer mode exposes advanced test tools", async () => {
+  const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
+  assert.match(appSource, /Hide Developer Tools/);
+  assert.match(appSource, /Developer Tools/);
+  assert.match(appSource, /runtimeDeveloperOnly/);
 });
 
 await check("Request Permission is hidden by default for unsupported providers", async () => {

@@ -96,6 +96,10 @@ for (const file of files) {
   violations.push(...scanContent(file, content));
 }
 
+if (files.some((file) => /(^|\/)test/i.test(file))) {
+  violations.push("release package must not include developer tests");
+}
+
 if (violations.length) {
   console.error("Release package safety check failed:");
   for (const violation of violations) console.error(`- ${violation}`);
