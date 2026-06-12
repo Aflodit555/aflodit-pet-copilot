@@ -22,13 +22,25 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.8.0 Backendless Runtime Phase 8.0`。
+当前实现是 `v0.8.0 Backendless Runtime Phase 9.0`。
+
+### v0.8.0 Phase 9.0 Backendless Beta Setup Flow / Release Candidate
+
+Phase 9.0 renames the extension setup area to `Runtime Setup` and turns Background Runtime Beta into a guided release-candidate flow. The setup checklist covers Runtime Mode, Provider, Model, Runtime Key, Host Permission, Readiness, and Real Test. Local Backend remains the default.
+
+Runtime diagnostics are safe to copy: they include runtime mode, provider/model, masked key status, permission/readiness status, last safe Real Test metadata, and `requestEnabled=false`. They never include the full Runtime Key, Authorization headers, prompts, page text, selected text, raw request bodies, or raw provider responses.
+
+Run the release safety guard before publishing:
+
+```powershell
+node extension\runtime\checkReleaseSafety.js
+```
 
 ### v0.8.0 Phase 8.0 Runtime Mode Selector / Backendless Beta
 
 Phase 8.0 replaces the old `Background Runtime Preview` checkbox with a clear `Runtime Mode` selector: `Local Backend` or `Background Runtime Beta`. `Local Backend` remains the default and keeps ordinary Chat / Explain / Translate / Summarize on `127.0.0.1`.
 
-`Background Runtime Beta` can route Chat / Explain / Translate / Summarize through the extension background runtime after setup, without the local backend. It currently supports DeepSeek only, requires a saved Runtime Key plus the exact DeepSeek permission, and keeps `Request enabled: no`. `Check Readiness` is local-only: it does not call the provider, request permission, run Real Test, or change `requestEnabled`. Real Test remains separate.
+`Background Runtime Beta` can route Chat / Explain / Translate / Summarize through the extension background runtime after setup, without the local backend. It currently supports DeepSeek only and requires a saved Runtime Key plus the exact DeepSeek permission. `Check Readiness` is local-only: it does not call the provider, request permission, run Real Test, or change `requestEnabled`. Real Test remains separate.
 
 Chat-only overrides remain available: `/bg` or `@background` force Background Runtime, and `/local` or `@local` force Local Backend. Background Runtime failures do not automatically fall back; switch Runtime Mode to Local Backend or use `/local` for Chat.
 
@@ -72,7 +84,7 @@ This does not switch the main AI route. Normal Chat plus Explain/Translate/Summa
 
 Phase 5C.2 adds a DeepSeek-only Real Test button in Backendless Preview. It sends one minimal DeepSeek chat completions request from the background runtime after the exact `https://api.deepseek.com/*` optional permission is granted and a Runtime Key is saved.
 
-Real Test may consume a tiny amount of DeepSeek quota. It does not switch Chat/Explain/Translate/Summarize to the background runtime, does not mark the provider connected, and does not set `requestEnabled=true`; the status card must still show `Request enabled: no`.
+Real Test may consume a tiny amount of DeepSeek quota. It does not switch Chat/Explain/Translate/Summarize to the background runtime, does not mark the provider connected, and does not set `requestEnabled=true`.
 
 OpenAI, DashScope, and OpenRouter real tests are intentionally not configured in this preview phase. The main AI actions still use the local backend.
 
@@ -137,7 +149,7 @@ Runtime Key 的保存位置由 `saveMode` 决定：
 - **Translate Selected Text**：选中网页文本后，翻译或润色为自然的简体中文。
 - **Summarize Current Page**：提取当前页面可读内容并总结。
 - **Settings Panel**：在 UI 中配置 Base URL、Model、API Key、Provider。模型请求超时固定为 40000ms。
-- **Backendless Preview**：预览 background public settings、provider allowlist、Runtime Key 存储和 mock Test Connection，当前不驱动真实模型请求。
+- **Runtime Setup**：配置 Local Backend 或 Background Runtime Beta，包含 setup checklist、DeepSeek Runtime Key、permission、readiness、Real Test 和 safe diagnostics。
 - **Mock Mode**：无需 API Key 的本地演示模式，适合首次运行和测试。
 - **OpenAI-Compatible Provider**：支持标准 `/v1/chat/completions` 风格的模型服务。
 - **Experimental Streaming**：实验性 `/api/pet-stream` 流式回复。
@@ -146,7 +158,28 @@ Runtime Key 的保存位置由 `saveMode` 决定：
 
 ## 快速开始
 
-Phase 8.0 default Runtime Mode is `Local Backend`, so ordinary Chat / Explain / Translate / Summarize still use the local backend. Select `Background Runtime Beta` to route those four actions through the extension background runtime after saving a Runtime Key, granting DeepSeek permission, and choosing a model. `/bg` / `@background` and `/local` / `@local` remain Chat-only overrides. `Check Readiness` is local-only and does not contact the provider, request permission, run Real Test, or change `requestEnabled`.
+### Path A: Backendless Beta
+
+1. Load the `extension/` directory as an unpacked extension.
+2. Open `Runtime Setup`.
+3. Select `DeepSeek`.
+4. Enter a model, for example `deepseek-chat`.
+5. Save Runtime Key.
+6. Request DeepSeek permission.
+7. Check Readiness.
+8. Run Real Test.
+9. Select `Background Runtime Beta`.
+10. Test Chat / Explain / Translate / Summarize.
+
+Background Runtime Beta is DeepSeek-only in this release candidate. Readiness is local-only and does not call the provider; Real Test is separate and only runs after the user clicks it. Background failures do not automatically fall back.
+
+### Path B: Local Backend Dev
+
+1. Start the local backend.
+2. Keep Runtime Mode as `Local Backend`.
+3. Use normal Chat / Explain / Translate / Summarize actions.
+
+Local Backend remains the default. `/bg` / `@background` and `/local` / `@local` remain Chat-only overrides.
 
 ### 1. 准备环境
 
@@ -307,7 +340,7 @@ LLM_DEBUG=false
 - Settings API 需要本地 token。
 - API Key 保存在 `backend/.local/settings.local.json`。
 - Background Runtime settings 不影响 `backend/.local/settings.local.json`；Runtime Key 只保存在扩展 background secret store 中。
-- Backendless Preview provider 选择不会同步到 backend settings，也不会影响当前本地 backend 的模型配置。
+- Runtime Setup provider 选择不会同步到 backend settings，也不会影响当前本地 backend 的模型配置。
 - `requestEnabled=false` 的 provider 只表示已进入 allowlist，不表示 background 已能请求真实模型。
 - `backend/.local/` 和 `*.local.json` 已加入 `.gitignore`。
 - `GET /api/settings` 只返回 `apiKeySet` 和 `apiKeyPreview`。
@@ -508,7 +541,7 @@ PORT=3002
 
 - 使用扩展时必须运行本地后端。
 - 这是 Phase 7.0 的实验性限制，后续 Phase 计划继续评估 background runtime 路由扩展。
-- Backendless Preview 的 Mock Test Connection 只验证安全消息链路，不请求真实模型。
+- Runtime Setup 的 Mock Test Connection 只验证安全消息链路，不请求真实模型。
 - 后端不是 production hardened 服务。
 - OpenAI-Compatible provider 的兼容性取决于对方 `/chat/completions` 行为。
 - 网页内容提取质量会因网站结构而变化。

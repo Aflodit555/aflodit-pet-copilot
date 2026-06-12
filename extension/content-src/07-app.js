@@ -524,8 +524,8 @@
       FaceController.stopReplyPeekLoop(true);
       const code = String(error.code || error.errorCode || error.data?.errorCode || error.data?.error?.code || "").trim();
       const details = {
-        MISSING_RUNTIME_KEY: "Save a Runtime Key in Backendless Preview.",
-        MISSING_PROVIDER_PERMISSION: "Grant DeepSeek permission in Backendless Preview.",
+        MISSING_RUNTIME_KEY: "Save a Runtime Key in Runtime Setup.",
+        MISSING_PROVIDER_PERMISSION: "Grant DeepSeek permission in Runtime Setup.",
         AUTH_FAILED: "DeepSeek authentication failed. Check your Runtime Key.",
         RATE_LIMITED: "DeepSeek rate limit reached. Try again later.",
         TIMEOUT: "Background Runtime timed out.",
@@ -750,6 +750,10 @@
       });
     },
 
+    async getDiagnostics() {
+      return this.request({ type: "runtime:getDiagnostics" });
+    },
+
     async getProviderPermissionStatus(payload = {}) {
       return this.request({
         type: "runtime:getProviderPermissionStatus",
@@ -946,17 +950,18 @@
   const RuntimeSettingsManager = {
     busy: false,
     lastReadiness: null,
+    lastPermissionStatus: null,
 
     setBusy(busy) {
       this.busy = busy;
       dom.runtimeSave.disabled = busy;
-      dom.runtimeSaveKey.disabled = busy;
       if (dom.runtimeModeLocal) dom.runtimeModeLocal.disabled = busy;
       if (dom.runtimeModeBackground) dom.runtimeModeBackground.disabled = busy;
       dom.runtimeTestMock.disabled = busy;
       dom.runtimeCheckPermission.disabled = busy;
       if (dom.runtimeCheckReadiness) dom.runtimeCheckReadiness.disabled = busy;
       dom.runtimeTestReal.disabled = busy;
+      if (dom.runtimeCopyDiagnostics) dom.runtimeCopyDiagnostics.disabled = busy;
       this.updatePermissionRequestButton();
       this.updateRealTestButton();
       dom.runtimeReload.disabled = busy;
@@ -975,11 +980,11 @@
         MESSAGE_PAYLOAD_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
-        PROVIDER_NOT_ALLOWED: "Provider is not available in Backendless Preview.",
+        PROVIDER_NOT_ALLOWED: "Provider is not available in Runtime Setup.",
         PERMISSION_NOT_CONFIGURED: "Provider permission is not configured in this preview phase.",
         PERMISSION_DENIED: "Provider permission was not granted. Real provider requests are still disabled.",
         BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek in this preview phase.",
-        UNKNOWN_PROVIDER: "Provider is not available in Backendless Preview.",
+        UNKNOWN_PROVIDER: "Provider is not available in Runtime Setup.",
         RUNTIME_MODE_INVALID: "Runtime mode must be Local Backend or Background Runtime Beta.",
         REAL_TEST_NOT_CONFIGURED: "Real provider test is only configured for DeepSeek in this preview phase.",
         MISSING_PROVIDER_PERMISSION: "DeepSeek permission is missing. Grant provider permission before running a real test.",
@@ -1045,19 +1050,20 @@
       if (dom.runtimeProviderProtocol) dom.runtimeProviderProtocol.textContent = provider.protocol || "unknown";
       if (dom.runtimeProviderDefaultModel) dom.runtimeProviderDefaultModel.textContent = provider.defaultModel || "";
       if (dom.runtimeProviderPermissionStatus) dom.runtimeProviderPermissionStatus.textContent = "unknown";
-      if (dom.runtimeProviderRequestEnabled) {
-        dom.runtimeProviderRequestEnabled.textContent = provider.requestEnabled ? "yes" : "no";
-      }
       this.updatePermissionRequestButton(provider.id);
       this.updateRealTestButton(provider.id);
+      this.renderSetupChecklist();
     },
 
     updatePermissionRequestButton(providerId = dom.runtimeProvider?.value || "mock") {
       if (!dom.runtimeRequestPermission) return;
-      dom.runtimeRequestPermission.disabled = this.busy || providerId !== "deepseek";
+      const permissionText = String(dom.runtimeReadinessPermission?.textContent || "").trim();
+      const shouldShow = providerId === "deepseek" && permissionText !== "granted";
+      dom.runtimeRequestPermission.classList.toggle("hidden", !shouldShow);
+      dom.runtimeRequestPermission.disabled = this.busy || !shouldShow;
       dom.runtimeRequestPermission.title = providerId === "deepseek"
         ? "Request DeepSeek optional host permission."
-        : "Permission request is only configured for DeepSeek in this preview phase.";
+        : "Host Permission is not configured for this provider.";
     },
 
     updateRealTestButton(providerId = dom.runtimeProvider?.value || "mock") {
@@ -1080,11 +1086,10 @@
           dom.runtimeProviderPermissionStatus.textContent = "unknown";
         }
       }
-      if (dom.runtimeProviderRequestEnabled) {
-        dom.runtimeProviderRequestEnabled.textContent = "no";
-      }
       this.updatePermissionRequestButton(providerId);
       this.updateRealTestButton(providerId);
+      this.lastPermissionStatus = response || null;
+      this.renderSetupChecklist(this.lastReadiness);
     },
 
     readinessText(check) {
@@ -1093,26 +1098,60 @@
       return `${stateText} - ${check.message || ""}`.trim();
     },
 
-    renderReadiness(response = null) {
+    realTestText(status = state.runtimePublicSettings.lastRealTestStatus) {
+      if (!status) return "not checked";
+      if (status.ok) return `passed - ${status.providerId || "provider"} / ${status.model || "model"}`;
+      return `failed - ${status.errorCode || "UNKNOWN"}`;
+    },
+
+    renderSetupChecklist(response = this.lastReadiness || null) {
       const byId = {};
       (Array.isArray(response?.checks) ? response.checks : []).forEach((check) => {
         byId[check.id] = check;
       });
+      const provider = this.providerById(dom.runtimeProvider?.value || state.runtimePublicSettings.provider);
+      const model = String(dom.runtimeModel?.value || state.runtimePublicSettings.model || "").trim();
 
       if (dom.runtimeReadinessSummary) {
         dom.runtimeReadinessSummary.textContent = response
-          ? (response.canUseBackgroundRuntime ? "ready" : "not ready")
+          ? (response.canUseBackgroundRuntime ? "ready" : "blocked")
           : "not checked";
       }
-      if (dom.runtimeReadinessProvider) dom.runtimeReadinessProvider.textContent = this.readinessText(byId.provider);
-      if (dom.runtimeReadinessKey) dom.runtimeReadinessKey.textContent = this.readinessText(byId.runtimeKey);
-      if (dom.runtimeReadinessPermission) dom.runtimeReadinessPermission.textContent = this.readinessText(byId.permission);
-      if (dom.runtimeReadinessModel) dom.runtimeReadinessModel.textContent = this.readinessText(byId.model);
-      if (dom.runtimeReadinessMode) dom.runtimeReadinessMode.textContent = this.readinessText(byId.runtimeMode);
-      if (dom.runtimeReadinessRealTest) {
-        dom.runtimeReadinessRealTest.textContent = byId.realTest?.message || "Real Test: optional / not checked.";
+      if (dom.runtimeReadinessProvider) dom.runtimeReadinessProvider.textContent = provider?.displayName || "missing";
+      if (dom.runtimeReadinessKey) dom.runtimeReadinessKey.textContent = state.runtimePublicSettings.hasApiKey ? "saved" : "missing";
+      if (dom.runtimeReadinessPermission) {
+        if (byId.permission) {
+          dom.runtimeReadinessPermission.textContent = byId.permission.ok ? "granted" : "missing";
+        } else if (provider?.id !== "deepseek") {
+          dom.runtimeReadinessPermission.textContent = "not configured for this provider";
+        } else if (this.lastPermissionStatus?.ok && this.lastPermissionStatus.permissionGranted) {
+          dom.runtimeReadinessPermission.textContent = "granted";
+        } else if (this.lastPermissionStatus?.ok && this.lastPermissionStatus.permissionConfigured) {
+          dom.runtimeReadinessPermission.textContent = "missing";
+        } else if (this.lastPermissionStatus?.errorCode === "PERMISSION_NOT_CONFIGURED") {
+          dom.runtimeReadinessPermission.textContent = "not configured";
+        } else {
+          dom.runtimeReadinessPermission.textContent = "not checked";
+        }
       }
+      if (dom.runtimeReadinessModel) dom.runtimeReadinessModel.textContent = model ? model : "missing";
+      if (dom.runtimeReadinessMode) dom.runtimeReadinessMode.textContent = this.runtimeModeLabel(this.readRuntimeMode());
+      if (dom.runtimeReadinessRealTest) {
+        dom.runtimeReadinessRealTest.textContent = this.realTestText();
+      }
+      if (dom.runtimeSummaryMode) dom.runtimeSummaryMode.textContent = this.runtimeModeLabel(this.readRuntimeMode());
+      if (dom.runtimeSummaryProvider) dom.runtimeSummaryProvider.textContent = provider?.displayName || "missing";
+      if (dom.runtimeSummaryBeta) {
+        dom.runtimeSummaryBeta.textContent = response
+          ? (response.canUseBackgroundRuntime ? "Ready" : "Not ready")
+          : (provider?.id !== "deepseek" ? "Not configured" : "Not checked");
+      }
+      this.updatePermissionRequestButton(provider?.id);
       LayoutManager.schedulePetLayout();
+    },
+
+    renderReadiness(response = null) {
+      this.renderSetupChecklist(response);
     },
 
     runtimeModeLabel(mode = "local_backend") {
@@ -1124,15 +1163,26 @@
       if (dom.runtimeModeLocal) dom.runtimeModeLocal.checked = normalized === "local_backend";
       if (dom.runtimeModeBackground) dom.runtimeModeBackground.checked = normalized === "background_runtime_beta";
       if (dom.runtimeModeLabel) dom.runtimeModeLabel.textContent = this.runtimeModeLabel(normalized);
+      this.renderSetupChecklist();
     },
 
     warnIfBackgroundModeWithoutReadiness() {
-      if (this.readRuntimeMode() !== "background_runtime_beta" || !this.lastReadiness || this.lastReadiness.canUseBackgroundRuntime) return;
-      const missing = (this.lastReadiness.checks || [])
-        .filter((check) => !check.ok)
-        .map((check) => (check.id === "provider" ? "unsupported provider" : check.label))
-        .join(" / ");
-      this.setMessage(`[Readiness] Background Runtime Beta is selected but not ready. Missing: ${missing || this.lastReadiness.nextAction || "setup"}. Local Backend mode is still available.`);
+      if (this.readRuntimeMode() !== "background_runtime_beta") return;
+      const missing = [];
+      if (!state.runtimePublicSettings.hasApiKey) missing.push("Runtime Key");
+      if (!String(dom.runtimeModel?.value || "").trim()) missing.push("Model");
+      if (String(dom.runtimeReadinessPermission?.textContent || "") !== "granted") missing.push("Permission");
+      if (!state.runtimePublicSettings.lastRealTestStatus?.ok) missing.push("Real Test");
+      if (this.lastReadiness && !this.lastReadiness.canUseBackgroundRuntime) {
+        (this.lastReadiness.checks || [])
+          .filter((check) => !check.ok)
+          .map((check) => (check.id === "provider" ? "unsupported provider" : check.label))
+          .forEach((label) => {
+            if (!missing.includes(label)) missing.push(label);
+          });
+      }
+      if (!missing.length) return;
+      this.setMessage(`Background Runtime Beta is selected but setup is incomplete. Missing: ${missing.join(" / ")}.`);
     },
 
     handleProviderChange() {
@@ -1164,9 +1214,11 @@
         debugEnabled: Boolean(settings.debugEnabled),
         runtimeMode: settings.runtimeMode === "background_runtime_beta" ? "background_runtime_beta" : "local_backend",
         hasApiKey: Boolean(settings.hasApiKey),
-        apiKeyPreview: settings.apiKeyPreview || ""
+        apiKeyPreview: settings.apiKeyPreview || "",
+        lastRealTestStatus: settings.lastRealTestStatus || null
       };
       this.lastReadiness = null;
+      this.lastPermissionStatus = null;
 
       this.renderProviderOptions(provider);
       dom.runtimeModel.value = state.runtimePublicSettings.model;
@@ -1177,9 +1229,7 @@
       dom.runtimeSaveMode.value = state.runtimePublicSettings.saveMode;
       dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
       this.updateRuntimeModeUi(state.runtimePublicSettings.runtimeMode);
-      dom.runtimeHasKey.textContent = state.runtimePublicSettings.hasApiKey ? "yes" : "no";
-      dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
-      this.renderReadiness(null);
+      this.renderSetupChecklist(null);
       this.updateProviderStatus(dom.runtimeProvider.value);
     },
 
@@ -1235,15 +1285,28 @@
     async save() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setMessage("Saving runtime settings...");
+      this.setMessage("Saving runtime setup...");
       try {
         const response = await BackgroundRuntimeClient.savePublicSettings(this.readForm());
         if (!response.ok) {
           this.setMessage(this.userMessage(response));
           return;
         }
-        this.hydrate(response);
-        this.setMessage("Runtime settings saved. Legacy backend model settings are unchanged.");
+        let hydrated = response;
+        const apiKey = this.readSecretForm();
+        if (apiKey) {
+          const keyResponse = await BackgroundRuntimeClient.saveSecret(apiKey);
+          if (!keyResponse.ok) {
+            this.hydrate(response);
+            this.setMessage(this.userMessage(keyResponse, "Runtime key save failed."));
+            return;
+          }
+          hydrated = keyResponse;
+        }
+        this.hydrate(hydrated);
+        this.setMessage(apiKey
+          ? "Runtime setup and key saved. Local backend model settings are unchanged."
+          : "Runtime setup saved. Existing Runtime Key is unchanged.");
         this.warnIfBackgroundModeWithoutReadiness();
       } catch (error) {
         this.setMessage(error?.message || "Runtime settings request failed.");
@@ -1269,7 +1332,7 @@
           return;
         }
         this.hydrate(response);
-        this.setMessage("Runtime key saved for Backendless Preview only. Backend key is unchanged.");
+        this.setMessage("Runtime key saved for Runtime Setup only. Backend key is unchanged.");
       } catch (error) {
         this.setMessage(error?.message || "Runtime key save failed.");
       } finally {
@@ -1388,12 +1451,17 @@
           providerId: form.provider,
           model: form.model
         });
-        if (dom.runtimeProviderRequestEnabled) {
-          dom.runtimeProviderRequestEnabled.textContent = "no";
-        }
         if (!response.ok) {
+          if (response.lastRealTestStatus) {
+            state.runtimePublicSettings.lastRealTestStatus = response.lastRealTestStatus;
+            this.renderSetupChecklist();
+          }
           this.setMessage(`[Real Provider Test] ${response.message || this.userMessage(response, "Real provider test failed.")}`);
           return;
+        }
+        if (response.lastRealTestStatus) {
+          state.runtimePublicSettings.lastRealTestStatus = response.lastRealTestStatus;
+          this.renderSetupChecklist();
         }
         this.setMessage(`[Real Provider Test] ${response.message || "DeepSeek real test passed. Main AI actions still use the local backend."}`);
       } catch (error) {
@@ -1406,7 +1474,7 @@
     async clearKey() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setMessage("Clearing runtime skeleton key...");
+      this.setMessage("Clearing runtime key...");
       try {
         const response = await BackgroundRuntimeClient.clearKey();
         if (!response.ok) {
@@ -1414,9 +1482,37 @@
           return;
         }
         this.hydrate(response);
-        this.setMessage("Runtime skeleton key cleared. Backend API Key is unchanged.");
+        this.setMessage("Runtime key cleared. Backend API Key is unchanged.");
       } catch (error) {
         this.setMessage(error?.message || "Runtime settings request failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async copyDiagnostics() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("[Diagnostics] Preparing safe diagnostics...");
+      try {
+        const response = await BackgroundRuntimeClient.getDiagnostics();
+        if (!response.ok || !response.diagnostics) {
+          this.setMessage(`[Diagnostics] ${response.message || this.userMessage(response, "Diagnostics unavailable.")}`);
+          return;
+        }
+        const text = JSON.stringify(response.diagnostics, null, 2);
+        if (dom.runtimeDiagnosticsOutput) {
+          dom.runtimeDiagnosticsOutput.value = text;
+          dom.runtimeDiagnosticsOutput.classList.remove("hidden");
+        }
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          this.setMessage("[Diagnostics] Safe diagnostics copied.");
+          return;
+        }
+        this.setMessage("[Diagnostics] Clipboard unavailable. Safe diagnostics are shown below.");
+      } catch (error) {
+        this.setMessage(`[Diagnostics] ${error?.message || "Diagnostics unavailable."}`);
       } finally {
         this.setBusy(false);
       }
@@ -1969,11 +2065,6 @@
       RuntimeSettingsManager.handleProviderChange();
     });
 
-    on(dom.runtimeSaveKey, "click", (event) => {
-      event.stopPropagation();
-      RuntimeSettingsManager.saveKey();
-    });
-
     on(dom.runtimeTestMock, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.testMock();
@@ -2006,6 +2097,11 @@
     on(dom.runtimeTestReal, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.testReal();
+    });
+
+    on(dom.runtimeCopyDiagnostics, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.copyDiagnostics();
     });
 
     on(dom.runtimeReload, "click", (event) => {

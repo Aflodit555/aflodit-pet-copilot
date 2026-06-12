@@ -655,7 +655,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       debugEnabled: false,
       runtimeMode: "local_backend",
       hasApiKey: false,
-      apiKeyPreview: ""
+      apiKeyPreview: "",
+      lastRealTestStatus: null
     },
     runtimeProviders: [
       {
@@ -805,7 +806,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
             <div id="aflodit-pet-settings-menu" class="pet-settings-view">
               <div class="pet-settings-title">插件设置</div>
               <button class="pet-settings-menu-item" data-settings-view="model">模型配置</button>
-              <button class="pet-settings-menu-item" data-settings-view="runtime">Backendless Preview</button>
+              <button class="pet-settings-menu-item" data-settings-view="runtime">Runtime Setup</button>
               <button class="pet-settings-menu-item" data-settings-view="display">显示与位置</button>
               <button class="pet-settings-menu-item" data-settings-view="commands">快捷命令</button>
               <button class="pet-settings-menu-item" data-settings-view="about">关于</button>
@@ -845,12 +846,12 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
             <div id="aflodit-pet-settings-runtime" class="pet-settings-view pet-settings-fixed-footer hidden">
               <div class="pet-settings-body">
-              <div class="pet-settings-title">Backendless Preview</div>
-              <div class="pet-settings-message pet-runtime-warning">Backendless Preview 当前不接真实模型，真实 Chat/Explain/Translate/Summarize 仍走本地 backend。</div>
+              <div class="pet-settings-title">Runtime Setup</div>
+              <div class="pet-settings-message pet-runtime-warning">Runtime Setup keeps Local Backend as the default. Background Runtime Beta is DeepSeek-only and requires explicit setup.</div>
               <div class="pet-runtime-summary">
-                <div><b>Runtime status</b>：<span id="aflodit-pet-runtime-settings-status">unavailable</span></div>
-                <div><b>Has API Key</b>：<span id="aflodit-pet-runtime-has-key">false</span></div>
-                <div><b>API Key preview</b>：<span id="aflodit-pet-runtime-key-preview"></span></div>
+                <div><b>Runtime</b>: <span id="aflodit-pet-runtime-summary-mode">Local Backend</span></div>
+                <div><b>Provider</b>: <span id="aflodit-pet-runtime-summary-provider">Mock</span></div>
+                <div><b>Background Beta</b>: <span id="aflodit-pet-runtime-summary-beta">Not checked</span></div>
               </div>
               <label class="pet-settings-field">
                 <span>Provider</span>
@@ -867,7 +868,6 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <div><b>Protocol</b>：<span id="aflodit-pet-runtime-provider-protocol">mock</span></div>
                 <div><b>Default model</b>：<span id="aflodit-pet-runtime-provider-default-model">mock-model</span></div>
                 <div><b>Permission status</b>: <span id="aflodit-pet-runtime-provider-permission-status">unknown</span></div>
-                <div><b>Request enabled</b>：<span id="aflodit-pet-runtime-provider-request-enabled">no</span></div>
               </div>
               <div class="pet-settings-message pet-runtime-warning">Provider selection and permission status are preview-only. Permission granted does not mean provider connected. Real model requests are still disabled.</div>
               <label class="pet-settings-field">
@@ -899,39 +899,41 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <div class="pet-settings-message pet-runtime-compact-note">Uses extension background runtime. No local backend needed after setup.</div>
               </div>
               <div class="pet-runtime-provider-card" aria-live="polite">
-                <div><b>Background Runtime Readiness</b>: <span id="aflodit-pet-runtime-readiness-summary">not checked</span></div>
-                <div><b>Provider</b>: <span id="aflodit-pet-runtime-readiness-provider">not checked</span></div>
-                <div><b>Runtime Key</b>: <span id="aflodit-pet-runtime-readiness-key">not checked</span></div>
-                <div><b>Permission</b>: <span id="aflodit-pet-runtime-readiness-permission">not checked</span></div>
-                <div><b>Model</b>: <span id="aflodit-pet-runtime-readiness-model">not checked</span></div>
-                <div><b>Runtime Mode</b>: <span id="aflodit-pet-runtime-readiness-mode">not checked</span></div>
-                <div><b>Real Test</b>: <span id="aflodit-pet-runtime-readiness-real-test">optional / not checked</span></div>
+                <div><b>Setup Checklist</b></div>
+                <div><b>1. Runtime Mode</b>: <span id="aflodit-pet-runtime-readiness-mode">Local Backend</span></div>
+                <div><b>2. Provider</b>: <span id="aflodit-pet-runtime-readiness-provider">not checked</span></div>
+                <div><b>3. Model</b>: <span id="aflodit-pet-runtime-readiness-model">not checked</span></div>
+                <div><b>4. Runtime Key</b>: <span id="aflodit-pet-runtime-readiness-key">missing</span></div>
+                <div><b>5. Host Permission</b>: <span id="aflodit-pet-runtime-readiness-permission">not checked</span></div>
+                <div><b>6. Readiness</b>: <span id="aflodit-pet-runtime-readiness-summary">not checked</span></div>
+                <div><b>7. Real Test</b>: <span id="aflodit-pet-runtime-readiness-real-test">not checked</span></div>
               </div>
-              <div class="pet-settings-message pet-runtime-warning">此 Key 仅用于 Backendless Preview，不影响当前本地后端模型配置。当前 AI 功能仍走本地 backend，也不会修改 backend/.env 或 backend/.local/settings.local.json。</div>
+              <div class="pet-settings-message pet-runtime-warning">Runtime Key is stored only in extension background secret storage. It does not change backend/.env or local backend settings.</div>
+              <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button hidden">Request Permission</button>
+              <textarea id="aflodit-pet-runtime-diagnostics-output" class="pet-runtime-diagnostics-output hidden" readonly rows="6" spellcheck="false"></textarea>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
               </div>
               <div class="pet-settings-actions pet-settings-footer pet-runtime-actions">
                 <div class="pet-runtime-actions-group">
-                  <div class="pet-runtime-actions-title">Runtime Actions</div>
+                  <div class="pet-runtime-actions-title">Setup</div>
                   <div class="pet-runtime-actions-row">
-                    <button id="aflodit-pet-runtime-save" class="pet-primary-button">Save Settings</button>
-                    <button id="aflodit-pet-runtime-save-key" class="pet-primary-button">Save Key</button>
-                    <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears Backendless Preview key, not backend key.">Clear Key</button>
+                    <button id="aflodit-pet-runtime-save" class="pet-primary-button">Save Setup</button>
+                    <button id="aflodit-pet-runtime-check-readiness" class="pet-secondary-button">Check Readiness</button>
+                    <button id="aflodit-pet-runtime-test-real" class="pet-secondary-button">Run Real Test</button>
                   </div>
                 </div>
-                <div class="pet-runtime-actions-group">
-                  <div class="pet-runtime-actions-title">Preview Checks</div>
+                <details class="pet-runtime-actions-group">
+                  <summary class="pet-runtime-actions-title">Advanced Diagnostics</summary>
                   <div class="pet-runtime-actions-row">
+                    <button id="aflodit-pet-runtime-copy-diagnostics" class="pet-secondary-button">Copy Diagnostics</button>
                     <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test</button>
                     <button id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission</button>
-                    <button id="aflodit-pet-runtime-check-readiness" class="pet-secondary-button">Check Readiness</button>
-                    <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button">Request Permission</button>
-                    <button id="aflodit-pet-runtime-test-real" class="pet-secondary-button">Real Test</button>
+                    <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears Runtime Setup key, not backend key.">Clear Key</button>
                   </div>
-                </div>
+                </details>
                 <div class="pet-runtime-actions-row pet-runtime-nav-row">
-                  <button id="aflodit-pet-runtime-reload" class="pet-secondary-button">Reload</button>
                   <button id="aflodit-pet-runtime-back" class="pet-secondary-button pet-runtime-back-button">Back</button>
+                  <button id="aflodit-pet-runtime-reload" class="pet-secondary-button">Reload</button>
                 </div>
               </div>
             </div>
@@ -1009,11 +1011,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
               </div>
               <div class="pet-about-section">
                 <div class="pet-about-section-title">当前阶段</div>
-                <div class="pet-settings-note">当前版本为 v0.8.0 Phase 4。Backendless Preview 已接入 provider allowlist、public settings 和 Runtime Key 预览，但主要 AI 功能仍通过本地 backend 运行。</div>
+                <div class="pet-settings-note">当前版本为 v0.8.0 Phase 9。Runtime Setup 已接入 provider allowlist、runtime mode、safe diagnostics 和 Runtime Key 预览；Local Backend 仍是默认模式。</div>
               </div>
               <div class="pet-about-section">
                 <div class="pet-about-section-title">安全说明</div>
-                <div class="pet-settings-note">本地 backend API Key 与 Backendless Preview Runtime Key 分开保存；content script 只能看到脱敏状态，不会拿到完整 Runtime Key。</div>
+                <div class="pet-settings-note">本地 backend API Key 与 Runtime Setup Runtime Key 分开保存；content script 只能看到脱敏状态，不会拿到完整 Runtime Key。</div>
               </div>
               </div>
               <div class="pet-settings-actions pet-settings-footer">
@@ -1408,13 +1410,15 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       settingsApiKey: root.querySelector("#aflodit-pet-settings-api-key"),
       runtimeStatus: root.querySelector("#aflodit-pet-runtime-status"),
       runtimeSettingsStatus: root.querySelector("#aflodit-pet-runtime-settings-status"),
+      runtimeSummaryMode: root.querySelector("#aflodit-pet-runtime-summary-mode"),
+      runtimeSummaryProvider: root.querySelector("#aflodit-pet-runtime-summary-provider"),
+      runtimeSummaryBeta: root.querySelector("#aflodit-pet-runtime-summary-beta"),
       runtimeProvider: root.querySelector("#aflodit-pet-runtime-provider"),
       runtimeModel: root.querySelector("#aflodit-pet-runtime-model"),
       runtimeProviderSelected: root.querySelector("#aflodit-pet-runtime-provider-selected"),
       runtimeProviderProtocol: root.querySelector("#aflodit-pet-runtime-provider-protocol"),
       runtimeProviderDefaultModel: root.querySelector("#aflodit-pet-runtime-provider-default-model"),
       runtimeProviderPermissionStatus: root.querySelector("#aflodit-pet-runtime-provider-permission-status"),
-      runtimeProviderRequestEnabled: root.querySelector("#aflodit-pet-runtime-provider-request-enabled"),
       runtimeApiKey: root.querySelector("#aflodit-pet-runtime-api-key"),
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
       runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
@@ -1428,16 +1432,15 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeReadinessModel: root.querySelector("#aflodit-pet-runtime-readiness-model"),
       runtimeReadinessMode: root.querySelector("#aflodit-pet-runtime-readiness-mode"),
       runtimeReadinessRealTest: root.querySelector("#aflodit-pet-runtime-readiness-real-test"),
-      runtimeHasKey: root.querySelector("#aflodit-pet-runtime-has-key"),
-      runtimeKeyPreview: root.querySelector("#aflodit-pet-runtime-key-preview"),
       runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),
       runtimeSave: root.querySelector("#aflodit-pet-runtime-save"),
-      runtimeSaveKey: root.querySelector("#aflodit-pet-runtime-save-key"),
       runtimeTestMock: root.querySelector("#aflodit-pet-runtime-test-mock"),
       runtimeCheckPermission: root.querySelector("#aflodit-pet-runtime-check-permission"),
       runtimeCheckReadiness: root.querySelector("#aflodit-pet-runtime-check-readiness"),
       runtimeRequestPermission: root.querySelector("#aflodit-pet-runtime-request-permission"),
       runtimeTestReal: root.querySelector("#aflodit-pet-runtime-test-real"),
+      runtimeCopyDiagnostics: root.querySelector("#aflodit-pet-runtime-copy-diagnostics"),
+      runtimeDiagnosticsOutput: root.querySelector("#aflodit-pet-runtime-diagnostics-output"),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
       runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
       runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),
@@ -3378,8 +3381,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       FaceController.stopReplyPeekLoop(true);
       const code = String(error.code || error.errorCode || error.data?.errorCode || error.data?.error?.code || "").trim();
       const details = {
-        MISSING_RUNTIME_KEY: "Save a Runtime Key in Backendless Preview.",
-        MISSING_PROVIDER_PERMISSION: "Grant DeepSeek permission in Backendless Preview.",
+        MISSING_RUNTIME_KEY: "Save a Runtime Key in Runtime Setup.",
+        MISSING_PROVIDER_PERMISSION: "Grant DeepSeek permission in Runtime Setup.",
         AUTH_FAILED: "DeepSeek authentication failed. Check your Runtime Key.",
         RATE_LIMITED: "DeepSeek rate limit reached. Try again later.",
         TIMEOUT: "Background Runtime timed out.",
@@ -3604,6 +3607,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       });
     },
 
+    async getDiagnostics() {
+      return this.request({ type: "runtime:getDiagnostics" });
+    },
+
     async getProviderPermissionStatus(payload = {}) {
       return this.request({
         type: "runtime:getProviderPermissionStatus",
@@ -3800,17 +3807,18 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   const RuntimeSettingsManager = {
     busy: false,
     lastReadiness: null,
+    lastPermissionStatus: null,
 
     setBusy(busy) {
       this.busy = busy;
       dom.runtimeSave.disabled = busy;
-      dom.runtimeSaveKey.disabled = busy;
       if (dom.runtimeModeLocal) dom.runtimeModeLocal.disabled = busy;
       if (dom.runtimeModeBackground) dom.runtimeModeBackground.disabled = busy;
       dom.runtimeTestMock.disabled = busy;
       dom.runtimeCheckPermission.disabled = busy;
       if (dom.runtimeCheckReadiness) dom.runtimeCheckReadiness.disabled = busy;
       dom.runtimeTestReal.disabled = busy;
+      if (dom.runtimeCopyDiagnostics) dom.runtimeCopyDiagnostics.disabled = busy;
       this.updatePermissionRequestButton();
       this.updateRealTestButton();
       dom.runtimeReload.disabled = busy;
@@ -3829,11 +3837,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         MESSAGE_PAYLOAD_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
-        PROVIDER_NOT_ALLOWED: "Provider is not available in Backendless Preview.",
+        PROVIDER_NOT_ALLOWED: "Provider is not available in Runtime Setup.",
         PERMISSION_NOT_CONFIGURED: "Provider permission is not configured in this preview phase.",
         PERMISSION_DENIED: "Provider permission was not granted. Real provider requests are still disabled.",
         BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek in this preview phase.",
-        UNKNOWN_PROVIDER: "Provider is not available in Backendless Preview.",
+        UNKNOWN_PROVIDER: "Provider is not available in Runtime Setup.",
         RUNTIME_MODE_INVALID: "Runtime mode must be Local Backend or Background Runtime Beta.",
         REAL_TEST_NOT_CONFIGURED: "Real provider test is only configured for DeepSeek in this preview phase.",
         MISSING_PROVIDER_PERMISSION: "DeepSeek permission is missing. Grant provider permission before running a real test.",
@@ -3899,19 +3907,20 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       if (dom.runtimeProviderProtocol) dom.runtimeProviderProtocol.textContent = provider.protocol || "unknown";
       if (dom.runtimeProviderDefaultModel) dom.runtimeProviderDefaultModel.textContent = provider.defaultModel || "";
       if (dom.runtimeProviderPermissionStatus) dom.runtimeProviderPermissionStatus.textContent = "unknown";
-      if (dom.runtimeProviderRequestEnabled) {
-        dom.runtimeProviderRequestEnabled.textContent = provider.requestEnabled ? "yes" : "no";
-      }
       this.updatePermissionRequestButton(provider.id);
       this.updateRealTestButton(provider.id);
+      this.renderSetupChecklist();
     },
 
     updatePermissionRequestButton(providerId = dom.runtimeProvider?.value || "mock") {
       if (!dom.runtimeRequestPermission) return;
-      dom.runtimeRequestPermission.disabled = this.busy || providerId !== "deepseek";
+      const permissionText = String(dom.runtimeReadinessPermission?.textContent || "").trim();
+      const shouldShow = providerId === "deepseek" && permissionText !== "granted";
+      dom.runtimeRequestPermission.classList.toggle("hidden", !shouldShow);
+      dom.runtimeRequestPermission.disabled = this.busy || !shouldShow;
       dom.runtimeRequestPermission.title = providerId === "deepseek"
         ? "Request DeepSeek optional host permission."
-        : "Permission request is only configured for DeepSeek in this preview phase.";
+        : "Host Permission is not configured for this provider.";
     },
 
     updateRealTestButton(providerId = dom.runtimeProvider?.value || "mock") {
@@ -3934,11 +3943,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           dom.runtimeProviderPermissionStatus.textContent = "unknown";
         }
       }
-      if (dom.runtimeProviderRequestEnabled) {
-        dom.runtimeProviderRequestEnabled.textContent = "no";
-      }
       this.updatePermissionRequestButton(providerId);
       this.updateRealTestButton(providerId);
+      this.lastPermissionStatus = response || null;
+      this.renderSetupChecklist(this.lastReadiness);
     },
 
     readinessText(check) {
@@ -3947,26 +3955,60 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       return `${stateText} - ${check.message || ""}`.trim();
     },
 
-    renderReadiness(response = null) {
+    realTestText(status = state.runtimePublicSettings.lastRealTestStatus) {
+      if (!status) return "not checked";
+      if (status.ok) return `passed - ${status.providerId || "provider"} / ${status.model || "model"}`;
+      return `failed - ${status.errorCode || "UNKNOWN"}`;
+    },
+
+    renderSetupChecklist(response = this.lastReadiness || null) {
       const byId = {};
       (Array.isArray(response?.checks) ? response.checks : []).forEach((check) => {
         byId[check.id] = check;
       });
+      const provider = this.providerById(dom.runtimeProvider?.value || state.runtimePublicSettings.provider);
+      const model = String(dom.runtimeModel?.value || state.runtimePublicSettings.model || "").trim();
 
       if (dom.runtimeReadinessSummary) {
         dom.runtimeReadinessSummary.textContent = response
-          ? (response.canUseBackgroundRuntime ? "ready" : "not ready")
+          ? (response.canUseBackgroundRuntime ? "ready" : "blocked")
           : "not checked";
       }
-      if (dom.runtimeReadinessProvider) dom.runtimeReadinessProvider.textContent = this.readinessText(byId.provider);
-      if (dom.runtimeReadinessKey) dom.runtimeReadinessKey.textContent = this.readinessText(byId.runtimeKey);
-      if (dom.runtimeReadinessPermission) dom.runtimeReadinessPermission.textContent = this.readinessText(byId.permission);
-      if (dom.runtimeReadinessModel) dom.runtimeReadinessModel.textContent = this.readinessText(byId.model);
-      if (dom.runtimeReadinessMode) dom.runtimeReadinessMode.textContent = this.readinessText(byId.runtimeMode);
-      if (dom.runtimeReadinessRealTest) {
-        dom.runtimeReadinessRealTest.textContent = byId.realTest?.message || "Real Test: optional / not checked.";
+      if (dom.runtimeReadinessProvider) dom.runtimeReadinessProvider.textContent = provider?.displayName || "missing";
+      if (dom.runtimeReadinessKey) dom.runtimeReadinessKey.textContent = state.runtimePublicSettings.hasApiKey ? "saved" : "missing";
+      if (dom.runtimeReadinessPermission) {
+        if (byId.permission) {
+          dom.runtimeReadinessPermission.textContent = byId.permission.ok ? "granted" : "missing";
+        } else if (provider?.id !== "deepseek") {
+          dom.runtimeReadinessPermission.textContent = "not configured for this provider";
+        } else if (this.lastPermissionStatus?.ok && this.lastPermissionStatus.permissionGranted) {
+          dom.runtimeReadinessPermission.textContent = "granted";
+        } else if (this.lastPermissionStatus?.ok && this.lastPermissionStatus.permissionConfigured) {
+          dom.runtimeReadinessPermission.textContent = "missing";
+        } else if (this.lastPermissionStatus?.errorCode === "PERMISSION_NOT_CONFIGURED") {
+          dom.runtimeReadinessPermission.textContent = "not configured";
+        } else {
+          dom.runtimeReadinessPermission.textContent = "not checked";
+        }
       }
+      if (dom.runtimeReadinessModel) dom.runtimeReadinessModel.textContent = model ? model : "missing";
+      if (dom.runtimeReadinessMode) dom.runtimeReadinessMode.textContent = this.runtimeModeLabel(this.readRuntimeMode());
+      if (dom.runtimeReadinessRealTest) {
+        dom.runtimeReadinessRealTest.textContent = this.realTestText();
+      }
+      if (dom.runtimeSummaryMode) dom.runtimeSummaryMode.textContent = this.runtimeModeLabel(this.readRuntimeMode());
+      if (dom.runtimeSummaryProvider) dom.runtimeSummaryProvider.textContent = provider?.displayName || "missing";
+      if (dom.runtimeSummaryBeta) {
+        dom.runtimeSummaryBeta.textContent = response
+          ? (response.canUseBackgroundRuntime ? "Ready" : "Not ready")
+          : (provider?.id !== "deepseek" ? "Not configured" : "Not checked");
+      }
+      this.updatePermissionRequestButton(provider?.id);
       LayoutManager.schedulePetLayout();
+    },
+
+    renderReadiness(response = null) {
+      this.renderSetupChecklist(response);
     },
 
     runtimeModeLabel(mode = "local_backend") {
@@ -3978,15 +4020,26 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       if (dom.runtimeModeLocal) dom.runtimeModeLocal.checked = normalized === "local_backend";
       if (dom.runtimeModeBackground) dom.runtimeModeBackground.checked = normalized === "background_runtime_beta";
       if (dom.runtimeModeLabel) dom.runtimeModeLabel.textContent = this.runtimeModeLabel(normalized);
+      this.renderSetupChecklist();
     },
 
     warnIfBackgroundModeWithoutReadiness() {
-      if (this.readRuntimeMode() !== "background_runtime_beta" || !this.lastReadiness || this.lastReadiness.canUseBackgroundRuntime) return;
-      const missing = (this.lastReadiness.checks || [])
-        .filter((check) => !check.ok)
-        .map((check) => (check.id === "provider" ? "unsupported provider" : check.label))
-        .join(" / ");
-      this.setMessage(`[Readiness] Background Runtime Beta is selected but not ready. Missing: ${missing || this.lastReadiness.nextAction || "setup"}. Local Backend mode is still available.`);
+      if (this.readRuntimeMode() !== "background_runtime_beta") return;
+      const missing = [];
+      if (!state.runtimePublicSettings.hasApiKey) missing.push("Runtime Key");
+      if (!String(dom.runtimeModel?.value || "").trim()) missing.push("Model");
+      if (String(dom.runtimeReadinessPermission?.textContent || "") !== "granted") missing.push("Permission");
+      if (!state.runtimePublicSettings.lastRealTestStatus?.ok) missing.push("Real Test");
+      if (this.lastReadiness && !this.lastReadiness.canUseBackgroundRuntime) {
+        (this.lastReadiness.checks || [])
+          .filter((check) => !check.ok)
+          .map((check) => (check.id === "provider" ? "unsupported provider" : check.label))
+          .forEach((label) => {
+            if (!missing.includes(label)) missing.push(label);
+          });
+      }
+      if (!missing.length) return;
+      this.setMessage(`Background Runtime Beta is selected but setup is incomplete. Missing: ${missing.join(" / ")}.`);
     },
 
     handleProviderChange() {
@@ -4018,9 +4071,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         debugEnabled: Boolean(settings.debugEnabled),
         runtimeMode: settings.runtimeMode === "background_runtime_beta" ? "background_runtime_beta" : "local_backend",
         hasApiKey: Boolean(settings.hasApiKey),
-        apiKeyPreview: settings.apiKeyPreview || ""
+        apiKeyPreview: settings.apiKeyPreview || "",
+        lastRealTestStatus: settings.lastRealTestStatus || null
       };
       this.lastReadiness = null;
+      this.lastPermissionStatus = null;
 
       this.renderProviderOptions(provider);
       dom.runtimeModel.value = state.runtimePublicSettings.model;
@@ -4031,9 +4086,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       dom.runtimeSaveMode.value = state.runtimePublicSettings.saveMode;
       dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
       this.updateRuntimeModeUi(state.runtimePublicSettings.runtimeMode);
-      dom.runtimeHasKey.textContent = state.runtimePublicSettings.hasApiKey ? "yes" : "no";
-      dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
-      this.renderReadiness(null);
+      this.renderSetupChecklist(null);
       this.updateProviderStatus(dom.runtimeProvider.value);
     },
 
@@ -4089,15 +4142,28 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     async save() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setMessage("Saving runtime settings...");
+      this.setMessage("Saving runtime setup...");
       try {
         const response = await BackgroundRuntimeClient.savePublicSettings(this.readForm());
         if (!response.ok) {
           this.setMessage(this.userMessage(response));
           return;
         }
-        this.hydrate(response);
-        this.setMessage("Runtime settings saved. Legacy backend model settings are unchanged.");
+        let hydrated = response;
+        const apiKey = this.readSecretForm();
+        if (apiKey) {
+          const keyResponse = await BackgroundRuntimeClient.saveSecret(apiKey);
+          if (!keyResponse.ok) {
+            this.hydrate(response);
+            this.setMessage(this.userMessage(keyResponse, "Runtime key save failed."));
+            return;
+          }
+          hydrated = keyResponse;
+        }
+        this.hydrate(hydrated);
+        this.setMessage(apiKey
+          ? "Runtime setup and key saved. Local backend model settings are unchanged."
+          : "Runtime setup saved. Existing Runtime Key is unchanged.");
         this.warnIfBackgroundModeWithoutReadiness();
       } catch (error) {
         this.setMessage(error?.message || "Runtime settings request failed.");
@@ -4123,7 +4189,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           return;
         }
         this.hydrate(response);
-        this.setMessage("Runtime key saved for Backendless Preview only. Backend key is unchanged.");
+        this.setMessage("Runtime key saved for Runtime Setup only. Backend key is unchanged.");
       } catch (error) {
         this.setMessage(error?.message || "Runtime key save failed.");
       } finally {
@@ -4242,12 +4308,17 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           providerId: form.provider,
           model: form.model
         });
-        if (dom.runtimeProviderRequestEnabled) {
-          dom.runtimeProviderRequestEnabled.textContent = "no";
-        }
         if (!response.ok) {
+          if (response.lastRealTestStatus) {
+            state.runtimePublicSettings.lastRealTestStatus = response.lastRealTestStatus;
+            this.renderSetupChecklist();
+          }
           this.setMessage(`[Real Provider Test] ${response.message || this.userMessage(response, "Real provider test failed.")}`);
           return;
+        }
+        if (response.lastRealTestStatus) {
+          state.runtimePublicSettings.lastRealTestStatus = response.lastRealTestStatus;
+          this.renderSetupChecklist();
         }
         this.setMessage(`[Real Provider Test] ${response.message || "DeepSeek real test passed. Main AI actions still use the local backend."}`);
       } catch (error) {
@@ -4260,7 +4331,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     async clearKey() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setMessage("Clearing runtime skeleton key...");
+      this.setMessage("Clearing runtime key...");
       try {
         const response = await BackgroundRuntimeClient.clearKey();
         if (!response.ok) {
@@ -4268,9 +4339,37 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           return;
         }
         this.hydrate(response);
-        this.setMessage("Runtime skeleton key cleared. Backend API Key is unchanged.");
+        this.setMessage("Runtime key cleared. Backend API Key is unchanged.");
       } catch (error) {
         this.setMessage(error?.message || "Runtime settings request failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async copyDiagnostics() {
+      if (this.busy) return;
+      this.setBusy(true);
+      this.setMessage("[Diagnostics] Preparing safe diagnostics...");
+      try {
+        const response = await BackgroundRuntimeClient.getDiagnostics();
+        if (!response.ok || !response.diagnostics) {
+          this.setMessage(`[Diagnostics] ${response.message || this.userMessage(response, "Diagnostics unavailable.")}`);
+          return;
+        }
+        const text = JSON.stringify(response.diagnostics, null, 2);
+        if (dom.runtimeDiagnosticsOutput) {
+          dom.runtimeDiagnosticsOutput.value = text;
+          dom.runtimeDiagnosticsOutput.classList.remove("hidden");
+        }
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          this.setMessage("[Diagnostics] Safe diagnostics copied.");
+          return;
+        }
+        this.setMessage("[Diagnostics] Clipboard unavailable. Safe diagnostics are shown below.");
+      } catch (error) {
+        this.setMessage(`[Diagnostics] ${error?.message || "Diagnostics unavailable."}`);
       } finally {
         this.setBusy(false);
       }
@@ -4823,11 +4922,6 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       RuntimeSettingsManager.handleProviderChange();
     });
 
-    on(dom.runtimeSaveKey, "click", (event) => {
-      event.stopPropagation();
-      RuntimeSettingsManager.saveKey();
-    });
-
     on(dom.runtimeTestMock, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.testMock();
@@ -4860,6 +4954,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     on(dom.runtimeTestReal, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.testReal();
+    });
+
+    on(dom.runtimeCopyDiagnostics, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.copyDiagnostics();
     });
 
     on(dom.runtimeReload, "click", (event) => {

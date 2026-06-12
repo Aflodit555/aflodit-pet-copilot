@@ -243,7 +243,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       debugEnabled: false,
       runtimeMode: "local_backend",
       hasApiKey: false,
-      apiKeyPreview: ""
+      apiKeyPreview: "",
+      lastRealTestStatus: null
     },
     runtimeProviders: [
       {

@@ -68,6 +68,7 @@ function publicSettingsResponse(settings, hasApiKey, apiKeyPreview) {
       saveMode: settings.saveMode,
       debugEnabled: settings.debugEnabled,
       runtimeMode: settings.runtimeMode,
+      lastRealTestStatus: settings.lastRealTestStatus || null,
       hasApiKey: Boolean(hasApiKey),
       apiKeyPreview: apiKeyPreview || ""
     },
@@ -81,6 +82,16 @@ function readinessCheck(id, label, ok, message) {
 
 function firstMissingCheck(checks = []) {
   return checks.find((check) => !check.ok) || null;
+}
+
+function safeRealTestStatus({ providerId = "", model = "", ok = false, errorCode = "" } = {}) {
+  return {
+    providerId: String(providerId || "").trim().slice(0, 64),
+    model: String(model || "").trim().slice(0, 128),
+    ok: Boolean(ok),
+    errorCode: ok ? "" : String(errorCode || "UNKNOWN").trim().slice(0, 64),
+    checkedAt: new Date().toISOString()
+  };
 }
 
 export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
@@ -112,7 +123,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             checks: [
               readinessCheck("provider", "Provider", false, "Provider is not registered.")
             ],
-            nextAction: "Choose DeepSeek in Backendless Preview."
+            nextAction: "Choose DeepSeek in Runtime Setup."
           };
         }
 
@@ -142,7 +153,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             "runtimeKey",
             "Runtime Key",
             hasApiKey,
-            hasApiKey ? "Runtime Key saved." : "Save a Runtime Key in Backendless Preview."
+            hasApiKey ? "Runtime Key saved." : "Save a Runtime Key in Runtime Setup."
           ),
           readinessCheck(
             "permission",
@@ -152,7 +163,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
               ? "DeepSeek permission is not configured for this provider."
               : permissionGranted
                 ? "DeepSeek permission granted."
-                : "Grant DeepSeek permission in Backendless Preview."
+                : "Grant DeepSeek permission in Runtime Setup."
           ),
           readinessCheck(
             "model",
@@ -188,6 +199,38 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           checks,
           requestEnabled: false,
           nextAction: blocker ? blocker.message : "Background Runtime Beta is ready."
+        };
+      }
+
+      if (parsed.type === MESSAGE_TYPES.runtimeGetDiagnostics) {
+        const settings = await settingsStore.getPublicSettings();
+        const provider = getProvider(settings.provider);
+        const permissionConfigured = provider?.requiredHostPermission === requiredDeepSeekHostPermission();
+        const permissionGranted = permissionConfigured
+          ? await containsPermission(chromeApi, provider.requiredHostPermission)
+          : false;
+        const hasApiKey = await secretStore.hasSecret(settings.saveMode);
+        const model = settings.model || provider?.defaultModel || "";
+        const providerReady = Boolean(provider?.enabled) && provider?.id === DEEPSEEK_PROVIDER_ID;
+        const readinessReady = providerReady && Boolean(model.trim()) && hasApiKey && permissionConfigured && permissionGranted;
+
+        return {
+          ok: true,
+          mode: "diagnostics",
+          diagnostics: {
+            version,
+            runtimeMode: settings.runtimeMode,
+            providerId: provider?.id || settings.provider,
+            providerName: provider?.displayName || settings.provider,
+            model,
+            hasRuntimeKey: Boolean(hasApiKey),
+            apiKeyPreview: await secretStore.getMaskedPreview(settings.saveMode),
+            permissionStatus: !permissionConfigured ? "not_configured" : (permissionGranted ? "granted" : "missing"),
+            readinessStatus: readinessReady ? "ready" : "blocked",
+            lastRealTestStatus: settings.lastRealTestStatus || null,
+            requestEnabled: false,
+            sourceLabelSupport: true
+          }
         };
       }
 
@@ -452,38 +495,65 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         const providerId = parsed.payload.providerId.trim();
         const provider = getProvider(providerId);
         if (!provider) {
+          const status = await settingsStore.saveLastRealTestStatus(safeRealTestStatus({
+            providerId,
+            model: typeof parsed.payload.model === "string" ? parsed.payload.model.trim() : "",
+            ok: false,
+            errorCode: "UNKNOWN_PROVIDER"
+          }));
           return {
             ok: false,
             mode: "real-test",
             errorCode: "UNKNOWN_PROVIDER",
             message: "Unknown provider.",
-            requestEnabled: false
+            requestEnabled: false,
+            lastRealTestStatus: status
           };
         }
 
         if (!provider.enabled) {
+          const status = await settingsStore.saveLastRealTestStatus(safeRealTestStatus({
+            providerId: provider.id,
+            model: parsed.payload.model || provider.defaultModel,
+            ok: false,
+            errorCode: "PROVIDER_DISABLED"
+          }));
           return {
             ok: false,
             mode: "real-test",
             providerId: provider.id,
             errorCode: "PROVIDER_DISABLED",
             message: "Provider is disabled.",
-            requestEnabled: false
+            requestEnabled: false,
+            lastRealTestStatus: status
           };
         }
 
         if (provider.id !== DEEPSEEK_PROVIDER_ID) {
+          const status = await settingsStore.saveLastRealTestStatus(safeRealTestStatus({
+            providerId: provider.id,
+            model: parsed.payload.model || provider.defaultModel,
+            ok: false,
+            errorCode: "REAL_TEST_NOT_CONFIGURED"
+          }));
           return {
             ok: false,
             mode: "real-test",
             providerId: provider.id,
             errorCode: "REAL_TEST_NOT_CONFIGURED",
             message: "Real provider test is only configured for DeepSeek in this preview phase.",
-            requestEnabled: false
+            requestEnabled: false,
+            lastRealTestStatus: status
           };
         }
 
         if (provider.requiredHostPermission !== requiredDeepSeekHostPermission()) {
+          const status = await settingsStore.saveLastRealTestStatus(safeRealTestStatus({
+            providerId: provider.id,
+            model: parsed.payload.model || provider.defaultModel,
+            ok: false,
+            errorCode: "PERMISSION_NOT_CONFIGURED"
+          }));
           return {
             ok: false,
             mode: "real-test",
@@ -491,12 +561,19 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             providerName: provider.displayName,
             errorCode: "PERMISSION_NOT_CONFIGURED",
             message: "DeepSeek permission is not configured in this preview phase.",
-            requestEnabled: false
+            requestEnabled: false,
+            lastRealTestStatus: status
           };
         }
 
         const permissionGranted = await containsPermission(chromeApi, provider.requiredHostPermission);
         if (!permissionGranted) {
+          const status = await settingsStore.saveLastRealTestStatus(safeRealTestStatus({
+            providerId: provider.id,
+            model: parsed.payload.model || provider.defaultModel,
+            ok: false,
+            errorCode: "MISSING_PROVIDER_PERMISSION"
+          }));
           return {
             ok: false,
             mode: "real-test",
@@ -504,13 +581,20 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             providerName: provider.displayName,
             errorCode: "MISSING_PROVIDER_PERMISSION",
             message: "DeepSeek permission is missing. Grant provider permission before running a real test.",
-            requestEnabled: false
+            requestEnabled: false,
+            lastRealTestStatus: status
           };
         }
 
         const settings = await settingsStore.getPublicSettings();
         const hasApiKey = await secretStore.hasSecret(settings.saveMode);
         if (!hasApiKey) {
+          const status = await settingsStore.saveLastRealTestStatus(safeRealTestStatus({
+            providerId: provider.id,
+            model: parsed.payload.model || provider.defaultModel,
+            ok: false,
+            errorCode: "MISSING_RUNTIME_KEY"
+          }));
           return {
             ok: false,
             mode: "real-test",
@@ -518,17 +602,28 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             providerName: provider.displayName,
             errorCode: "MISSING_RUNTIME_KEY",
             message: "Runtime key is missing. Save a Runtime Key before running a real test.",
-            requestEnabled: false
+            requestEnabled: false,
+            lastRealTestStatus: status
           };
         }
 
-        return testDeepSeekRealConnection({
+        const response = await testDeepSeekRealConnection({
           provider,
           model: parsed.payload.model,
           secretStore,
           saveMode: settings.saveMode,
           logger
         });
+        const status = await settingsStore.saveLastRealTestStatus(safeRealTestStatus({
+          providerId: provider.id,
+          model: response.model || parsed.payload.model || provider.defaultModel,
+          ok: Boolean(response.ok),
+          errorCode: response.errorCode || ""
+        }));
+        return {
+          ...response,
+          lastRealTestStatus: status
+        };
       }
 
       const networkGuard = assertNoArbitraryNetworkAccess(parsed.payload);

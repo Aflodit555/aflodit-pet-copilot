@@ -34,9 +34,11 @@ Phase 7.0 adds `runtime:action` and renames the preview setting to `backgroundRu
 
 Phase 8.0 replaces the preview checkbox with a public `runtimeMode` selector: `local_backend` or `background_runtime_beta`. `local_backend` is the default. `background_runtime_beta` routes Chat, Explain, Translate, and Summarize to the background runtime after setup. The background runtime remains DeepSeek-only, requires a saved Runtime Key and the exact DeepSeek permission, and still keeps `requestEnabled=false`. Readiness is local-only and does not call the provider, request permission, run Real Test, or change settings. Real Test remains separate.
 
+Phase 9.0 renames the user-facing setup area to Runtime Setup and adds release-candidate setup affordances: a compact setup checklist, explicit setup action order, safe copyable diagnostics, safe `lastRealTestStatus` metadata, and a local release safety guard script. This phase does not expand providers, does not add permissions, does not change routing, and does not make Background Runtime Beta the default.
+
 ## 2. Non-goals
 
-Phase 5A through Phase 8.0 does not:
+Phase 5A through Phase 9.0 does not:
 
 - Make the background runtime the default AI request path.
 - Turn Background Runtime Beta into a generic provider runtime.
@@ -55,7 +57,7 @@ The stable AI path is still:
 content script -> local backend -> provider
 ```
 
-The Backendless Preview path is currently:
+The Runtime Setup path is currently:
 
 ```text
 content script -> background runtime settings/secret preview
@@ -63,6 +65,8 @@ content script -> background runtime -> DeepSeek minimal real test
 ```
 
 The preview path stores and reloads public settings, provider allowlist state, a Runtime Key preview, a mock Test Connection result, a DeepSeek-only Real Test result, optional DeepSeek background action results, and the `runtimeMode` selector. `runtimeMode=local_backend` keeps ordinary Chat / Explain / Translate / Summarize on the local backend. `runtimeMode=background_runtime_beta` routes those four actions through Background Runtime after setup.
+
+Phase 9.0 adds safe runtime diagnostics with only these user-support fields: version, runtime mode, provider id/name, model, Runtime Key presence, masked key preview, permission status, readiness status, last safe Real Test status, `requestEnabled=false`, and source label support. Diagnostics must not include full Runtime Keys, Authorization headers, raw provider responses, page text, selected text, prompts, headers, or raw request bodies.
 
 In Phase 5C.0, the preview path can also ask the background runtime for `runtime:getProviderPermissionStatus` with only `{ "providerId": "deepseek" }`. The background runtime resolves the provider from the allowlist and checks `chrome.permissions.contains` for `https://api.deepseek.com/*`.
 
@@ -77,6 +81,20 @@ In Phase 6.4, the preview path can ask the background runtime for `runtime:getBa
 In Phase 7.0, the preview path can ask the background runtime for `runtime:action` with only `providerId`, optional `model`, `action`, `userText`, optional `pageText`, and optional `selectionText`. The background runtime chooses the prompt internally from the action type. Content scripts cannot provide custom prompt templates, URLs, headers, request bodies, or secrets.
 
 In Phase 8.0, the content script saves only the public `runtimeMode` enum. If a stored setting still has `backgroundRuntimePreviewEnabled=true` and no `runtimeMode`, it is migrated to `background_runtime_beta`. If both fields exist, `runtimeMode` wins. The UI allows selecting Background Runtime Beta even when readiness is not ready, but it warns about missing Runtime Key, permission, model, or unsupported provider and keeps Local Backend available.
+
+In Phase 9.0, the UI displays setup state without implying provider connection: Runtime Mode, Provider, Model, Runtime Key, Host Permission, Readiness, and Real Test. The user must explicitly save settings, save a key, request permission, check readiness, run Real Test, and select Background Runtime Beta. Real Test status is stored only as safe metadata:
+
+```js
+{
+  providerId,
+  model,
+  ok,
+  errorCode,
+  checkedAt
+}
+```
+
+No response body, headers, token, Runtime Key, Authorization value, or raw provider response is stored.
 
 ## 4. Permission Strategy Options
 
@@ -270,7 +288,7 @@ Responses must not include:
 
 ## 6.1 Optional Background Chat Design And Audit
 
-Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior. Phase 6.2 adds release-gate source labels and explicit failure UX. Phase 6.3 adds a disabled-by-default Background Chat Preview toggle plus explicit Local Backend overrides. Phase 6.4 adds a read-only readiness checklist before users try Background Chat. Phase 7.0 generalizes the preview into Background Runtime Preview for Chat, Explain, Translate, and Summarize. Phase 8.0 replaces the checkbox with the Runtime Mode selector and keeps Local Backend as the default.
+Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior. Phase 6.2 adds release-gate source labels and explicit failure UX. Phase 6.3 adds a disabled-by-default Background Chat Preview toggle plus explicit Local Backend overrides. Phase 6.4 adds a read-only readiness checklist before users try Background Chat. Phase 7.0 generalizes the preview into Background Runtime Preview for Chat, Explain, Translate, and Summarize. Phase 8.0 replaces the checkbox with the Runtime Mode selector and keeps Local Backend as the default. Phase 9.0 productizes the setup UI as Runtime Setup and adds safe diagnostics plus a release safety guard.
 
 Rules:
 
@@ -297,6 +315,7 @@ Rules:
 - Readiness checks must not call fetch, request permission, run Real Test, save secrets, or modify provider settings.
 - Runtime action failures must not automatically fall back to `/api/pet`.
 - `requestEnabled` remains `false`.
+- Release safety guard command: `node extension\runtime\checkReleaseSafety.js`.
 
 ## 7. Token and Cost Policy
 

@@ -14,7 +14,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   model: getDefaultModelForProvider(getDefaultProviderId()),
   saveMode: "local",
   debugEnabled: false,
-  runtimeMode: "local_backend"
+  runtimeMode: "local_backend",
+  lastRealTestStatus: null
 });
 
 function sanitizeBoolean(value, fallback) {
@@ -35,6 +36,21 @@ function sanitizeRuntimeMode(value, fallback = "local_backend") {
   return value === "background_runtime_beta" || value === "local_backend" ? value : fallback;
 }
 
+export function sanitizeLastRealTestStatus(value = null) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const providerId = sanitizeString(value.providerId, "", 64);
+  const model = sanitizeString(value.model, "", 128);
+  const checkedAt = sanitizeString(value.checkedAt, "", 40);
+  if (!providerId || typeof value.ok !== "boolean" || !checkedAt) return null;
+  return {
+    providerId,
+    model,
+    ok: value.ok,
+    errorCode: value.ok ? "" : sanitizeString(value.errorCode, "UNKNOWN", 64),
+    checkedAt
+  };
+}
+
 export function sanitizePublicSettings(raw = {}, base = DEFAULT_SETTINGS) {
   const provider = sanitizeString(raw.provider, base.provider, 64);
   const safeProvider = hasProvider(provider) ? provider : base.provider;
@@ -48,7 +64,8 @@ export function sanitizePublicSettings(raw = {}, base = DEFAULT_SETTINGS) {
     model: sanitizeModelForProvider(safeProvider, raw.model || base.model),
     saveMode: sanitizeSaveMode(raw.saveMode, base.saveMode),
     debugEnabled: sanitizeBoolean(raw.debugEnabled, base.debugEnabled),
-    runtimeMode
+    runtimeMode,
+    lastRealTestStatus: sanitizeLastRealTestStatus(raw.lastRealTestStatus ?? base.lastRealTestStatus)
   };
 }
 
@@ -110,11 +127,22 @@ export function createSettingsStore(chromeApi) {
         debugEnabled: input.debugEnabled ?? current.debugEnabled,
         runtimeMode: input.runtimeMode ?? (input.backgroundRuntimePreviewEnabled === true || input.backgroundChatPreviewEnabled === true
           ? "background_runtime_beta"
-          : current.runtimeMode)
+          : current.runtimeMode),
+        lastRealTestStatus: current.lastRealTestStatus
       }, current);
 
       await setToStorage(next);
       return { ok: true, settings: { ...next } };
+    },
+
+    async saveLastRealTestStatus(status = null) {
+      const current = await this.getPublicSettings();
+      const next = sanitizePublicSettings({
+        ...current,
+        lastRealTestStatus: sanitizeLastRealTestStatus(status)
+      }, current);
+      await setToStorage(next);
+      return { ...next.lastRealTestStatus };
     }
   };
 }
