@@ -14,7 +14,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   model: getDefaultModelForProvider(getDefaultProviderId()),
   saveMode: "local",
   debugEnabled: false,
-  backgroundRuntimePreviewEnabled: false
+  runtimeMode: "local_backend"
 });
 
 function sanitizeBoolean(value, fallback) {
@@ -31,18 +31,24 @@ function sanitizeSaveMode(value, fallback) {
   return value === "session" || value === "local" ? value : fallback;
 }
 
+function sanitizeRuntimeMode(value, fallback = "local_backend") {
+  return value === "background_runtime_beta" || value === "local_backend" ? value : fallback;
+}
+
 export function sanitizePublicSettings(raw = {}, base = DEFAULT_SETTINGS) {
   const provider = sanitizeString(raw.provider, base.provider, 64);
   const safeProvider = hasProvider(provider) ? provider : base.provider;
-  const previewEnabled = raw.backgroundRuntimePreviewEnabled ?? raw.backgroundChatPreviewEnabled;
-  const basePreviewEnabled = base.backgroundRuntimePreviewEnabled ?? base.backgroundChatPreviewEnabled ?? false;
+  const legacyPreviewEnabled = raw.backgroundRuntimePreviewEnabled ?? raw.backgroundChatPreviewEnabled;
+  const runtimeMode = raw.runtimeMode !== undefined
+    ? sanitizeRuntimeMode(raw.runtimeMode, base.runtimeMode)
+    : (legacyPreviewEnabled === true ? "background_runtime_beta" : sanitizeRuntimeMode(base.runtimeMode));
 
   return {
     provider: safeProvider,
     model: sanitizeModelForProvider(safeProvider, raw.model || base.model),
     saveMode: sanitizeSaveMode(raw.saveMode, base.saveMode),
     debugEnabled: sanitizeBoolean(raw.debugEnabled, base.debugEnabled),
-    backgroundRuntimePreviewEnabled: sanitizeBoolean(previewEnabled, basePreviewEnabled)
+    runtimeMode
   };
 }
 
@@ -102,7 +108,9 @@ export function createSettingsStore(chromeApi) {
         model: nextModel,
         saveMode: input.saveMode ?? current.saveMode,
         debugEnabled: input.debugEnabled ?? current.debugEnabled,
-        backgroundRuntimePreviewEnabled: input.backgroundRuntimePreviewEnabled ?? input.backgroundChatPreviewEnabled ?? current.backgroundRuntimePreviewEnabled
+        runtimeMode: input.runtimeMode ?? (input.backgroundRuntimePreviewEnabled === true || input.backgroundChatPreviewEnabled === true
+          ? "background_runtime_beta"
+          : current.runtimeMode)
       }, current);
 
       await setToStorage(next);

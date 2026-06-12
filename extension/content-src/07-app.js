@@ -510,7 +510,7 @@
 
     showError(error) {
       FaceController.stopReplyPeekLoop(true);
-      dom.status.textContent = "Source: Local Backend. Local backend request failed.";
+      dom.status.textContent = "Source: Local Backend. Runtime mode: Local Backend. Local backend request failed.";
       dom.reply.textContent = normalizeUserErrorMessage(error);
       delete dom.reply.dataset.streaming;
       scrollReplyToTop();
@@ -539,16 +539,17 @@
       };
       const detail = details[code] || error.message || "Background Runtime failed.";
       const recovery = error.backgroundChatSource === "preview"
-        ? "Disable Background Runtime Preview to use Local Backend."
+        ? "Switch Runtime Mode to Local Backend to use the local backend."
         : "Remove /bg or @background to use ordinary Chat.";
 
-      dom.status.textContent = "Source: Background Runtime. Background route failed.";
+      dom.status.textContent = "Source: Background Runtime. Background Runtime failed.";
       dom.reply.textContent = [
         "Background Runtime failed.",
         detail,
         "Local Backend is still available.",
-        recovery
-      ].join("\n");
+        recovery,
+        error.backgroundChatSource === "preview" && error.data?.action === "chat" ? "/local can force Local Backend Chat." : ""
+      ].filter(Boolean).join("\n");
       delete dom.reply.dataset.streaming;
       scrollReplyToTop();
       setMeta("error", "shake");
@@ -714,7 +715,7 @@
           model: payload.model,
           saveMode: payload.saveMode,
           debugEnabled: payload.debugEnabled,
-          backgroundRuntimePreviewEnabled: payload.backgroundRuntimePreviewEnabled
+          runtimeMode: payload.runtimeMode
         }
       });
     },
@@ -805,7 +806,7 @@
     ActionRunner.applyBackgroundChatInputHint = function applyBackgroundChatInputHint() {
       if (!dom.chatInput) return;
       dom.chatInput.placeholder = "Chat message. Use /bg for Background Runtime or /local for Local Backend.";
-      dom.chatInput.title = "Background Runtime Preview can route Chat, Explain, Translate, and Summarize to Background Runtime. Use /bg or @background for Chat; use /local or @local for Local Backend Chat.";
+      dom.chatInput.title = "Background Runtime Beta mode can route Chat, Explain, Translate, and Summarize to Background Runtime. Use /bg or @background for Chat; use /local or @local for Local Backend Chat.";
     };
 
     ActionRunner.parseBackgroundRuntimeRoute = function parseBackgroundRuntimeRoute(action, userText = "") {
@@ -832,7 +833,7 @@
         }
       }
 
-      const previewEnabled = Boolean(state.runtimePublicSettings.backgroundRuntimePreviewEnabled);
+      const previewEnabled = state.runtimePublicSettings.runtimeMode === "background_runtime_beta";
       return {
         route: previewEnabled ? "background" : "local",
         source: previewEnabled ? "preview" : "default-local",
@@ -848,7 +849,9 @@
 
       const response = await BackgroundRuntimeClient.getPublicSettings();
       if (response?.ok && response.settings) {
-        state.runtimePublicSettings.backgroundRuntimePreviewEnabled = Boolean(response.settings.backgroundRuntimePreviewEnabled);
+        state.runtimePublicSettings.runtimeMode = response.settings.runtimeMode === "background_runtime_beta"
+          ? "background_runtime_beta"
+          : "local_backend";
       }
     };
 
@@ -948,7 +951,8 @@
       this.busy = busy;
       dom.runtimeSave.disabled = busy;
       dom.runtimeSaveKey.disabled = busy;
-      if (dom.runtimeBackgroundPreview) dom.runtimeBackgroundPreview.disabled = busy;
+      if (dom.runtimeModeLocal) dom.runtimeModeLocal.disabled = busy;
+      if (dom.runtimeModeBackground) dom.runtimeModeBackground.disabled = busy;
       dom.runtimeTestMock.disabled = busy;
       dom.runtimeCheckPermission.disabled = busy;
       if (dom.runtimeCheckReadiness) dom.runtimeCheckReadiness.disabled = busy;
@@ -976,6 +980,7 @@
         PERMISSION_DENIED: "Provider permission was not granted. Real provider requests are still disabled.",
         BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek in this preview phase.",
         UNKNOWN_PROVIDER: "Provider is not available in Backendless Preview.",
+        RUNTIME_MODE_INVALID: "Runtime mode must be Local Backend or Background Runtime Beta.",
         REAL_TEST_NOT_CONFIGURED: "Real provider test is only configured for DeepSeek in this preview phase.",
         MISSING_PROVIDER_PERMISSION: "DeepSeek permission is missing. Grant provider permission before running a real test.",
         MISSING_RUNTIME_KEY: "Runtime key is missing. Save a Runtime Key before running a real test.",
@@ -1096,23 +1101,38 @@
 
       if (dom.runtimeReadinessSummary) {
         dom.runtimeReadinessSummary.textContent = response
-          ? (response.canUseBackgroundRuntimePreview ? "ready" : "not ready")
+          ? (response.canUseBackgroundRuntime ? "ready" : "not ready")
           : "not checked";
       }
       if (dom.runtimeReadinessProvider) dom.runtimeReadinessProvider.textContent = this.readinessText(byId.provider);
       if (dom.runtimeReadinessKey) dom.runtimeReadinessKey.textContent = this.readinessText(byId.runtimeKey);
       if (dom.runtimeReadinessPermission) dom.runtimeReadinessPermission.textContent = this.readinessText(byId.permission);
       if (dom.runtimeReadinessModel) dom.runtimeReadinessModel.textContent = this.readinessText(byId.model);
-      if (dom.runtimeReadinessPreview) dom.runtimeReadinessPreview.textContent = this.readinessText(byId.preview);
+      if (dom.runtimeReadinessMode) dom.runtimeReadinessMode.textContent = this.readinessText(byId.runtimeMode);
       if (dom.runtimeReadinessRealTest) {
         dom.runtimeReadinessRealTest.textContent = byId.realTest?.message || "Real Test: optional / not checked.";
       }
       LayoutManager.schedulePetLayout();
     },
 
-    warnIfPreviewEnabledWithoutReadiness() {
-      if (!dom.runtimeBackgroundPreview?.checked || !this.lastReadiness || this.lastReadiness.canUseBackgroundRuntimePreview) return;
-      this.setMessage(`[Readiness] ${this.lastReadiness.nextAction || "Background Runtime Preview is not ready yet."}`);
+    runtimeModeLabel(mode = "local_backend") {
+      return mode === "background_runtime_beta" ? "Background Runtime Beta" : "Local Backend";
+    },
+
+    updateRuntimeModeUi(mode = "local_backend") {
+      const normalized = mode === "background_runtime_beta" ? "background_runtime_beta" : "local_backend";
+      if (dom.runtimeModeLocal) dom.runtimeModeLocal.checked = normalized === "local_backend";
+      if (dom.runtimeModeBackground) dom.runtimeModeBackground.checked = normalized === "background_runtime_beta";
+      if (dom.runtimeModeLabel) dom.runtimeModeLabel.textContent = this.runtimeModeLabel(normalized);
+    },
+
+    warnIfBackgroundModeWithoutReadiness() {
+      if (this.readRuntimeMode() !== "background_runtime_beta" || !this.lastReadiness || this.lastReadiness.canUseBackgroundRuntime) return;
+      const missing = (this.lastReadiness.checks || [])
+        .filter((check) => !check.ok)
+        .map((check) => (check.id === "provider" ? "unsupported provider" : check.label))
+        .join(" / ");
+      this.setMessage(`[Readiness] Background Runtime Beta is selected but not ready. Missing: ${missing || this.lastReadiness.nextAction || "setup"}. Local Backend mode is still available.`);
     },
 
     handleProviderChange() {
@@ -1142,7 +1162,7 @@
         model: settings.model || "mock-model",
         saveMode: settings.saveMode === "session" ? "session" : "local",
         debugEnabled: Boolean(settings.debugEnabled),
-        backgroundRuntimePreviewEnabled: Boolean(settings.backgroundRuntimePreviewEnabled),
+        runtimeMode: settings.runtimeMode === "background_runtime_beta" ? "background_runtime_beta" : "local_backend",
         hasApiKey: Boolean(settings.hasApiKey),
         apiKeyPreview: settings.apiKeyPreview || ""
       };
@@ -1156,9 +1176,7 @@
         : "Enter API Key for future backendless runtime";
       dom.runtimeSaveMode.value = state.runtimePublicSettings.saveMode;
       dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
-      if (dom.runtimeBackgroundPreview) {
-        dom.runtimeBackgroundPreview.checked = state.runtimePublicSettings.backgroundRuntimePreviewEnabled;
-      }
+      this.updateRuntimeModeUi(state.runtimePublicSettings.runtimeMode);
       dom.runtimeHasKey.textContent = state.runtimePublicSettings.hasApiKey ? "yes" : "no";
       dom.runtimeKeyPreview.textContent = state.runtimePublicSettings.apiKeyPreview || "";
       this.renderReadiness(null);
@@ -1174,8 +1192,12 @@
         model,
         saveMode: dom.runtimeSaveMode.value === "session" ? "session" : "local",
         debugEnabled: Boolean(dom.runtimeDebug.checked),
-        backgroundRuntimePreviewEnabled: Boolean(dom.runtimeBackgroundPreview?.checked)
+        runtimeMode: this.readRuntimeMode()
       };
+    },
+
+    readRuntimeMode() {
+      return dom.runtimeModeBackground?.checked ? "background_runtime_beta" : "local_backend";
     },
 
     readSecretForm() {
@@ -1222,7 +1244,7 @@
         }
         this.hydrate(response);
         this.setMessage("Runtime settings saved. Legacy backend model settings are unchanged.");
-        this.warnIfPreviewEnabledWithoutReadiness();
+        this.warnIfBackgroundModeWithoutReadiness();
       } catch (error) {
         this.setMessage(error?.message || "Runtime settings request failed.");
       } finally {
@@ -1304,7 +1326,7 @@
     async checkReadiness() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setMessage("[Readiness] Checking Background Runtime Preview readiness...");
+      this.setMessage("[Readiness] Checking Runtime Mode readiness...");
       try {
         const form = this.readForm();
         const response = await BackgroundRuntimeClient.getBackgroundChatReadiness({
@@ -1314,14 +1336,14 @@
         this.lastReadiness = response?.ok ? response : null;
         this.renderReadiness(response?.ok ? response : null);
         if (!response.ok) {
-          this.setMessage(`[Readiness] ${response.message || this.userMessage(response, "Background Runtime Preview readiness check failed.")}`);
+          this.setMessage(`[Readiness] ${response.message || this.userMessage(response, "Runtime Mode readiness check failed.")}`);
           return;
         }
-        this.setMessage(`[Readiness] ${response.nextAction || (response.canUseBackgroundRuntimePreview ? "Background Runtime Preview is ready." : "Background Runtime Preview is not ready yet.")}`);
+        this.setMessage(`[Readiness] ${response.nextAction || (response.canUseBackgroundRuntime ? "Background Runtime Beta is ready." : "Background Runtime Beta is not ready yet.")}`);
       } catch (error) {
         this.lastReadiness = null;
         this.renderReadiness(null);
-        this.setMessage(`[Readiness] ${error?.message || "Background Runtime Preview readiness check failed."}`);
+        this.setMessage(`[Readiness] ${error?.message || "Runtime Mode readiness check failed."}`);
       } finally {
         this.setBusy(false);
       }
@@ -1967,8 +1989,13 @@
       RuntimeSettingsManager.checkReadiness();
     });
 
-    on(dom.runtimeBackgroundPreview, "change", () => {
-      RuntimeSettingsManager.warnIfPreviewEnabledWithoutReadiness();
+    on(dom.runtimeModeLocal, "change", () => {
+      RuntimeSettingsManager.updateRuntimeModeUi(RuntimeSettingsManager.readRuntimeMode());
+    });
+
+    on(dom.runtimeModeBackground, "change", () => {
+      RuntimeSettingsManager.updateRuntimeModeUi(RuntimeSettingsManager.readRuntimeMode());
+      RuntimeSettingsManager.warnIfBackgroundModeWithoutReadiness();
     });
 
     on(dom.runtimeRequestPermission, "click", (event) => {

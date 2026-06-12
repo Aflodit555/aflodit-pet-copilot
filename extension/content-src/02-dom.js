@@ -103,18 +103,26 @@
                 <input id="aflodit-pet-runtime-debug" type="checkbox" />
                 <span>Debug enabled</span>
               </label>
-              <label class="pet-settings-check" title="When enabled, Chat / Explain / Translate / Summarize use Background Runtime. Disable to use Local Backend.">
-                <input id="aflodit-pet-runtime-background-preview" type="checkbox" />
-                <span>Background Runtime Preview</span>
-              </label>
-              <div class="pet-settings-message pet-runtime-compact-note">When enabled, Chat / Explain / Translate / Summarize use Background Runtime. Disable to use Local Backend.</div>
+              <div class="pet-runtime-provider-card">
+                <div><b>Runtime Mode</b>: <span id="aflodit-pet-runtime-mode-label">Local Backend</span></div>
+                <label class="pet-settings-check" title="Uses 127.0.0.1 backend. Best for stable local development.">
+                  <input id="aflodit-pet-runtime-mode-local" name="aflodit-pet-runtime-mode" type="radio" value="local_backend" />
+                  <span>Local Backend</span>
+                </label>
+                <div class="pet-settings-message pet-runtime-compact-note">Uses 127.0.0.1 backend. Best for stable local development.</div>
+                <label class="pet-settings-check" title="Uses extension background runtime. No local backend needed after setup.">
+                  <input id="aflodit-pet-runtime-mode-background" name="aflodit-pet-runtime-mode" type="radio" value="background_runtime_beta" />
+                  <span>Background Runtime Beta</span>
+                </label>
+                <div class="pet-settings-message pet-runtime-compact-note">Uses extension background runtime. No local backend needed after setup.</div>
+              </div>
               <div class="pet-runtime-provider-card" aria-live="polite">
                 <div><b>Background Runtime Readiness</b>: <span id="aflodit-pet-runtime-readiness-summary">not checked</span></div>
                 <div><b>Provider</b>: <span id="aflodit-pet-runtime-readiness-provider">not checked</span></div>
                 <div><b>Runtime Key</b>: <span id="aflodit-pet-runtime-readiness-key">not checked</span></div>
                 <div><b>Permission</b>: <span id="aflodit-pet-runtime-readiness-permission">not checked</span></div>
                 <div><b>Model</b>: <span id="aflodit-pet-runtime-readiness-model">not checked</span></div>
-                <div><b>Preview</b>: <span id="aflodit-pet-runtime-readiness-preview">not checked</span></div>
+                <div><b>Runtime Mode</b>: <span id="aflodit-pet-runtime-readiness-mode">not checked</span></div>
                 <div><b>Real Test</b>: <span id="aflodit-pet-runtime-readiness-real-test">optional / not checked</span></div>
               </div>
               <div class="pet-settings-message pet-runtime-warning">此 Key 仅用于 Backendless Preview，不影响当前本地后端模型配置。当前 AI 功能仍走本地 backend，也不会修改 backend/.env 或 backend/.local/settings.local.json。</div>
@@ -628,13 +636,15 @@
       runtimeApiKey: root.querySelector("#aflodit-pet-runtime-api-key"),
       runtimeSaveMode: root.querySelector("#aflodit-pet-runtime-save-mode"),
       runtimeDebug: root.querySelector("#aflodit-pet-runtime-debug"),
-      runtimeBackgroundPreview: root.querySelector("#aflodit-pet-runtime-background-preview"),
+      runtimeModeLabel: root.querySelector("#aflodit-pet-runtime-mode-label"),
+      runtimeModeLocal: root.querySelector("#aflodit-pet-runtime-mode-local"),
+      runtimeModeBackground: root.querySelector("#aflodit-pet-runtime-mode-background"),
       runtimeReadinessSummary: root.querySelector("#aflodit-pet-runtime-readiness-summary"),
       runtimeReadinessProvider: root.querySelector("#aflodit-pet-runtime-readiness-provider"),
       runtimeReadinessKey: root.querySelector("#aflodit-pet-runtime-readiness-key"),
       runtimeReadinessPermission: root.querySelector("#aflodit-pet-runtime-readiness-permission"),
       runtimeReadinessModel: root.querySelector("#aflodit-pet-runtime-readiness-model"),
-      runtimeReadinessPreview: root.querySelector("#aflodit-pet-runtime-readiness-preview"),
+      runtimeReadinessMode: root.querySelector("#aflodit-pet-runtime-readiness-mode"),
       runtimeReadinessRealTest: root.querySelector("#aflodit-pet-runtime-readiness-real-test"),
       runtimeHasKey: root.querySelector("#aflodit-pet-runtime-has-key"),
       runtimeKeyPreview: root.querySelector("#aflodit-pet-runtime-key-preview"),

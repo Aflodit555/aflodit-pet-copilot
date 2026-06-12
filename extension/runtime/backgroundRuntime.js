@@ -67,7 +67,7 @@ function publicSettingsResponse(settings, hasApiKey, apiKeyPreview) {
       model: settings.model,
       saveMode: settings.saveMode,
       debugEnabled: settings.debugEnabled,
-      backgroundRuntimePreviewEnabled: Boolean(settings.backgroundRuntimePreviewEnabled),
+      runtimeMode: settings.runtimeMode,
       hasApiKey: Boolean(hasApiKey),
       apiKeyPreview: apiKeyPreview || ""
     },
@@ -102,12 +102,13 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         if (!provider) {
           return {
             ok: false,
-          mode: "background-runtime-readiness",
-          providerId,
-          errorCode: "UNKNOWN_PROVIDER",
-          message: "Unknown provider.",
-          canUseBackgroundRuntimePreview: false,
-          requestEnabled: false,
+            mode: "background-runtime-readiness",
+            providerId,
+            errorCode: "UNKNOWN_PROVIDER",
+            message: "Unknown provider.",
+            runtimeMode: "local_backend",
+            canUseBackgroundRuntime: false,
+            requestEnabled: false,
             checks: [
               readinessCheck("provider", "Provider", false, "Provider is not registered.")
             ],
@@ -132,10 +133,10 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             "Provider",
             providerReady,
             !provider.enabled
-              ? "Provider is disabled."
+                ? "Provider is disabled."
               : provider.id === DEEPSEEK_PROVIDER_ID
                 ? "DeepSeek is selected."
-                : "Background Runtime Preview currently supports DeepSeek only."
+                : "Background Runtime Beta currently supports DeepSeek only."
           ),
           readinessCheck(
             "runtimeKey",
@@ -160,12 +161,12 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             selectedModel.trim() ? "Model is ready." : "Enter a model name."
           ),
           readinessCheck(
-            "preview",
-            "Preview",
+            "runtimeMode",
+            "Runtime Mode",
             true,
-            settings.backgroundRuntimePreviewEnabled
-              ? "Background Runtime Preview is on."
-              : "Background Runtime Preview is off."
+            settings.runtimeMode === "background_runtime_beta"
+              ? "Background Runtime Beta is selected."
+              : "Local Backend mode is selected."
           ),
           readinessCheck(
             "realTest",
@@ -182,11 +183,11 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           providerId: provider.id,
           providerName: provider.displayName,
           model: selectedModel.trim(),
-          backgroundRuntimePreviewEnabled: Boolean(settings.backgroundRuntimePreviewEnabled),
-          canUseBackgroundRuntimePreview: !blocker,
+          runtimeMode: settings.runtimeMode,
+          canUseBackgroundRuntime: !blocker,
           checks,
           requestEnabled: false,
-          nextAction: blocker ? blocker.message : "Background Runtime Preview is ready."
+          nextAction: blocker ? blocker.message : "Background Runtime Beta is ready."
         };
       }
 
@@ -309,8 +310,8 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           errorCode,
           message,
           recoveryHint: action === "chat"
-            ? "Disable Background Runtime Preview or use /local to use Local Backend."
-            : "Disable Background Runtime Preview to use Local Backend.",
+            ? "Switch Runtime Mode to Local Backend or use /local to use the local backend."
+            : "Switch Runtime Mode to Local Backend to use the local backend.",
           requestEnabled: false,
           ...extra
         });

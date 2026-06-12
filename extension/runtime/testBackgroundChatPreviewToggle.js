@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { createBackgroundRuntime } from "./backgroundRuntime.js";
 
 const DEEPSEEK_ORIGIN = "https://api.deepseek.com/*";
-const RUNTIME_KEY = "sk-test-background-preview";
+const RUNTIME_KEY = "sk-test-background-runtime-mode-compat";
 
 async function check(name, fn) {
   try {
@@ -39,24 +39,25 @@ async function savePublic(runtime, payload) {
   return runtime.handleMessage({ type: "settings:savePublic", payload });
 }
 
-function decideChatRoute(input, previewEnabled) {
+function decideChatRoute(input, runtimeMode) {
   const trimmed = String(input || "").trim();
   const lower = trimmed.toLowerCase();
   if (lower.startsWith("/bg ")) return { route: "background", source: "explicit-background", userText: trimmed.slice(4).trim() };
   if (lower.startsWith("@background ")) return { route: "background", source: "explicit-background", userText: trimmed.slice(12).trim() };
   if (lower.startsWith("/local ")) return { route: "local", source: "explicit-local", userText: trimmed.slice(7).trim() };
   if (lower.startsWith("@local ")) return { route: "local", source: "explicit-local", userText: trimmed.slice(7).trim() };
-  return { route: previewEnabled ? "background" : "local", source: previewEnabled ? "preview" : "default-local", userText: trimmed };
+  const backgroundMode = runtimeMode === "background_runtime_beta";
+  return { route: backgroundMode ? "background" : "local", source: backgroundMode ? "preview" : "default-local", userText: trimmed };
 }
 
 function backgroundFailureRecovery(source) {
   return source === "preview"
-    ? "Disable Background Runtime Preview to use Local Backend."
+    ? "Switch Runtime Mode to Local Backend to use the local backend."
     : "Remove /bg or @background to use ordinary Chat.";
 }
 
-async function simulateChatSubmit({ input, previewEnabled, localImpl, backgroundImpl }) {
-  const route = decideChatRoute(input, previewEnabled);
+async function simulateChatSubmit({ input, runtimeMode, localImpl, backgroundImpl }) {
+  const route = decideChatRoute(input, runtimeMode);
   if (route.route === "local") {
     return localImpl(route.userText);
   }
@@ -108,32 +109,32 @@ function sendBackgroundChat(runtime) {
   });
 }
 
-await check("setting defaults to false", async () => {
+await check("runtime mode setting defaults to local backend", async () => {
   const response = await getPublic(createRuntime());
   assert.equal(response.ok, true);
-  assert.equal(response.settings.backgroundRuntimePreviewEnabled, false);
+  assert.equal(response.settings.runtimeMode, "local_backend");
   assert.equal(response.settings.hasApiKey, false);
   assert.equal(response.settings.apiKeyPreview, "");
 });
 
-await check("settings save accepts backgroundRuntimePreviewEnabled", async () => {
+await check("settings save accepts runtimeMode background beta", async () => {
   const runtime = createRuntime();
   let response = await savePublic(runtime, {
     provider: "deepseek",
     model: "deepseek-chat",
     saveMode: "local",
     debugEnabled: false,
-    backgroundRuntimePreviewEnabled: true
+    runtimeMode: "background_runtime_beta"
   });
   assert.equal(response.ok, true);
-  assert.equal(response.settings.backgroundRuntimePreviewEnabled, true);
+  assert.equal(response.settings.runtimeMode, "background_runtime_beta");
   assert.equal(response.settings.provider, "deepseek");
 
   response = await getPublic(runtime);
-  assert.equal(response.settings.backgroundRuntimePreviewEnabled, true);
+  assert.equal(response.settings.runtimeMode, "background_runtime_beta");
 });
 
-await check("settings save migrates legacy backgroundChatPreviewEnabled", async () => {
+await check("settings save migrates legacy preview flags", async () => {
   const runtime = createRuntime();
   const response = await savePublic(runtime, {
     provider: "deepseek",
@@ -143,7 +144,21 @@ await check("settings save migrates legacy backgroundChatPreviewEnabled", async 
     backgroundChatPreviewEnabled: true
   });
   assert.equal(response.ok, true);
-  assert.equal(response.settings.backgroundRuntimePreviewEnabled, true);
+  assert.equal(response.settings.runtimeMode, "background_runtime_beta");
+});
+
+await check("runtimeMode wins over legacy preview flag", async () => {
+  const runtime = createRuntime();
+  const response = await savePublic(runtime, {
+    provider: "deepseek",
+    model: "deepseek-chat",
+    saveMode: "local",
+    debugEnabled: false,
+    runtimeMode: "local_backend",
+    backgroundRuntimePreviewEnabled: true
+  });
+  assert.equal(response.ok, true);
+  assert.equal(response.settings.runtimeMode, "local_backend");
 });
 
 await check("settings save rejects dangerous public fields", async () => {
@@ -152,7 +167,9 @@ await check("settings save rejects dangerous public fields", async () => {
     { apiKey: "sk-should-not-pass" },
     { url: "https://api.deepseek.com/chat/completions" },
     { headers: { Authorization: "Bearer bad" } },
-    { rawBody: { model: "deepseek-chat" } }
+    { rawBody: { model: "deepseek-chat" } },
+    { request: { url: "https://api.deepseek.com" } },
+    { config: { endpoint: "https://api.deepseek.com" } }
   ]) {
     const response = await savePublic(runtime, payload);
     assert.equal(response.ok, false);
@@ -160,28 +177,35 @@ await check("settings save rejects dangerous public fields", async () => {
   }
 });
 
-await check("route matrix with preview off", async () => {
-  assert.deepEqual(decideChatRoute("hello", false), { route: "local", source: "default-local", userText: "hello" });
-  assert.deepEqual(decideChatRoute("/bg hello", false), { route: "background", source: "explicit-background", userText: "hello" });
-  assert.deepEqual(decideChatRoute("@background hello", false), { route: "background", source: "explicit-background", userText: "hello" });
-  assert.deepEqual(decideChatRoute("/local hello", false), { route: "local", source: "explicit-local", userText: "hello" });
-  assert.deepEqual(decideChatRoute("@local hello", false), { route: "local", source: "explicit-local", userText: "hello" });
+await check("settings save rejects invalid runtimeMode", async () => {
+  const runtime = createRuntime();
+  const response = await savePublic(runtime, { runtimeMode: "connected" });
+  assert.equal(response.ok, false);
+  assert.equal(response.error.code, "RUNTIME_MODE_INVALID");
 });
 
-await check("route matrix with preview on", async () => {
-  assert.deepEqual(decideChatRoute("hello", true), { route: "background", source: "preview", userText: "hello" });
-  assert.deepEqual(decideChatRoute("/bg hello", true), { route: "background", source: "explicit-background", userText: "hello" });
-  assert.deepEqual(decideChatRoute("@background hello", true), { route: "background", source: "explicit-background", userText: "hello" });
-  assert.deepEqual(decideChatRoute("/local hello", true), { route: "local", source: "explicit-local", userText: "hello" });
-  assert.deepEqual(decideChatRoute("@local hello", true), { route: "local", source: "explicit-local", userText: "hello" });
+await check("route matrix with local backend mode", async () => {
+  assert.deepEqual(decideChatRoute("hello", "local_backend"), { route: "local", source: "default-local", userText: "hello" });
+  assert.deepEqual(decideChatRoute("/bg hello", "local_backend"), { route: "background", source: "explicit-background", userText: "hello" });
+  assert.deepEqual(decideChatRoute("@background hello", "local_backend"), { route: "background", source: "explicit-background", userText: "hello" });
+  assert.deepEqual(decideChatRoute("/local hello", "local_backend"), { route: "local", source: "explicit-local", userText: "hello" });
+  assert.deepEqual(decideChatRoute("@local hello", "local_backend"), { route: "local", source: "explicit-local", userText: "hello" });
 });
 
-await check("preview background failure does not call local fallback", async () => {
+await check("route matrix with background runtime beta mode", async () => {
+  assert.deepEqual(decideChatRoute("hello", "background_runtime_beta"), { route: "background", source: "preview", userText: "hello" });
+  assert.deepEqual(decideChatRoute("/bg hello", "background_runtime_beta"), { route: "background", source: "explicit-background", userText: "hello" });
+  assert.deepEqual(decideChatRoute("@background hello", "background_runtime_beta"), { route: "background", source: "explicit-background", userText: "hello" });
+  assert.deepEqual(decideChatRoute("/local hello", "background_runtime_beta"), { route: "local", source: "explicit-local", userText: "hello" });
+  assert.deepEqual(decideChatRoute("@local hello", "background_runtime_beta"), { route: "local", source: "explicit-local", userText: "hello" });
+});
+
+await check("background beta failure does not call local fallback", async () => {
   let localCalls = 0;
   let backgroundCalls = 0;
   const response = await simulateChatSubmit({
     input: "hello",
-    previewEnabled: true,
+    runtimeMode: "background_runtime_beta",
     localImpl: () => {
       localCalls += 1;
       return { ok: true };
@@ -195,7 +219,7 @@ await check("preview background failure does not call local fallback", async () 
   assert.equal(response.ok, false);
   assert.equal(response.source, "preview");
   assert.equal(response.message, "Background Runtime failed.");
-  assert.equal(response.recovery, "Disable Background Runtime Preview to use Local Backend.");
+  assert.equal(response.recovery, "Switch Runtime Mode to Local Backend to use the local backend.");
   assert.equal(backgroundCalls, 1);
   assert.equal(localCalls, 0);
 });
@@ -203,7 +227,7 @@ await check("preview background failure does not call local fallback", async () 
 await check("explicit background failure keeps remove prefix recovery", async () => {
   const response = await simulateChatSubmit({
     input: "/bg hello",
-    previewEnabled: false,
+    runtimeMode: "local_backend",
     localImpl: () => ({ ok: true }),
     backgroundImpl: () => {
       throw new Error("missing readiness");
@@ -215,7 +239,7 @@ await check("explicit background failure keeps remove prefix recovery", async ()
   assert.equal(response.recovery, "Remove /bg or @background to use ordinary Chat.");
 });
 
-await check("missing permission in preview route guard fails without fetch", async () => {
+await check("missing permission in background route guard fails without fetch", async () => {
   await withRuntime({
     permissionGranted: false,
     fetchImpl: async () => ({ ok: true, status: 200 })
@@ -229,7 +253,7 @@ await check("missing permission in preview route guard fails without fetch", asy
   });
 });
 
-await check("missing Runtime Key in preview route guard fails without fetch", async () => {
+await check("missing Runtime Key in background route guard fails without fetch", async () => {
   await withRuntime({
     fetchImpl: async () => ({ ok: true, status: 200 })
   }, async (runtime, getFetchCount) => {
@@ -241,15 +265,15 @@ await check("missing Runtime Key in preview route guard fails without fetch", as
   });
 });
 
-await check("core non-chat actions are available for runtime preview routing", async () => {
-  const previewActions = ["explain_selection", "translate", "summarize_page"];
-  assert.deepEqual(previewActions, ["explain_selection", "translate", "summarize_page"]);
+await check("core non-chat actions are available for runtime mode routing", async () => {
+  const runtimeActions = ["explain_selection", "translate", "summarize_page"];
+  assert.deepEqual(runtimeActions, ["explain_selection", "translate", "summarize_page"]);
 });
 
 await check("content source labels cover local and background success/failure", async () => {
   const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
   assert.match(appSource, /Source: Local Backend\. Main AI actions use the local backend\./);
-  assert.match(appSource, /Source: Local Backend\. Local backend request failed\./);
+  assert.match(appSource, /Source: Local Backend\. Runtime mode: Local Backend\. Local backend request failed\./);
   assert.match(appSource, /Source: Background Runtime\. Main AI actions still use the local backend\./);
-  assert.match(appSource, /Source: Background Runtime\. Background route failed\./);
+  assert.match(appSource, /Source: Background Runtime\. Background Runtime failed\./);
 });

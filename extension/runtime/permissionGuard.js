@@ -11,6 +11,8 @@ const FORBIDDEN_PUBLIC_KEYS = Object.freeze([
   "headers",
   "rawbody",
   "body",
+  "request",
+  "config",
   ["author", "ization"].join(""),
   "token",
   "bearer"
@@ -24,7 +26,7 @@ function forbiddenPublicKeyIn(value = {}) {
 }
 
 export function validatePublicSettings(settings = {}) {
-  const allowedKeys = new Set(["provider", "model", "saveMode", "debugEnabled", "backgroundRuntimePreviewEnabled", "backgroundChatPreviewEnabled"]);
+  const allowedKeys = new Set(["provider", "model", "saveMode", "debugEnabled", "runtimeMode", "backgroundRuntimePreviewEnabled", "backgroundChatPreviewEnabled"]);
 
   if (settings.provider !== undefined && (typeof settings.provider !== "string" || !hasProvider(settings.provider))) {
     return {
@@ -87,6 +89,20 @@ export function validatePublicSettings(settings = {}) {
       error: {
         code: "DEBUG_FLAG_INVALID",
         message: "Runtime debugEnabled must be boolean."
+      }
+    };
+  }
+
+  if (
+    settings.runtimeMode !== undefined
+    && settings.runtimeMode !== "local_backend"
+    && settings.runtimeMode !== "background_runtime_beta"
+  ) {
+    return {
+      ok: false,
+      error: {
+        code: "RUNTIME_MODE_INVALID",
+        message: "Runtime mode must be local_backend or background_runtime_beta."
       }
     };
   }
@@ -376,7 +392,7 @@ function invalidRuntimeActionPayload() {
     mode: "background-action",
     errorCode: "INVALID_PAYLOAD",
     message: "Invalid background runtime action payload.",
-    recoveryHint: "Disable Background Runtime Preview to use Local Backend.",
+    recoveryHint: "Switch Runtime Mode to Local Backend to use the local backend.",
     requestEnabled: false
   };
 }
@@ -384,9 +400,9 @@ function invalidRuntimeActionPayload() {
 function invalidBackgroundChatReadinessPayload() {
   return {
     ok: false,
-    mode: "background-chat-readiness",
+    mode: "background-runtime-readiness",
     errorCode: "INVALID_PAYLOAD",
-    message: "Invalid background chat readiness payload.",
+    message: "Invalid background runtime readiness payload.",
     requestEnabled: false
   };
 }

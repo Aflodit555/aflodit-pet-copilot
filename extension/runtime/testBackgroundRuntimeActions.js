@@ -55,7 +55,7 @@ async function saveSettings(runtime, overrides = {}) {
       model: "deepseek-chat",
       saveMode: "local",
       debugEnabled: false,
-      backgroundRuntimePreviewEnabled: false,
+      runtimeMode: "local_backend",
       ...overrides
     }
   });
@@ -80,14 +80,14 @@ function assertNoSecretLeak(response) {
   assert.equal(text.includes("Bearer"), false);
 }
 
-function decideActionRoute({ action, input = "", previewEnabled }) {
+function decideActionRoute({ action, input = "", runtimeMode }) {
   const trimmed = String(input || "").trim();
   const lower = trimmed.toLowerCase();
   if (action === "chat") {
     if (lower.startsWith("/bg ") || lower.startsWith("@background ")) return "background";
     if (lower.startsWith("/local ") || lower.startsWith("@local ")) return "local";
   }
-  return previewEnabled ? "background" : "local";
+  return runtimeMode === "background_runtime_beta" ? "background" : "local";
 }
 
 async function readyRuntime(permissionGranted = true, fetchImpl = async () => ({
@@ -106,21 +106,21 @@ async function readyRuntime(permissionGranted = true, fetchImpl = async () => ({
   return { runtime: runtimeRef, getFetchCount: fetchCountRef };
 }
 
-await check("preview off explain translate summarize route local", async () => {
-  assert.equal(decideActionRoute({ action: "explain", previewEnabled: false }), "local");
-  assert.equal(decideActionRoute({ action: "translate", previewEnabled: false }), "local");
-  assert.equal(decideActionRoute({ action: "summarize", previewEnabled: false }), "local");
+await check("local backend mode routes explain translate summarize local", async () => {
+  assert.equal(decideActionRoute({ action: "explain", runtimeMode: "local_backend" }), "local");
+  assert.equal(decideActionRoute({ action: "translate", runtimeMode: "local_backend" }), "local");
+  assert.equal(decideActionRoute({ action: "summarize", runtimeMode: "local_backend" }), "local");
 });
 
-await check("preview on explain translate summarize route background", async () => {
-  assert.equal(decideActionRoute({ action: "explain", previewEnabled: true }), "background");
-  assert.equal(decideActionRoute({ action: "translate", previewEnabled: true }), "background");
-  assert.equal(decideActionRoute({ action: "summarize", previewEnabled: true }), "background");
+await check("background runtime beta mode routes explain translate summarize background", async () => {
+  assert.equal(decideActionRoute({ action: "explain", runtimeMode: "background_runtime_beta" }), "background");
+  assert.equal(decideActionRoute({ action: "translate", runtimeMode: "background_runtime_beta" }), "background");
+  assert.equal(decideActionRoute({ action: "summarize", runtimeMode: "background_runtime_beta" }), "background");
 });
 
 await check("chat local override and bg prefix route correctly", async () => {
-  assert.equal(decideActionRoute({ action: "chat", input: "/local hello", previewEnabled: true }), "local");
-  assert.equal(decideActionRoute({ action: "chat", input: "/bg hello", previewEnabled: false }), "background");
+  assert.equal(decideActionRoute({ action: "chat", input: "/local hello", runtimeMode: "background_runtime_beta" }), "local");
+  assert.equal(decideActionRoute({ action: "chat", input: "/bg hello", runtimeMode: "local_backend" }), "background");
 });
 
 await check("runtime action explain success", async () => {

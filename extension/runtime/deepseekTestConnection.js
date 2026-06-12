@@ -92,7 +92,7 @@ function actionFailure({ action, errorCode, message, providerName = "DeepSeek" }
     providerName,
     errorCode,
     message,
-    recoveryHint: "Disable Background Runtime Preview to use Local Backend.",
+    recoveryHint: "Switch Runtime Mode to Local Backend to use the local backend.",
     requestEnabled: false
   };
 }

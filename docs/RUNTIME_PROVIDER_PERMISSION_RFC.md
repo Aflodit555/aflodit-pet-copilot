@@ -32,11 +32,14 @@ Phase 6.4 adds `runtime:getBackgroundChatReadiness` and a compact Backendless Pr
 
 Phase 7.0 adds `runtime:action` and renames the preview setting to `backgroundRuntimePreviewEnabled`. The old `backgroundChatPreviewEnabled` value is still accepted for migration. When Runtime Preview is enabled, Chat, Explain, Translate, and Summarize can use the Background Runtime. When it is disabled, ordinary actions remain on the Local Backend except explicit Chat `/bg` or `@background`.
 
+Phase 8.0 replaces the preview checkbox with a public `runtimeMode` selector: `local_backend` or `background_runtime_beta`. `local_backend` is the default. `background_runtime_beta` routes Chat, Explain, Translate, and Summarize to the background runtime after setup. The background runtime remains DeepSeek-only, requires a saved Runtime Key and the exact DeepSeek permission, and still keeps `requestEnabled=false`. Readiness is local-only and does not call the provider, request permission, run Real Test, or change settings. Real Test remains separate.
+
 ## 2. Non-goals
 
-Phase 5A through Phase 7.0 does not:
+Phase 5A through Phase 8.0 does not:
 
-- Switch the main AI request path from the local backend to the background runtime.
+- Make the background runtime the default AI request path.
+- Turn Background Runtime Beta into a generic provider runtime.
 - Add broad real provider network calls beyond DeepSeek-only Real Test Connection and optional DeepSeek background Chat.
 - Add broad host permissions.
 - Request optional host permissions at runtime except the DeepSeek-only permission request in Phase 5C.1.
@@ -59,7 +62,7 @@ content script -> background runtime settings/secret preview
 content script -> background runtime -> DeepSeek minimal real test
 ```
 
-The preview path stores and reloads public settings, provider allowlist state, a Runtime Key preview, a mock Test Connection result, a DeepSeek-only Real Test result, an optional DeepSeek background Chat result, and the `backgroundChatPreviewEnabled` toggle. The toggle can route ordinary Chat through Background Runtime only when the user explicitly enables it.
+The preview path stores and reloads public settings, provider allowlist state, a Runtime Key preview, a mock Test Connection result, a DeepSeek-only Real Test result, optional DeepSeek background action results, and the `runtimeMode` selector. `runtimeMode=local_backend` keeps ordinary Chat / Explain / Translate / Summarize on the local backend. `runtimeMode=background_runtime_beta` routes those four actions through Background Runtime after setup.
 
 In Phase 5C.0, the preview path can also ask the background runtime for `runtime:getProviderPermissionStatus` with only `{ "providerId": "deepseek" }`. The background runtime resolves the provider from the allowlist and checks `chrome.permissions.contains` for `https://api.deepseek.com/*`.
 
@@ -72,6 +75,8 @@ In Phase 6.3, the Chat UI also supports `/local ` and `@local ` as explicit Loca
 In Phase 6.4, the preview path can ask the background runtime for `runtime:getBackgroundChatReadiness` with only `{ "providerId": "deepseek", "model": "deepseek-chat" }`. The response is a safe checklist for UI display and never includes API keys, Authorization headers, URLs from content, raw provider responses, or request bodies.
 
 In Phase 7.0, the preview path can ask the background runtime for `runtime:action` with only `providerId`, optional `model`, `action`, `userText`, optional `pageText`, and optional `selectionText`. The background runtime chooses the prompt internally from the action type. Content scripts cannot provide custom prompt templates, URLs, headers, request bodies, or secrets.
+
+In Phase 8.0, the content script saves only the public `runtimeMode` enum. If a stored setting still has `backgroundRuntimePreviewEnabled=true` and no `runtimeMode`, it is migrated to `background_runtime_beta`. If both fields exist, `runtimeMode` wins. The UI allows selecting Background Runtime Beta even when readiness is not ready, but it warns about missing Runtime Key, permission, model, or unsupported provider and keeps Local Backend available.
 
 ## 4. Permission Strategy Options
 
@@ -265,12 +270,12 @@ Responses must not include:
 
 ## 6.1 Optional Background Chat Design And Audit
 
-Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior. Phase 6.2 adds release-gate source labels and explicit failure UX. Phase 6.3 adds a disabled-by-default Background Chat Preview toggle plus explicit Local Backend overrides. Phase 6.4 adds a read-only readiness checklist before users try Background Chat. Phase 7.0 generalizes the preview into Background Runtime Preview for Chat, Explain, Translate, and Summarize.
+Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior. Phase 6.2 adds release-gate source labels and explicit failure UX. Phase 6.3 adds a disabled-by-default Background Chat Preview toggle plus explicit Local Backend overrides. Phase 6.4 adds a read-only readiness checklist before users try Background Chat. Phase 7.0 generalizes the preview into Background Runtime Preview for Chat, Explain, Translate, and Summarize. Phase 8.0 replaces the checkbox with the Runtime Mode selector and keeps Local Backend as the default.
 
 Rules:
 
-- With `backgroundRuntimePreviewEnabled=false`, ordinary Chat, Explain, Translate, and Summarize use the local backend.
-- With `backgroundRuntimePreviewEnabled=true`, ordinary Chat, Explain, Translate, and Summarize use Background Runtime.
+- With `runtimeMode=local_backend`, ordinary Chat, Explain, Translate, and Summarize use the local backend.
+- With `runtimeMode=background_runtime_beta`, ordinary Chat, Explain, Translate, and Summarize use Background Runtime.
 - `/bg ` and `@background ` force Background Runtime Chat.
 - `/local ` and `@local ` force Local Backend Chat.
 - The content script may send only `providerId`, `model`, and `userText` to legacy `runtime:chat`.
@@ -285,7 +290,8 @@ Rules:
 - Local backend results must identify Local Backend as the source.
 - Mock Test, Permission Check, and Real Provider Test messages must keep visible labels.
 - Background Runtime failures must say the Background Runtime failed and Local Backend remains available.
-- Preview-mode Background Runtime failures must tell users to disable Background Runtime Preview.
+- Background Runtime Beta failures must tell users to switch Runtime Mode to Local Backend.
+- Chat failures in Background Runtime Beta should also mention that `/local` can force Local Backend Chat.
 - Explicit `/bg` and `@background` failures must keep the remove-prefix recovery copy.
 - Background Chat failures must not trigger automatic fallback to `/api/pet`.
 - Readiness checks must not call fetch, request permission, run Real Test, save secrets, or modify provider settings.

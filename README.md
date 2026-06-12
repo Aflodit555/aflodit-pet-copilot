@@ -22,7 +22,15 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.8.0 Backendless Runtime Phase 7.0`。
+当前实现是 `v0.8.0 Backendless Runtime Phase 8.0`。
+
+### v0.8.0 Phase 8.0 Runtime Mode Selector / Backendless Beta
+
+Phase 8.0 replaces the old `Background Runtime Preview` checkbox with a clear `Runtime Mode` selector: `Local Backend` or `Background Runtime Beta`. `Local Backend` remains the default and keeps ordinary Chat / Explain / Translate / Summarize on `127.0.0.1`.
+
+`Background Runtime Beta` can route Chat / Explain / Translate / Summarize through the extension background runtime after setup, without the local backend. It currently supports DeepSeek only, requires a saved Runtime Key plus the exact DeepSeek permission, and keeps `Request enabled: no`. `Check Readiness` is local-only: it does not call the provider, request permission, run Real Test, or change `requestEnabled`. Real Test remains separate.
+
+Chat-only overrides remain available: `/bg` or `@background` force Background Runtime, and `/local` or `@local` force Local Backend. Background Runtime failures do not automatically fall back; switch Runtime Mode to Local Backend or use `/local` for Chat.
 
 ### v0.8.0 Phase 7.0 Background Runtime Actions Preview
 
@@ -138,7 +146,7 @@ Runtime Key 的保存位置由 `saveMode` 决定：
 
 ## 快速开始
 
-在最终 Backendless 版本完成前，当前 Phase 7.0 默认仍按本地后端流程运行；只有显式 `/bg` / `@background`，或开启 Background Runtime Preview 后的 Chat / Explain / Translate / Summarize，会走 background runtime。`/local` / `@local` 可强制普通 Chat 走本地后端，`Check Readiness` 可在不请求真实 provider 的情况下检查 Runtime Preview 是否可用。
+Phase 8.0 default Runtime Mode is `Local Backend`, so ordinary Chat / Explain / Translate / Summarize still use the local backend. Select `Background Runtime Beta` to route those four actions through the extension background runtime after saving a Runtime Key, granting DeepSeek permission, and choosing a model. `/bg` / `@background` and `/local` / `@local` remain Chat-only overrides. `Check Readiness` is local-only and does not contact the provider, request permission, run Real Test, or change `requestEnabled`.
 
 ### 1. 准备环境
 
