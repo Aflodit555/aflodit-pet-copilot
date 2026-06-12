@@ -902,6 +902,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                     <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test</button>
                     <button id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission</button>
                     <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button">Request Permission</button>
+                    <button id="aflodit-pet-runtime-test-real" class="pet-secondary-button">Real Test</button>
                   </div>
                 </div>
                 <div class="pet-runtime-actions-row pet-runtime-nav-row">
@@ -1401,6 +1402,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeTestMock: root.querySelector("#aflodit-pet-runtime-test-mock"),
       runtimeCheckPermission: root.querySelector("#aflodit-pet-runtime-check-permission"),
       runtimeRequestPermission: root.querySelector("#aflodit-pet-runtime-request-permission"),
+      runtimeTestReal: root.querySelector("#aflodit-pet-runtime-test-real"),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
       runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
       runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),
@@ -3302,6 +3304,9 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       const finalFace = this.resolveFinalFace(result);
       enforceScrollBoxes();
       dom.status.textContent = "本地后端已返回结果。";
+      if (result.mode === "background-chat") {
+        dom.status.textContent = "Background runtime returned a chat result. Main AI actions still use the local backend.";
+      }
       dom.reply.textContent = normalizeUserErrorMessage(null, {
         result,
         fallback: result.reply || "后端没有返回 reply。"
@@ -3400,7 +3405,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       if (dom.runtimeStatus) dom.runtimeStatus.textContent = label;
     },
 
-    send(message) {
+    send(message, timeoutMs = CONFIG.backgroundStatusTimeoutMs) {
       const runtime = globalThis.chrome?.runtime;
       if (!runtime?.sendMessage) {
         return Promise.resolve(null);
@@ -3412,7 +3417,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           if (settled) return;
           settled = true;
           resolve(null);
-        }, CONFIG.backgroundStatusTimeoutMs);
+        }, timeoutMs);
 
         try {
           runtime.sendMessage(message, (response) => {
@@ -3434,8 +3439,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       });
     },
 
-    async request(message) {
-      const response = await this.send(message);
+    async request(message, timeoutMs = CONFIG.backgroundStatusTimeoutMs) {
+      const response = await this.send(message, timeoutMs);
       if (!response) {
         return {
           ok: false,
@@ -3450,6 +3455,17 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
     async getStatus() {
       return this.request({ type: "runtime:getStatus" });
+    },
+
+    async chat(payload = {}) {
+      return this.request({
+        type: "runtime:chat",
+        payload: {
+          providerId: payload.providerId,
+          model: payload.model,
+          userText: payload.userText
+        }
+      }, 45000);
     },
 
     async getPublicSettings() {
@@ -3471,6 +3487,16 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     async testConnectionMock(payload = {}) {
       return this.request({
         type: "runtime:testConnectionMock",
+        payload: {
+          providerId: payload.providerId,
+          model: payload.model
+        }
+      });
+    },
+
+    async testProviderConnection(payload = {}) {
+      return this.request({
+        type: "runtime:testProviderConnection",
         payload: {
           providerId: payload.providerId,
           model: payload.model
@@ -3518,6 +3544,110 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     }
   };
 
+  function installBackgroundChatRoute() {
+    if (!ActionRunner || ActionRunner.backgroundChatRouteInstalled) return;
+
+    const originalRunAction = ActionRunner.runAction.bind(ActionRunner);
+    const backgroundChatUserTextLimit = 512;
+
+    ActionRunner.applyBackgroundChatInputHint = function applyBackgroundChatInputHint() {
+      if (!dom.chatInput) return;
+      dom.chatInput.placeholder = "Chat message. Use /bg or @background for background runtime.";
+      dom.chatInput.title = "Normal chat uses the local backend. Prefix with /bg or @background to test background runtime chat.";
+    };
+
+    ActionRunner.parseBackgroundChatInput = function parseBackgroundChatInput(userText = "") {
+      const trimmed = String(userText || "").trim();
+      const lower = trimmed.toLowerCase();
+      const prefixes = ["/bg ", "@background "];
+      const prefix = prefixes.find((item) => lower.startsWith(item));
+      if (!prefix) return { enabled: false, userText: trimmed };
+      return {
+        enabled: true,
+        userText: trimmed.slice(prefix.length).trim()
+      };
+    };
+
+    ActionRunner.callBackgroundChat = async function callBackgroundChat(userText = "") {
+      const settingsResponse = await BackgroundRuntimeClient.getPublicSettings();
+      if (!settingsResponse?.ok) {
+        const error = new Error(settingsResponse?.message || settingsResponse?.error?.message || "Background runtime settings unavailable.");
+        error.code = settingsResponse?.error?.code || settingsResponse?.errorCode;
+        throw error;
+      }
+
+      const settings = settingsResponse.settings || {};
+      const response = await BackgroundRuntimeClient.chat({
+        providerId: settings.provider,
+        model: settings.model,
+        userText
+      });
+
+      if (!response?.ok) {
+        const error = new Error(response?.message || response?.error?.message || "Background chat failed.");
+        error.code = response?.errorCode || response?.error?.code;
+        error.data = response;
+        throw error;
+      }
+
+      return {
+        ...response,
+        reply: String(response.reply || "").trim(),
+        emotion: response.emotion || "neutral",
+        motion: response.motion || "idle",
+        bubble_type: response.bubble_type || "normal",
+        confidence: Number.isFinite(Number(response.confidence)) ? Number(response.confidence) : 0.7
+      };
+    };
+
+    ActionRunner.runAction = async function runActionWithOptionalBackgroundChat(action, userText = "") {
+      const backgroundChat = action === ACTION.CHAT
+        ? this.parseBackgroundChatInput(userText)
+        : { enabled: false };
+      if (!backgroundChat.enabled) return originalRunAction(action, userText);
+      if (state.running) return;
+
+      UIController.openPanel(action);
+      if (!backgroundChat.userText) {
+        UIController.showWarning(actionConfig(action).empty);
+        return;
+      }
+      if (backgroundChat.userText.length > backgroundChatUserTextLimit) {
+        UIController.showWarning("Background chat accepts 1-512 characters. Shorten the message or use normal chat.");
+        return;
+      }
+
+      const requestId = ++state.requestId;
+      const payload = this.buildPayload(action, backgroundChat.userText);
+      state.pendingRequest = {
+        action,
+        selectedText: "",
+        fingerprint: `background-chat|${payload.user_text}`
+      };
+      UIController.showLoading(action);
+      if (dom.mode) dom.mode.textContent = "Background Chat";
+      if (dom.status) dom.status.textContent = "Sending Chat through background runtime. Main AI actions still use the local backend.";
+      setRunning(true);
+
+      try {
+        const result = await this.callBackgroundChat(payload.user_text);
+        if (requestId !== state.requestId || state.ui !== UI.PANEL) return;
+        UIController.showResult(result);
+      } catch (error) {
+        if (requestId !== state.requestId || state.ui !== UI.PANEL) return;
+        console.error(error);
+        UIController.showError(error);
+      } finally {
+        if (requestId === state.requestId) state.pendingRequest = null;
+        if (requestId === state.requestId) setRunning(false);
+      }
+    };
+
+    ActionRunner.backgroundChatRouteInstalled = true;
+  }
+
+  installBackgroundChatRoute();
+
   const RuntimeSettingsManager = {
     busy: false,
 
@@ -3527,7 +3657,9 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       dom.runtimeSaveKey.disabled = busy;
       dom.runtimeTestMock.disabled = busy;
       dom.runtimeCheckPermission.disabled = busy;
+      dom.runtimeTestReal.disabled = busy;
       this.updatePermissionRequestButton();
+      this.updateRealTestButton();
       dom.runtimeReload.disabled = busy;
       dom.runtimeClearKey.disabled = busy;
     },
@@ -3547,7 +3679,19 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         PROVIDER_NOT_ALLOWED: "Provider is not available in Backendless Preview.",
         PERMISSION_NOT_CONFIGURED: "Provider permission is not configured in this preview phase.",
         PERMISSION_DENIED: "Provider permission was not granted. Real provider requests are still disabled.",
-        INVALID_PAYLOAD: "Provider permission status rejected invalid payload.",
+        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek in this preview phase.",
+        REAL_TEST_NOT_CONFIGURED: "Real provider test is only configured for DeepSeek in this preview phase.",
+        MISSING_PROVIDER_PERMISSION: "DeepSeek permission is missing. Grant provider permission before running a real test.",
+        MISSING_RUNTIME_KEY: "Runtime key is missing. Save a Runtime Key before running a real test.",
+        AUTH_FAILED: "DeepSeek authentication failed. Check your Runtime Key.",
+        RATE_LIMITED: "DeepSeek rate limit reached. Try again later.",
+        PROVIDER_QUOTA_EXCEEDED: "DeepSeek quota appears to be exhausted.",
+        PROVIDER_BAD_REQUEST: "DeepSeek rejected the minimal test request.",
+        PROVIDER_UNAVAILABLE: "DeepSeek service is currently unavailable. Try again later.",
+        NETWORK_ERROR: "DeepSeek real test failed due to a network error.",
+        TIMEOUT: "DeepSeek real test timed out.",
+        PROVIDER_ERROR: "DeepSeek real test failed.",
+        INVALID_PAYLOAD: "Provider preview request rejected invalid payload.",
         RUNTIME_TEST_PAYLOAD_FORBIDDEN: "Runtime mock test rejected unsafe fields.",
         RUNTIME_TEST_PAYLOAD_UNKNOWN: "Runtime mock test rejected unsupported fields."
       };
@@ -3604,6 +3748,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         dom.runtimeProviderRequestEnabled.textContent = provider.requestEnabled ? "yes" : "no";
       }
       this.updatePermissionRequestButton(provider.id);
+      this.updateRealTestButton(provider.id);
     },
 
     updatePermissionRequestButton(providerId = dom.runtimeProvider?.value || "mock") {
@@ -3612,6 +3757,14 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       dom.runtimeRequestPermission.title = providerId === "deepseek"
         ? "Request DeepSeek optional host permission."
         : "Permission request is only configured for DeepSeek in this preview phase.";
+    },
+
+    updateRealTestButton(providerId = dom.runtimeProvider?.value || "mock") {
+      if (!dom.runtimeTestReal) return;
+      dom.runtimeTestReal.disabled = this.busy;
+      dom.runtimeTestReal.title = providerId === "deepseek"
+        ? "Run a minimal DeepSeek real test. Main AI actions still use the local backend."
+        : "Real provider test is only configured for DeepSeek in this preview phase.";
     },
 
     applyPermissionStatus(response = {}, providerId = dom.runtimeProvider?.value || "mock") {
@@ -3630,6 +3783,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         dom.runtimeProviderRequestEnabled.textContent = "no";
       }
       this.updatePermissionRequestButton(providerId);
+      this.updateRealTestButton(providerId);
     },
 
     handleProviderChange() {
@@ -3825,6 +3979,38 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         this.applyPermissionStatus(status, form.provider);
       } catch (error) {
         this.setMessage(error?.message || "Provider permission request failed.");
+      } finally {
+        this.setBusy(false);
+      }
+    },
+
+    async testReal() {
+      if (this.busy) return;
+      const form = this.readForm();
+      if (form.provider === "deepseek") {
+        const confirmed = window.confirm(
+          "This sends a minimal DeepSeek request and may consume a tiny amount of quota. Main AI actions still use the local backend."
+        );
+        if (!confirmed) return;
+      }
+
+      this.setBusy(true);
+      this.setMessage("Running real provider test...");
+      try {
+        const response = await BackgroundRuntimeClient.testProviderConnection({
+          providerId: form.provider,
+          model: form.model
+        });
+        if (dom.runtimeProviderRequestEnabled) {
+          dom.runtimeProviderRequestEnabled.textContent = "no";
+        }
+        if (!response.ok) {
+          this.setMessage(response.message || this.userMessage(response, "Real provider test failed."));
+          return;
+        }
+        this.setMessage(response.message || "DeepSeek real test passed. Main AI actions still use the local backend.");
+      } catch (error) {
+        this.setMessage(error?.message || "Real provider test failed.");
       } finally {
         this.setBusy(false);
       }
@@ -4416,6 +4602,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       RuntimeSettingsManager.requestPermission();
     });
 
+    on(dom.runtimeTestReal, "click", (event) => {
+      event.stopPropagation();
+      RuntimeSettingsManager.testReal();
+    });
+
     on(dom.runtimeReload, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.load();
@@ -4542,6 +4733,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   async function init() {
     traceLayout("init starts", { version: CONFIG.version });
     createDom();
+    ActionRunner.applyBackgroundChatInputHint?.();
     await UiSettingsStore.load();
     UiSettingsStore.applyOpacity();
     traceLayout("initial root layout about to apply", {

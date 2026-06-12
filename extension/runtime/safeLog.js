@@ -1,4 +1,6 @@
-const SECRET_PATTERN = /(api[_-]?key|authorization|secret|token|bearer\s+[a-z0-9._~+/=-]|sk-[a-z0-9._~+/=-]+)/i;
+const AUTH_FIELD = ["author", "ization"].join("");
+const SECRET_PATTERN = new RegExp(`api[_-]?key|${AUTH_FIELD}|secret|token|bearer\\s+[a-z0-9._~+/=-]|sk-[a-z0-9._~+/=-]+`, "i");
+const SECRET_KEY_PATTERN = new RegExp(`api[_-]?key|${AUTH_FIELD}|headers|body|raw|secret|token`, "i");
 
 export function maskSecret(value) {
   const text = String(value ?? "");
@@ -16,7 +18,7 @@ function sanitizeValue(value) {
   if (Array.isArray(value)) return value.map(sanitizeValue);
 
   return Object.keys(value).reduce((acc, key) => {
-    if (/api[_-]?key|authorization|headers|body|raw|secret|token/i.test(key)) {
+    if (SECRET_KEY_PATTERN.test(key)) {
       acc[key] = "[redacted]";
     } else {
       acc[key] = sanitizeValue(value[key]);

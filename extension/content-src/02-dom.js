@@ -121,6 +121,7 @@
                     <button id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test</button>
                     <button id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission</button>
                     <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button">Request Permission</button>
+                    <button id="aflodit-pet-runtime-test-real" class="pet-secondary-button">Real Test</button>
                   </div>
                 </div>
                 <div class="pet-runtime-actions-row pet-runtime-nav-row">
@@ -620,6 +621,7 @@
       runtimeTestMock: root.querySelector("#aflodit-pet-runtime-test-mock"),
       runtimeCheckPermission: root.querySelector("#aflodit-pet-runtime-check-permission"),
       runtimeRequestPermission: root.querySelector("#aflodit-pet-runtime-request-permission"),
+      runtimeTestReal: root.querySelector("#aflodit-pet-runtime-test-real"),
       runtimeReload: root.querySelector("#aflodit-pet-runtime-reload"),
       runtimeClearKey: root.querySelector("#aflodit-pet-runtime-clear-key"),
       runtimeBack: root.querySelector("#aflodit-pet-runtime-back"),

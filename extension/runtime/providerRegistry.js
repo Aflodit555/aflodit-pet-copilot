@@ -26,7 +26,7 @@ const PROVIDERS = Object.freeze({
     displayName: "DeepSeek",
     protocol: "openai-compatible",
     origin: "https://api.deepseek.com",
-    chatPath: "/v1/chat/completions",
+    chatPath: "/chat/completions",
     requiredHostPermission: "https://api.deepseek.com/*",
     defaultModel: "deepseek-chat",
     enabled: true,

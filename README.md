@@ -22,13 +22,33 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.8.0 Backendless Runtime Phase 5C.1`。
+当前实现是 `v0.8.0 Backendless Runtime Phase 6.1`。
+
+### v0.8.0 Phase 6.1 Chat Background Route Audit & UI Improvement
+
+Phase 6.1 tightens the optional background Chat payload. `runtime:chat` accepts only `providerId`, `model`, and `userText`; `userText` must be 1-512 characters after trimming, and extra fields are rejected.
+
+The Chat input now hints that `/bg ` or `@background ` runs the optional background runtime route. Background Chat results are labeled as coming from background runtime, while normal Chat still uses the local backend. `requestEnabled` remains `false`.
+
+### v0.8.0 Phase 6 Optional Background Chat Route
+
+Phase 6 adds one optional background AI route for Chat only. In the Chat panel, messages starting with `/bg ` or `@background ` are sent to the extension background runtime using only public fields: `providerId`, `model`, and user input. The background runtime reads the Runtime Key internally, builds the DeepSeek request from the allowlisted provider descriptor, and returns a normal pet reply.
+
+This does not switch the main AI route. Normal Chat plus Explain/Translate/Summarize still use the local backend. `requestEnabled` remains `false`; a successful background chat does not mean the provider is connected or enabled for the main route.
+
+### v0.8.0 Phase 5C.2 DeepSeek-only Real Test Connection
+
+Phase 5C.2 adds a DeepSeek-only Real Test button in Backendless Preview. It sends one minimal DeepSeek chat completions request from the background runtime after the exact `https://api.deepseek.com/*` optional permission is granted and a Runtime Key is saved.
+
+Real Test may consume a tiny amount of DeepSeek quota. It does not switch Chat/Explain/Translate/Summarize to the background runtime, does not mark the provider connected, and does not set `requestEnabled=true`; the status card must still show `Request enabled: no`.
+
+OpenAI, DashScope, and OpenRouter real tests are intentionally not configured in this preview phase. The main AI actions still use the local backend.
 
 ### v0.8.0 Phase 5C.1 DeepSeek Permission Request UI
 
 Phase 5C.1 only requests the exact DeepSeek optional host permission `https://api.deepseek.com/*` from the background runtime. It does not request a model, does not connect to the provider, and keeps `requestEnabled=false`.
 
-OpenAI, DashScope, and OpenRouter permission requests are intentionally not configured in this preview phase. Real provider fetch remains reserved for Phase 5C.2.
+OpenAI, DashScope, and OpenRouter permission requests are intentionally not configured in this preview phase.
 
 ### v0.8.0 Phase 5C.0.1 Permission Status Wire Fix
 
@@ -94,7 +114,7 @@ Runtime Key 的保存位置由 `saveMode` 决定：
 
 ## 快速开始
 
-在最终 Backendless 版本完成前，当前 Phase 5C.1 仍按本地后端流程运行。
+在最终 Backendless 版本完成前，当前 Phase 6.1 仍按本地后端流程运行，只有显式 background Chat 预览走 background runtime。
 
 ### 1. 准备环境
 
@@ -455,7 +475,7 @@ PORT=3002
 ## 已知限制
 
 - 使用扩展时必须运行本地后端。
-- 这是 Phase 5C.1 的临时限制，后续 Phase 计划继续迁移到 background runtime。
+- 这是 Phase 6.1 的临时限制，后续 Phase 计划继续迁移到 background runtime。
 - Backendless Preview 的 Mock Test Connection 只验证安全消息链路，不请求真实模型。
 - 后端不是 production hardened 服务。
 - OpenAI-Compatible provider 的兼容性取决于对方 `/chat/completions` 行为。

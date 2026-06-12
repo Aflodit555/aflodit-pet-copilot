@@ -18,14 +18,20 @@ Phase 5C.0.1 fixes the permission status message wire and adds lightweight tests
 
 Phase 5C.1 adds a DeepSeek-only permission request UI. The background runtime may call `chrome.permissions.request` only for the exact allowlisted origin `https://api.deepseek.com/*`. This does not request a model, does not indicate provider connection, and keeps `requestEnabled=false`. OpenAI, DashScope, and OpenRouter permission requests remain unconfigured.
 
+Phase 5C.2 adds a DeepSeek-only Real Test Connection. The background runtime may send one minimal DeepSeek chat completions request after permission is granted and a Runtime Key exists. This may consume a tiny amount of quota, does not switch Chat/Explain/Translate/Summarize to the background runtime, does not indicate provider connection, and keeps `requestEnabled=false`. OpenAI, DashScope, and OpenRouter real tests remain unconfigured.
+
+Phase 6 adds one optional background AI route for Chat only. The content script may send only `providerId`, `model`, and user input to `runtime:chat`; the background runtime reads the Runtime Key internally and calls the allowlisted DeepSeek chat completions endpoint. Normal Chat without the explicit background prefix, plus Explain, Translate, and Summarize, still use the local backend.
+
+Phase 6.1 audits the optional background Chat route. `runtime:chat` accepts only `providerId`, `model`, and `userText`; `userText` must be a trimmed 1-512 character string. Extra fields such as URL, headers, raw body, API key, token, or endpoint are rejected before any provider request is attempted.
+
 ## 2. Non-goals
 
-Phase 5A/5C.0 does not:
+Phase 5A through Phase 6.1 does not:
 
-- Switch the AI request path from the local backend to the background runtime.
-- Add real provider network calls.
+- Switch the main AI request path from the local backend to the background runtime.
+- Add broad real provider network calls beyond DeepSeek-only Real Test Connection and optional DeepSeek background Chat.
 - Add broad host permissions.
-- Request optional host permissions at runtime.
+- Request optional host permissions at runtime except the DeepSeek-only permission request in Phase 5C.1.
 - Support custom endpoints.
 - Expose the full Runtime Key or backend API Key to the content script.
 - Turn the background runtime into a generic proxy.
@@ -42,11 +48,16 @@ The Backendless Preview path is currently:
 
 ```text
 content script -> background runtime settings/secret preview
+content script -> background runtime -> DeepSeek minimal real test
 ```
 
-The preview path stores and reloads public settings, provider allowlist state, a Runtime Key preview, and a mock Test Connection result. It does not run real AI requests yet.
+The preview path stores and reloads public settings, provider allowlist state, a Runtime Key preview, a mock Test Connection result, a DeepSeek-only Real Test result, and an optional DeepSeek background Chat result. It does not switch the main AI route to the background runtime.
 
-In Phase 5C.0, the preview path can also ask the background runtime for `runtime:getProviderPermissionStatus` with only `{ "providerId": "deepseek" }`. The background runtime resolves the provider from the allowlist and checks `chrome.permissions.contains` for `https://api.deepseek.com/*`. This is status-only; `chrome.permissions.request` remains out of scope.
+In Phase 5C.0, the preview path can also ask the background runtime for `runtime:getProviderPermissionStatus` with only `{ "providerId": "deepseek" }`. The background runtime resolves the provider from the allowlist and checks `chrome.permissions.contains` for `https://api.deepseek.com/*`.
+
+In Phase 5C.2, the preview path can ask the background runtime for `runtime:testProviderConnection` with only `{ "providerId": "deepseek", "model": "deepseek-chat" }`. The background runtime builds the URL from the DeepSeek descriptor, reads the Runtime Key internally, sends the minimal request, and returns a redacted result with `requestEnabled=false`.
+
+In Phase 6.1, the preview path can ask the background runtime for `runtime:chat` with only `{ "providerId": "deepseek", "model": "deepseek-chat", "userText": "hello" }`. It is opt-in from the Chat UI with `/bg ` or `@background ` and does not carry selected text, page text, URLs, headers, raw bodies, or API keys from the content script.
 
 ## 4. Permission Strategy Options
 
@@ -167,7 +178,7 @@ Rationale:
 
 ## 6. Test Connection Design
 
-Real Test Connection is a future design item, not implemented in Phase 5B. Phase 5B only implements a mock Test Connection skeleton.
+Real Test Connection is implemented only for DeepSeek in Phase 5C.2. Phase 5B only implements a mock Test Connection skeleton.
 
 Rules:
 
@@ -180,8 +191,11 @@ Rules:
 - The response must be minimal and redacted.
 - Phase 5B mock Test Connection must not request a real provider.
 - Phase 5B mock Test Connection must not set `requestEnabled=true`.
+- Phase 5C.2 Real Test Connection must use only the DeepSeek allowlisted origin.
+- Phase 5C.2 Real Test Connection must not set `requestEnabled=true`.
+- OpenAI, DashScope, and OpenRouter real tests are not configured in Phase 5C.2.
 
-Successful response shape:
+Mock successful response shape:
 
 ```json
 {
@@ -210,6 +224,23 @@ Failure response shape:
 }
 ```
 
+DeepSeek Real Test successful response shape:
+
+```json
+{
+  "ok": true,
+  "mode": "real-test",
+  "providerId": "deepseek",
+  "providerName": "DeepSeek",
+  "model": "deepseek-chat",
+  "permissionGranted": true,
+  "hasApiKey": true,
+  "latencyMs": 1234,
+  "requestEnabled": false,
+  "message": "DeepSeek real test passed. Main AI actions still use the local backend."
+}
+```
+
 Responses must not include:
 
 - Authorization header values.
@@ -218,14 +249,33 @@ Responses must not include:
 - Raw provider responses.
 - Stack traces that contain secret material.
 
+## 6.1 Optional Background Chat Design And Audit
+
+Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior.
+
+Rules:
+
+- It is opt-in from Chat input only with `/bg ` or `@background `.
+- Normal Chat without the prefix still uses the local backend.
+- Explain, Translate, and Summarize still use the local backend.
+- The content script may send only `providerId`, `model`, and `userText`.
+- `userText` must be a trimmed 1-512 character string.
+- Any extra payload field returns `INVALID_PAYLOAD`.
+- The background runtime reads the Runtime Key only from `secretStore`.
+- The URL, headers, and request body are generated inside the background runtime helper.
+- The response is normalized to the existing pet UI shape: `reply`, `emotion`, `motion`, `bubble_type`, and `confidence`.
+- The Chat input placeholder names `/bg` and `@background`.
+- Background Chat output must identify background runtime as the source.
+- `requestEnabled` remains `false`.
+
 ## 7. Token and Cost Policy
 
-Test Connection may consume provider quota after real provider requests are enabled.
+DeepSeek Real Test Connection may consume a tiny amount of provider quota in Phase 5C.2. Mock Test Connection does not consume provider quota.
 
 Recommended rollout:
 
 - Phase 5B: implement mock Test Connection skeleton only. It does not consume tokens.
-- Phase 5C: implement real Test Connection with the smallest practical request.
+- Phase 5C.2: implement DeepSeek-only real Test Connection with the smallest practical request.
 - If a provider has no safe metadata endpoint, use a minimal chat completion request.
 - UI copy must clearly state that a real provider test may consume a small amount of tokens or quota.
 
@@ -251,6 +301,10 @@ Phase 4 intentionally has every provider set to `requestEnabled=false`. Phase 5B
 
 Phase 5C.0 keeps every provider at `requestEnabled=false`. A granted DeepSeek optional host permission only means the browser permission is present; it is not a successful provider connection and it does not enable real provider requests.
 
+Phase 5C.2 also keeps every provider at `requestEnabled=false`. A successful DeepSeek Real Test means only that the Runtime Key, exact DeepSeek host permission, and DeepSeek API reachability worked for the minimal test request. It does not enable the main AI route.
+
+Phase 6.1 keeps every provider at `requestEnabled=false`. A successful optional background Chat response means only that the explicit single-action preview route worked for that request. It does not enable the main AI route or any other action.
+
 ## 9. Logging and Redaction
 
 Logging rules:
@@ -271,11 +325,13 @@ Phase 5C.0: DeepSeek optional host permission status skeleton
 Phase 5C.0.1: permission status wire fix + compact runtime preview UI
 Phase 5C.1: DeepSeek permission request UI
 Phase 5C.2: DeepSeek-only real Test Connection
-Phase 5D: provider adapter hardening
-Phase 6: optional background AI route for one action
+Phase 6: optional background AI route for chat
+Phase 6.1: background chat route audit and UI improvement
+Phase 6.2: provider adapter hardening
+Phase 7: optional background AI route expansion
 ```
 
-Phase 6 should not migrate all AI actions at once. Validate one background route first, for example chat, before considering explain, translate, or summarize.
+Phase 6.1 should not migrate all AI actions at once. Validate chat before considering explain, translate, or summarize.
 
 ## 11. Security Checklist
 

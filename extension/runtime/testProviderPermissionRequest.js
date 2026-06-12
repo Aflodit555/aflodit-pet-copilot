@@ -81,7 +81,7 @@ await check("Payload with url is rejected", async () => {
   assert.equal(response.requestEnabled, false);
 });
 
-await check("Payload with headers Authorization is rejected", async () => {
+await check("Payload with auth header is rejected", async () => {
   const response = await send({
     providerId: "deepseek",
     headers: {

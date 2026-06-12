@@ -1,8 +1,10 @@
 import { MESSAGE_TYPES, validateMessage } from "./messageProtocol.js";
 import {
   assertNoArbitraryNetworkAccess,
+  validateProviderConnectionTestPayload,
   validateProviderPermissionRequestPayload,
   validateProviderPermissionStatusPayload,
+  validateRuntimeChatPayload,
   validateRuntimeTestPayload,
   validateSecretPayload
 } from "./permissionGuard.js";
@@ -10,6 +12,7 @@ import { createSafeLogger } from "./safeLog.js";
 import { createSecretStore } from "./secretStore.js";
 import { createSettingsStore } from "./settingsStore.js";
 import { getProvider, listPublicProviders } from "./providerRegistry.js";
+import { requiredDeepSeekHostPermission, runDeepSeekBackgroundChat, testDeepSeekRealConnection } from "./deepseekTestConnection.js";
 
 const DEEPSEEK_PROVIDER_ID = "deepseek";
 const DEEPSEEK_REQUIRED_HOST_PERMISSION = "https://api.deepseek.com/*";
@@ -177,6 +180,179 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         };
       }
 
+      if (parsed.type === MESSAGE_TYPES.runtimeChat) {
+        const guard = validateRuntimeChatPayload(parsed.payload || {});
+        if (!guard.ok) return guard;
+
+        const providerId = parsed.payload.providerId.trim();
+        const provider = getProvider(providerId);
+        if (!provider) {
+          return {
+            ok: false,
+            mode: "background-chat",
+            errorCode: "UNKNOWN_PROVIDER",
+            message: "Unknown provider.",
+            requestEnabled: false
+          };
+        }
+
+        if (!provider.enabled) {
+          return {
+            ok: false,
+            mode: "background-chat",
+            providerId: provider.id,
+            errorCode: "PROVIDER_DISABLED",
+            message: "Provider is disabled.",
+            requestEnabled: false
+          };
+        }
+
+        if (provider.id !== DEEPSEEK_PROVIDER_ID) {
+          return {
+            ok: false,
+            mode: "background-chat",
+            providerId: provider.id,
+            errorCode: "BACKGROUND_CHAT_NOT_CONFIGURED",
+            message: "Background chat is only configured for DeepSeek in this preview phase.",
+            requestEnabled: false
+          };
+        }
+
+        if (provider.requiredHostPermission !== requiredDeepSeekHostPermission()) {
+          return {
+            ok: false,
+            mode: "background-chat",
+            providerId: provider.id,
+            providerName: provider.displayName,
+            errorCode: "PERMISSION_NOT_CONFIGURED",
+            message: "DeepSeek permission is not configured in this preview phase.",
+            requestEnabled: false
+          };
+        }
+
+        const permissionGranted = await containsPermission(chromeApi, provider.requiredHostPermission);
+        if (!permissionGranted) {
+          return {
+            ok: false,
+            mode: "background-chat",
+            providerId: provider.id,
+            providerName: provider.displayName,
+            errorCode: "MISSING_PROVIDER_PERMISSION",
+            message: "DeepSeek permission is missing. Grant provider permission before running background chat.",
+            requestEnabled: false
+          };
+        }
+
+        const settings = await settingsStore.getPublicSettings();
+        const hasApiKey = await secretStore.hasSecret(settings.saveMode);
+        if (!hasApiKey) {
+          return {
+            ok: false,
+            mode: "background-chat",
+            providerId: provider.id,
+            providerName: provider.displayName,
+            errorCode: "MISSING_RUNTIME_KEY",
+            message: "Runtime key is missing. Save a Runtime Key before running background chat.",
+            requestEnabled: false
+          };
+        }
+
+        return runDeepSeekBackgroundChat({
+          provider,
+          model: parsed.payload.model,
+          userText: parsed.payload.userText,
+          secretStore,
+          saveMode: settings.saveMode,
+          logger
+        });
+      }
+
+      if (parsed.type === MESSAGE_TYPES.runtimeTestProviderConnection) {
+        const guard = validateProviderConnectionTestPayload(parsed.payload || {});
+        if (!guard.ok) return guard;
+
+        const providerId = parsed.payload.providerId.trim();
+        const provider = getProvider(providerId);
+        if (!provider) {
+          return {
+            ok: false,
+            mode: "real-test",
+            errorCode: "UNKNOWN_PROVIDER",
+            message: "Unknown provider.",
+            requestEnabled: false
+          };
+        }
+
+        if (!provider.enabled) {
+          return {
+            ok: false,
+            mode: "real-test",
+            providerId: provider.id,
+            errorCode: "PROVIDER_DISABLED",
+            message: "Provider is disabled.",
+            requestEnabled: false
+          };
+        }
+
+        if (provider.id !== DEEPSEEK_PROVIDER_ID) {
+          return {
+            ok: false,
+            mode: "real-test",
+            providerId: provider.id,
+            errorCode: "REAL_TEST_NOT_CONFIGURED",
+            message: "Real provider test is only configured for DeepSeek in this preview phase.",
+            requestEnabled: false
+          };
+        }
+
+        if (provider.requiredHostPermission !== requiredDeepSeekHostPermission()) {
+          return {
+            ok: false,
+            mode: "real-test",
+            providerId: provider.id,
+            providerName: provider.displayName,
+            errorCode: "PERMISSION_NOT_CONFIGURED",
+            message: "DeepSeek permission is not configured in this preview phase.",
+            requestEnabled: false
+          };
+        }
+
+        const permissionGranted = await containsPermission(chromeApi, provider.requiredHostPermission);
+        if (!permissionGranted) {
+          return {
+            ok: false,
+            mode: "real-test",
+            providerId: provider.id,
+            providerName: provider.displayName,
+            errorCode: "MISSING_PROVIDER_PERMISSION",
+            message: "DeepSeek permission is missing. Grant provider permission before running a real test.",
+            requestEnabled: false
+          };
+        }
+
+        const settings = await settingsStore.getPublicSettings();
+        const hasApiKey = await secretStore.hasSecret(settings.saveMode);
+        if (!hasApiKey) {
+          return {
+            ok: false,
+            mode: "real-test",
+            providerId: provider.id,
+            providerName: provider.displayName,
+            errorCode: "MISSING_RUNTIME_KEY",
+            message: "Runtime key is missing. Save a Runtime Key before running a real test.",
+            requestEnabled: false
+          };
+        }
+
+        return testDeepSeekRealConnection({
+          provider,
+          model: parsed.payload.model,
+          secretStore,
+          saveMode: settings.saveMode,
+          logger
+        });
+      }
+
       const networkGuard = assertNoArbitraryNetworkAccess(parsed.payload);
       if (!networkGuard.ok) return networkGuard;
 
@@ -186,7 +362,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           ok: true,
           runtime: "background",
           version,
-          backendlessPhase: 4,
+          backendlessPhase: 6,
           providerRegistryReady: true,
           providerRequestEnabled: false
         };

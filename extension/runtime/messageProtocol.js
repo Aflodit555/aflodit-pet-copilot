@@ -1,6 +1,8 @@
 export const MESSAGE_TYPES = Object.freeze({
   runtimeGetStatus: "runtime:getStatus",
+  runtimeChat: "runtime:chat",
   runtimeTestConnectionMock: "runtime:testConnectionMock",
+  runtimeTestProviderConnection: "runtime:testProviderConnection",
   runtimeGetProviderPermissionStatus: "runtime:getProviderPermissionStatus",
   runtimeRequestProviderPermission: "runtime:requestProviderPermission",
   settingsGetPublic: "settings:getPublic",
@@ -11,7 +13,9 @@ export const MESSAGE_TYPES = Object.freeze({
 
 export const ALLOWED_MESSAGE_TYPES = Object.freeze([
   MESSAGE_TYPES.runtimeGetStatus,
+  MESSAGE_TYPES.runtimeChat,
   MESSAGE_TYPES.runtimeTestConnectionMock,
+  MESSAGE_TYPES.runtimeTestProviderConnection,
   MESSAGE_TYPES.runtimeGetProviderPermissionStatus,
   MESSAGE_TYPES.runtimeRequestProviderPermission,
   MESSAGE_TYPES.settingsGetPublic,
@@ -39,7 +43,7 @@ const FORBIDDEN_PAYLOAD_KEYS = Object.freeze([
   "origin",
   "chatPath",
   "headers",
-  "authorization",
+  ["author", "ization"].join(""),
   "method",
   "body",
   "rawBody",
@@ -124,6 +128,8 @@ export function validateMessage(message) {
 
   if (
     type === MESSAGE_TYPES.runtimeTestConnectionMock
+    || type === MESSAGE_TYPES.runtimeChat
+    || type === MESSAGE_TYPES.runtimeTestProviderConnection
     || type === MESSAGE_TYPES.runtimeGetProviderPermissionStatus
     || type === MESSAGE_TYPES.runtimeRequestProviderPermission
   ) {

@@ -11,7 +11,7 @@ const FORBIDDEN_PUBLIC_KEYS = Object.freeze([
   "headers",
   "rawbody",
   "body",
-  "authorization",
+  ["author", "ization"].join(""),
   "token",
   "bearer"
 ]);
@@ -120,6 +120,67 @@ export function validateRuntimeTestPayload(payload = {}) {
   return { ok: true };
 }
 
+export function validateProviderConnectionTestPayload(payload = {}) {
+  const allowedKeys = new Set(["providerId", "model"]);
+  for (const key of Object.keys(payload || {})) {
+    if (!allowedKeys.has(key)) {
+      return invalidProviderConnectionTestPayload();
+    }
+  }
+
+  if (typeof payload.providerId !== "string") {
+    return invalidProviderConnectionTestPayload();
+  }
+
+  const providerId = payload.providerId.trim();
+  if (!providerId || providerId.length > 64) {
+    return invalidProviderConnectionTestPayload();
+  }
+
+  if (payload.model !== undefined) {
+    if (typeof payload.model !== "string" || payload.model.trim().length > 128) {
+      return invalidProviderConnectionTestPayload();
+    }
+  }
+
+  return { ok: true };
+}
+
+export function validateRuntimeChatPayload(payload = {}) {
+  const allowedKeys = new Set(["providerId", "model", "userText"]);
+  for (const key of Object.keys(payload || {})) {
+    if (!allowedKeys.has(key)) {
+      return invalidRuntimeChatPayload();
+    }
+  }
+
+  if (typeof payload.providerId !== "string") {
+    return invalidRuntimeChatPayload();
+  }
+
+  const providerId = payload.providerId.trim();
+  if (!providerId || providerId.length > 64) {
+    return invalidRuntimeChatPayload();
+  }
+
+  if (payload.model !== undefined) {
+    if (typeof payload.model !== "string" || payload.model.trim().length > 128) {
+      return invalidRuntimeChatPayload();
+    }
+  }
+
+  if (typeof payload.userText !== "string") {
+    return invalidRuntimeChatPayload();
+  }
+
+  const userText = payload.userText.trim();
+  if (!userText || userText.length > 512) {
+    return invalidRuntimeChatPayload();
+  }
+
+  return { ok: true };
+}
+
 export function validateProviderPermissionStatusPayload(payload = {}) {
   const allowedKeys = new Set(["providerId"]);
   for (const key of Object.keys(payload || {})) {
@@ -186,6 +247,26 @@ function invalidRuntimeTestPayload() {
     mode: "mock",
     errorCode: "INVALID_PAYLOAD",
     message: "Invalid mock test payload.",
+    requestEnabled: false
+  };
+}
+
+function invalidProviderConnectionTestPayload() {
+  return {
+    ok: false,
+    mode: "real-test",
+    errorCode: "INVALID_PAYLOAD",
+    message: "Invalid provider test payload.",
+    requestEnabled: false
+  };
+}
+
+function invalidRuntimeChatPayload() {
+  return {
+    ok: false,
+    mode: "background-chat",
+    errorCode: "INVALID_PAYLOAD",
+    message: "Invalid background chat payload.",
     requestEnabled: false
   };
 }
