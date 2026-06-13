@@ -119,7 +119,7 @@ function permissionNotConfiguredResponse(mode, provider) {
     providerId: provider?.id || "",
     providerName: provider?.displayName || "",
     errorCode: "PERMISSION_NOT_CONFIGURED",
-    message: "Provider permission is not configured for Backendless Beta.",
+    message: "Provider permission is not configured for this release.",
     requestEnabled: false
   };
 }
@@ -164,7 +164,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             checks: [
               readinessCheck("provider", "Provider", false, "Provider is not registered.")
             ],
-            nextAction: "Choose a supported real provider in Runtime Setup."
+            nextAction: "Choose a supported real provider in AI Settings."
           };
         }
 
@@ -189,17 +189,17 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             "runtimeKey",
             "Runtime Key",
             hasApiKey,
-            hasApiKey ? `Runtime Key saved for ${provider.displayName}.` : `Save a Runtime Key for ${provider.displayName} in Runtime Setup.`
+            hasApiKey ? `Runtime Key saved for ${provider.displayName}.` : `Save a Runtime Key for ${provider.displayName} in AI Settings.`
           ),
           readinessCheck(
             "permission",
             "Permission",
             permissionConfigured && permissionGranted,
             !permissionConfigured
-              ? "Provider permission is not configured for Backendless Beta."
+              ? "Provider permission is not configured for this release."
               : permissionGranted
                 ? `${provider.displayName} permission granted.`
-                : `Grant ${provider.displayName} permission in Runtime Setup.`
+                : `Grant ${provider.displayName} permission in AI Settings.`
           ),
           readinessCheck(
             "model",
@@ -387,7 +387,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           return failure("BACKGROUND_ACTION_NOT_CONFIGURED", "Background Runtime actions require DeepSeek, Alibaba Bailian / DashScope, OpenAI, or OpenRouter.");
         }
         if (!isExactHostPermission(provider.requiredHostPermission)) {
-          return failure("PERMISSION_NOT_CONFIGURED", "Provider permission is not configured for Backendless Beta.");
+          return failure("PERMISSION_NOT_CONFIGURED", "Provider permission is not configured for this release.");
         }
 
         const permissionGranted = await containsPermission(chromeApi, provider.requiredHostPermission);

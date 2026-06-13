@@ -1,10 +1,10 @@
 # Release Checklist
 
-## v0.8.0 Backendless Beta
+## v0.8.0-beta Background Runtime Beta
 
 Use this checklist before publishing or sharing a Chromium release package.
 
-Recommended for v0.8.0: Backendless Beta.
+Recommended for v0.8.0-beta: Background Runtime Beta with Alibaba Bailian / DashScope and model ID `qwen-plus`.
 
 Development fallback: Local Backend Dev.
 
@@ -52,10 +52,13 @@ Confirm:
 - No host permissions beyond exact listed provider hosts.
 - `requestEnabled` remains false.
 - Local Backend development mode remains available in source.
-- Background Runtime Beta is not default.
+- Background Runtime Beta is the default and recommended user path.
+- DashScope / `qwen-plus` is the recommended verified provider/model path.
+- DeepSeek, OpenAI, and OpenRouter are treated as experimental unless manually verified.
 - Full Runtime Key is never returned to content script public settings.
 - No Authorization header or full API key is logged.
 - Background Runtime real requests remain descriptor-driven and limited to listed providers.
+- Normal users use one **Save & Connect** action; separate Request Permission / Check Readiness / Run Real Test controls remain developer-only.
 
 ## Chromium Manual Test
 
@@ -64,12 +67,12 @@ Confirm:
 3. Load unpacked from `dist/aflodit-pet-copilot-v0.8.0/`.
 4. Open a normal web page.
 5. Confirm the pet UI appears.
-6. Confirm Runtime Setup opens in user mode and hides Mock Test / Check Permission.
-7. Open Runtime Setup.
-8. Select each supported real provider you need, save its provider-specific Runtime Key, request permission, check readiness, and run Real Test.
-9. Select Background Runtime Beta.
+6. Confirm `AI Settings / Model & Key` opens in user mode and hides Mock Test / Check Permission.
+7. Select Alibaba Bailian / DashScope.
+8. Confirm model ID is `qwen-plus`.
+9. Save a DashScope Runtime Key and click **Save & Connect**.
 10. Test Chat, Explain, Translate, and Summarize.
-11. Confirm `/local` forces Local Backend Chat.
+11. Confirm `/local` forces Local Backend Chat only when Local Backend Dev is running.
 12. Confirm background failures do not silently fall back.
 
 ## Local Backend Dev Path

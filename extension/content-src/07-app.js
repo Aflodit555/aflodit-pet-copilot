@@ -524,8 +524,8 @@
       FaceController.stopReplyPeekLoop(true);
       const code = String(error.code || error.errorCode || error.data?.errorCode || error.data?.error?.code || "").trim();
       const details = {
-        MISSING_RUNTIME_KEY: "Save a Runtime Key in Runtime Setup.",
-        MISSING_PROVIDER_PERMISSION: "Grant provider permission in Runtime Setup.",
+        MISSING_RUNTIME_KEY: "Save a Runtime Key in AI Settings.",
+        MISSING_PROVIDER_PERMISSION: "Grant provider permission in AI Settings.",
         AUTH_FAILED: "Provider authentication failed. Check your Runtime Key.",
         RATE_LIMITED: "Provider rate limit reached. Try again later.",
         TIMEOUT: "Background Runtime timed out.",
@@ -943,7 +943,7 @@
         return;
       }
       if (backgroundRoute.userText.length > runtimeActionUserTextLimit) {
-        UIController.showWarning("Background Runtime accepts up to 1000 characters of typed input. Shorten the message or switch to Local Backend Dev.");
+        UIController.showWarning("Background Runtime accepts up to 1000 characters of typed input. Shorten the message and try again.");
         return;
       }
       if (action === ACTION.CHAT && !backgroundRoute.userText) {
@@ -960,7 +960,7 @@
       };
       UIController.showLoading(action);
       if (dom.mode) dom.mode.textContent = "Background Runtime";
-      if (dom.status) dom.status.textContent = "Source: Background Runtime. Sending Backendless Beta action. Local Backend Dev remains available.";
+      if (dom.status) dom.status.textContent = "Source: Background Runtime. Sending request.";
       setRunning(true);
 
       try {
@@ -987,6 +987,24 @@
 
   installBackgroundRuntimeRoute();
 
+  const RUNTIME_COPY = Object.freeze({
+    advancedTools: "\u9ad8\u7ea7\u5de5\u5177",
+    notConnected: "\u672a\u8fde\u63a5",
+    connected: "\u5df2\u8fde\u63a5",
+    connecting: "\u6b63\u5728\u8fde\u63a5...",
+    failed: "\u8fde\u63a5\u5931\u8d25",
+    saved: "\u5df2\u4fdd\u5b58",
+    notSaved: "\u672a\u4fdd\u5b58",
+    testPassed: "\u6d4b\u8bd5\u901a\u8fc7",
+    notChecked: "\u672a\u68c0\u67e5",
+    ready: "\u5df2\u5c31\u7eea",
+    notReady: "\u672a\u5c31\u7eea",
+    notConfigured: "\u672a\u914d\u7f6e",
+    backgroundRuntimeBeta: "\u540e\u53f0\u8fd0\u884c Beta",
+    enterRuntimeKey: "\u8f93\u5165",
+    runtimeKey: "\u8fd0\u884c\u5bc6\u94a5"
+  });
+
   const RuntimeSettingsManager = {
     busy: false,
     lastReadiness: null,
@@ -1002,7 +1020,7 @@
       (dom.runtimeDeveloperOnly || []).forEach((node) => node.classList.toggle("hidden", !developer));
       if (dom.runtimeDeveloperTools && !developer) dom.runtimeDeveloperTools.open = false;
       if (dom.runtimeDeveloperToggle) {
-        dom.runtimeDeveloperToggle.textContent = developer ? "Hide Developer Tools" : "Developer Tools";
+        dom.runtimeDeveloperToggle.textContent = RUNTIME_COPY.advancedTools;
       }
       if (dom.runtimeDiagnosticsOutput && !developer) {
         dom.runtimeDiagnosticsOutput.classList.add("hidden");
@@ -1020,6 +1038,7 @@
       if (dom.runtimeCheckReadiness) dom.runtimeCheckReadiness.disabled = busy;
       dom.runtimeTestReal.disabled = busy;
       if (dom.runtimeCopyDiagnostics) dom.runtimeCopyDiagnostics.disabled = busy;
+      if (dom.runtimeLocalBackend) dom.runtimeLocalBackend.disabled = busy;
       this.updatePermissionRequestButton();
       this.updateRealTestButton();
       dom.runtimeReload.disabled = busy;
@@ -1031,6 +1050,12 @@
       LayoutManager.schedulePetLayout();
     },
 
+    setConnectionStatus(status = RUNTIME_COPY.notConnected, message = "-") {
+      if (dom.runtimeConnectionStatus) dom.runtimeConnectionStatus.textContent = status;
+      if (dom.runtimeConnectionMessage) dom.runtimeConnectionMessage.textContent = message || "-";
+      LayoutManager.schedulePetLayout();
+    },
+
     userMessage(response, fallback = "Runtime settings request failed.") {
       const code = response?.error?.code || response?.code || "";
       const messages = {
@@ -1038,13 +1063,13 @@
         MESSAGE_PAYLOAD_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
-        PROVIDER_NOT_ALLOWED: "Provider is not available in Runtime Setup.",
-        PERMISSION_NOT_CONFIGURED: "Provider permission is not configured for Backendless Beta.",
+        PROVIDER_NOT_ALLOWED: "Provider is not available in AI Settings.",
+        PERMISSION_NOT_CONFIGURED: "Provider permission is not configured for this release.",
         PERMISSION_DENIED: "Provider permission was not granted. Real provider requests are still disabled.",
-        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is not configured for this provider in Backendless Beta.",
-        UNKNOWN_PROVIDER: "Provider is not available in Runtime Setup.",
+        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is not configured for this provider.",
+        UNKNOWN_PROVIDER: "Provider is not available in AI Settings.",
         RUNTIME_MODE_INVALID: "Runtime mode must be Local Backend or Background Runtime Beta.",
-        REAL_TEST_NOT_CONFIGURED: "Real provider test is not configured for this provider in Backendless Beta.",
+        REAL_TEST_NOT_CONFIGURED: "Real provider test is not configured for this provider.",
         MISSING_PROVIDER_PERMISSION: "Provider permission is missing. Grant provider permission before running a real test.",
         MISSING_RUNTIME_KEY: "Runtime key is missing. Save a Runtime Key before running a real test.",
         AUTH_FAILED: "Provider authentication failed. Check your Runtime Key.",
@@ -1091,6 +1116,12 @@
       return Boolean(provider?.id !== "mock" && provider?.protocol === "openai-compatible" && provider?.hasRequiredHostPermission);
     },
 
+    providerOptionLabel(provider = {}) {
+      if (provider.id === "dashscope") return `${provider.displayName} (Recommended)`;
+      if (provider.id === "mock") return `${provider.displayName} (Developer)`;
+      return `${provider.displayName} (Experimental)`;
+    },
+
     renderProviderOptions(selectedProvider = "mock") {
       if (!dom.runtimeProvider) return;
       const previous = dom.runtimeProvider.value || selectedProvider;
@@ -1099,7 +1130,7 @@
       state.runtimeProviders.forEach((provider) => {
         const option = document.createElement("option");
         option.value = provider.id;
-        option.textContent = provider.displayName;
+        option.textContent = this.providerOptionLabel(provider);
         option.disabled = !provider.enabled;
         dom.runtimeProvider.appendChild(option);
       });
@@ -1116,6 +1147,11 @@
       if (dom.runtimeProviderProtocol) dom.runtimeProviderProtocol.textContent = provider.protocol || "unknown";
       if (dom.runtimeProviderDefaultModel) dom.runtimeProviderDefaultModel.textContent = provider.defaultModel || "";
       if (dom.runtimeProviderHint) dom.runtimeProviderHint.textContent = provider.setupHint || "API keys are provider-specific.";
+      if (dom.runtimeModelHint) {
+        dom.runtimeModelHint.textContent = provider.id === "dashscope"
+          ? "Use a DashScope / Bailian model ID, for example qwen-plus. The model ID is sent directly to the provider."
+          : "Use the provider model ID exactly as the provider expects it.";
+      }
       if (dom.runtimeProviderPermissionStatus) dom.runtimeProviderPermissionStatus.textContent = "unknown";
       this.updateRuntimeKeyPlaceholder(provider);
       this.updatePermissionRequestButton(provider.id);
@@ -1181,6 +1217,13 @@
       return `failed - ${status.errorCode || "UNKNOWN"}`;
     },
 
+    providerHasSavedKey(provider) {
+      if (!provider) return false;
+      return provider.id === state.runtimePublicSettings.provider
+        ? Boolean(state.runtimePublicSettings.hasApiKey)
+        : Boolean(provider.hasApiKey);
+    },
+
     renderSetupChecklist(response = this.lastReadiness || null) {
       const byId = {};
       (Array.isArray(response?.checks) ? response.checks : []).forEach((check) => {
@@ -1188,6 +1231,8 @@
       });
       const provider = this.providerById(dom.runtimeProvider?.value || state.runtimePublicSettings.provider);
       const model = String(dom.runtimeModel?.value || state.runtimePublicSettings.model || "").trim();
+      const providerHasKey = this.providerHasSavedKey(provider);
+      const realTest = state.runtimePublicSettings.lastRealTestStatus;
 
       if (dom.runtimeReadinessSummary) {
         dom.runtimeReadinessSummary.textContent = response
@@ -1196,10 +1241,7 @@
       }
       if (dom.runtimeReadinessProvider) dom.runtimeReadinessProvider.textContent = provider?.displayName || "missing";
       if (dom.runtimeReadinessKey) {
-        const providerHasKey = provider?.id === state.runtimePublicSettings.provider
-          ? state.runtimePublicSettings.hasApiKey
-          : Boolean(provider?.hasApiKey);
-        dom.runtimeReadinessKey.textContent = providerHasKey ? "saved" : "missing";
+        dom.runtimeReadinessKey.textContent = providerHasKey ? RUNTIME_COPY.saved : RUNTIME_COPY.notSaved;
       }
       if (dom.runtimeReadinessPermission) {
         if (byId.permission) {
@@ -1225,8 +1267,15 @@
       if (dom.runtimeSummaryProvider) dom.runtimeSummaryProvider.textContent = provider?.displayName || "missing";
       if (dom.runtimeSummaryBeta) {
         dom.runtimeSummaryBeta.textContent = response
-          ? (response.canUseBackgroundRuntime ? "Ready" : "Not ready")
-          : (!provider || provider.id === "mock" || provider.protocol !== "openai-compatible" ? "Not configured" : "Not checked");
+          ? (response.canUseBackgroundRuntime ? RUNTIME_COPY.ready : RUNTIME_COPY.notReady)
+          : (!provider || provider.id === "mock" || provider.protocol !== "openai-compatible" ? RUNTIME_COPY.notConfigured : RUNTIME_COPY.notChecked);
+      }
+      if (realTest?.ok && realTest.providerId === provider?.id && (!model || realTest.model === model)) {
+        this.setConnectionStatus(RUNTIME_COPY.connected, `${RUNTIME_COPY.testPassed} (${realTest.model || model || "model"})`);
+      } else if (realTest && realTest.providerId === provider?.id && realTest.ok === false) {
+        this.setConnectionStatus(RUNTIME_COPY.failed, realTest.errorCode || "UNKNOWN");
+      } else {
+        this.setConnectionStatus(RUNTIME_COPY.notConnected, providerHasKey ? RUNTIME_COPY.saved : "-");
       }
       this.updatePermissionRequestButton(provider?.id);
       LayoutManager.schedulePetLayout();
@@ -1237,7 +1286,7 @@
     },
 
     runtimeModeLabel(mode = "local_backend") {
-      return mode === "background_runtime_beta" ? "Background Runtime Beta" : "Local Backend Dev";
+      return mode === "background_runtime_beta" ? RUNTIME_COPY.backgroundRuntimeBeta : "Local Backend Dev";
     },
 
     updateRuntimeModeUi(mode = "local_backend") {
@@ -1327,7 +1376,7 @@
         model,
         saveMode: dom.runtimeSaveMode.value === "session" ? "session" : "local",
         debugEnabled: Boolean(dom.runtimeDebug.checked),
-        runtimeMode: this.readRuntimeMode()
+        runtimeMode: this.isDeveloperMode() ? this.readRuntimeMode() : "background_runtime_beta"
       };
     },
 
@@ -1348,8 +1397,8 @@
         ? state.runtimePublicSettings.apiKeyPreview
         : provider?.apiKeyPreview;
       dom.runtimeApiKey.placeholder = hasApiKey
-        ? `Saved for ${provider?.displayName || "provider"}: ${preview || "configured"}`
-        : `Enter ${provider?.displayName || "provider"} Runtime Key`;
+        ? `${RUNTIME_COPY.saved} ${provider?.displayName || "provider"}: ${preview || "configured"}`
+        : `${RUNTIME_COPY.enterRuntimeKey} ${provider?.displayName || "provider"} ${RUNTIME_COPY.runtimeKey}`;
     },
 
     async refreshStatus() {
@@ -1363,7 +1412,7 @@
     async load() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setMessage("Loading runtime settings...");
+      this.setMessage("Loading AI settings...");
       try {
         await this.refreshStatus();
         const response = await BackgroundRuntimeClient.getPublicSettings();
@@ -1372,7 +1421,7 @@
           return;
         }
         this.hydrate(response);
-        this.setMessage("Runtime settings loaded.");
+        this.setMessage("AI settings loaded.");
       } catch (error) {
         this.setMessage(error?.message || "Runtime settings request failed.");
       } finally {
@@ -1381,33 +1430,139 @@
     },
 
     async save() {
+      return this.saveAndConnect();
+    },
+
+    connectionFailureMessage(response = {}, fallback = "Model test failed. Check your Model ID or provider account.") {
+      const code = response?.error?.code || response?.errorCode || response?.code || "";
+      const messages = {
+        BACKGROUND_UNAVAILABLE: "Background runtime unavailable.",
+        MISSING_RUNTIME_KEY: "Runtime Key is missing.",
+        MISSING_PROVIDER_PERMISSION: "Provider permission was denied.",
+        PERMISSION_DENIED: "Provider permission was denied.",
+        AUTH_FAILED: "Provider authentication failed. Check your Runtime Key.",
+        RATE_LIMITED: "Provider rate limit reached. Try again later.",
+        PROVIDER_QUOTA_EXCEEDED: "Provider quota appears to be exhausted.",
+        PROVIDER_BAD_REQUEST: "Model test failed. Check your Model ID or provider account.",
+        PROVIDER_UNAVAILABLE: "Provider service is currently unavailable. Try again later.",
+        NETWORK_ERROR: "Model test failed due to a network error.",
+        TIMEOUT: "Model test timed out.",
+        PROVIDER_ERROR: "Model test failed. Check your Model ID or provider account.",
+        UNKNOWN_PROVIDER: "Provider is not available in AI Settings.",
+        PROVIDER_DISABLED: "Provider is disabled.",
+        REAL_TEST_NOT_CONFIGURED: "Provider is experimental and may not be verified."
+      };
+      return messages[code] || response?.message || response?.error?.message || fallback;
+    },
+
+    async saveAndConnect() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setMessage("Saving runtime setup...");
+      this.setConnectionStatus(RUNTIME_COPY.connecting, "Saving settings...");
+      this.setMessage("Saving and connecting...");
       try {
-        const response = await BackgroundRuntimeClient.savePublicSettings(this.readForm());
+        const form = this.readForm();
+        const provider = this.providerById(form.provider);
+        if (!provider || provider.id === "mock" || provider.protocol !== "openai-compatible") {
+          this.setConnectionStatus(RUNTIME_COPY.failed, "Provider is experimental and may not be verified.");
+          this.setMessage("Provider is experimental and may not be verified.");
+          return;
+        }
+
+        const existingKey = this.providerHasSavedKey(provider);
+        const apiKey = this.readSecretForm();
+        if (!apiKey && !existingKey) {
+          this.setConnectionStatus(RUNTIME_COPY.failed, "Runtime Key is missing.");
+          this.setMessage("Runtime Key is missing.");
+          return;
+        }
+
+        const response = await BackgroundRuntimeClient.savePublicSettings(form);
         if (!response.ok) {
-          this.setMessage(this.userMessage(response));
+          const message = this.connectionFailureMessage(response, this.userMessage(response));
+          this.setConnectionStatus(RUNTIME_COPY.failed, message);
+          this.setMessage(message);
           return;
         }
         let hydrated = response;
-        const apiKey = this.readSecretForm();
         if (apiKey) {
           const keyResponse = await BackgroundRuntimeClient.saveSecret(apiKey);
           if (!keyResponse.ok) {
             this.hydrate(response);
-            this.setMessage(this.userMessage(keyResponse, "Runtime key save failed."));
+            const message = this.connectionFailureMessage(keyResponse, "Runtime Key is missing.");
+            this.setConnectionStatus(RUNTIME_COPY.failed, message);
+            this.setMessage(message);
             return;
           }
           hydrated = keyResponse;
         }
         this.hydrate(hydrated);
-        this.setMessage(apiKey
-          ? "Runtime setup and key saved. Local backend model settings are unchanged."
-          : "Runtime setup saved. Existing Runtime Key is unchanged.");
-        this.warnIfBackgroundModeWithoutReadiness();
+
+        this.setConnectionStatus(RUNTIME_COPY.connecting, "Checking provider permission...");
+        let permissionStatus = await BackgroundRuntimeClient.getProviderPermissionStatus({ providerId: form.provider });
+        this.applyPermissionStatus(permissionStatus, form.provider);
+        if (!permissionStatus.ok && permissionStatus.errorCode !== "PERMISSION_NOT_CONFIGURED") {
+          const message = this.connectionFailureMessage(permissionStatus, "Provider permission was denied.");
+          this.setConnectionStatus(RUNTIME_COPY.failed, message);
+          this.setMessage(message);
+          return;
+        }
+        if (this.providerHasHostPermission(provider) && !permissionStatus.permissionGranted) {
+          this.setConnectionStatus(RUNTIME_COPY.connecting, "Requesting provider permission...");
+          const permissionResponse = await BackgroundRuntimeClient.requestProviderPermission({ providerId: form.provider });
+          if (!permissionResponse.ok || permissionResponse.permissionGranted === false) {
+            this.applyPermissionStatus(permissionResponse, form.provider);
+            const message = this.connectionFailureMessage(permissionResponse, "Provider permission was denied.");
+            this.setConnectionStatus(RUNTIME_COPY.failed, message);
+            this.setMessage(message);
+            return;
+          }
+          permissionStatus = await BackgroundRuntimeClient.getProviderPermissionStatus({ providerId: form.provider });
+          this.applyPermissionStatus(permissionStatus, form.provider);
+          if (!permissionStatus.ok || !permissionStatus.permissionGranted) {
+            const message = this.connectionFailureMessage(permissionStatus, "Provider permission was denied.");
+            this.setConnectionStatus(RUNTIME_COPY.failed, message);
+            this.setMessage(message);
+            return;
+          }
+        }
+
+        this.setConnectionStatus(RUNTIME_COPY.connecting, "Checking readiness...");
+        const readiness = await BackgroundRuntimeClient.getBackgroundChatReadiness({
+          providerId: form.provider,
+          model: form.model
+        });
+        this.lastReadiness = readiness?.ok ? readiness : null;
+        this.renderReadiness(readiness?.ok ? readiness : null);
+        if (!readiness.ok || !readiness.canUseBackgroundRuntime) {
+          const message = this.connectionFailureMessage(readiness, readiness.nextAction || "Model test failed. Check your Model ID or provider account.");
+          this.setConnectionStatus(RUNTIME_COPY.failed, message);
+          this.setMessage(message);
+          return;
+        }
+
+        this.setConnectionStatus(RUNTIME_COPY.connecting, "Running lightweight model test...");
+        const testResponse = await BackgroundRuntimeClient.testProviderConnection({
+          providerId: form.provider,
+          model: form.model
+        });
+        if (testResponse.lastRealTestStatus) {
+          state.runtimePublicSettings.lastRealTestStatus = testResponse.lastRealTestStatus;
+        }
+        this.renderSetupChecklist(this.lastReadiness);
+        if (!testResponse.ok) {
+          const message = this.connectionFailureMessage(testResponse);
+          this.setConnectionStatus(RUNTIME_COPY.failed, message);
+          this.setMessage(message);
+          return;
+        }
+
+        this.setConnectionStatus(RUNTIME_COPY.connected, `${RUNTIME_COPY.testPassed} (${testResponse.model || form.model})`);
+        this.setMessage(`${provider.displayName} connected.`);
       } catch (error) {
-        this.setMessage(error?.message || "Runtime settings request failed.");
+        const message = error?.message || "Model test failed. Check your Model ID or provider account.";
+        this.setConnectionStatus(RUNTIME_COPY.failed, message);
+        this.setMessage(message);
       } finally {
         this.setBusy(false);
       }
@@ -1430,7 +1585,7 @@
           return;
         }
         this.hydrate(response);
-        this.setMessage("Runtime key saved for Runtime Setup only. Backend key is unchanged.");
+        this.setMessage("Runtime Key saved for the selected provider. Backend key is unchanged.");
       } catch (error) {
         this.setMessage(error?.message || "Runtime key save failed.");
       } finally {
@@ -2234,6 +2389,11 @@
     on(dom.runtimeCopyDiagnostics, "click", (event) => {
       event.stopPropagation();
       RuntimeSettingsManager.copyDiagnostics();
+    });
+
+    on(dom.runtimeLocalBackend, "click", (event) => {
+      event.stopPropagation();
+      UIController.openModelSettings();
     });
 
     on(dom.runtimeDeveloperToggle, "click", (event) => {

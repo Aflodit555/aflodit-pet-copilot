@@ -237,21 +237,23 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       label: "backend legacy"
     },
     runtimePublicSettings: {
-      provider: "mock",
-      model: "mock-model",
+      provider: "dashscope",
+      model: "qwen-plus",
       saveMode: "local",
       debugEnabled: false,
-      runtimeMode: "local_backend",
+      runtimeMode: "background_runtime_beta",
       hasApiKey: false,
       apiKeyPreview: "",
       lastRealTestStatus: null
     },
     runtimeProviders: [
       {
-        id: "mock",
-        displayName: "Mock",
-        protocol: "mock",
-        defaultModel: "mock-model",
+        id: "dashscope",
+        displayName: "Alibaba Bailian / DashScope",
+        protocol: "openai-compatible",
+        defaultModel: "qwen-plus",
+        setupHint: "Use Alibaba Cloud Model Studio / Bailian API Key. Start with qwen-plus.",
+        hasRequiredHostPermission: true,
         enabled: true,
         requestEnabled: false
       }

@@ -109,10 +109,12 @@ function sendBackgroundChat(runtime) {
   });
 }
 
-await check("runtime mode setting defaults to local backend", async () => {
+await check("runtime mode setting defaults to Background Runtime Beta with DashScope", async () => {
   const response = await getPublic(createRuntime());
   assert.equal(response.ok, true);
-  assert.equal(response.settings.runtimeMode, "local_backend");
+  assert.equal(response.settings.runtimeMode, "background_runtime_beta");
+  assert.equal(response.settings.provider, "dashscope");
+  assert.equal(response.settings.model, "qwen-plus");
   assert.equal(response.settings.hasApiKey, false);
   assert.equal(response.settings.apiKeyPreview, "");
 });

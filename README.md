@@ -1,469 +1,82 @@
 # AFlodit Pet Copilot
 
-## 项目简介
+## Status: v0.8.0-beta
 
-AFlodit Pet Copilot 是一个轻量级浏览器宠物助手扩展。它会在网页上注入一个悬浮宠物 UI，帮助你和当前网页内容互动。
+AFlodit Pet Copilot is a Chromium browser extension that adds a floating AI pet assistant to web pages. It can chat, explain selected text, translate or polish selected text, and summarize readable page content.
 
-它目前支持：
+The recommended v0.8.0-beta path is **Background Runtime Beta** with **Alibaba Bailian / DashScope** and model ID `qwen-plus`. This path runs from the extension background service worker and does not require the local Node backend.
 
-- 普通 Chat 对话
-- 解释网页中选中的文本
-- 翻译或润色网页中选中的文本
-- 总结当前网页内容
-- 在扩展设置面板中配置自己的模型服务
+DeepSeek, OpenAI, and OpenRouter remain experimental until manually verified for your account, region, and model access. Local Backend Dev remains available for development and fallback testing, but it is not the recommended user path for this beta release.
 
-扩展本身不直接调用模型 API。浏览器扩展会把用户输入、选中文本和页面上下文发送到本地 Node.js 后端：
+## Recommended Setup
 
-```text
-content.js -> http://127.0.0.1:3001/api/pet -> Local Backend -> LLM Runtime
-```
+1. Build or download the release package.
+2. Load `dist/aflodit-pet-copilot-v0.8.0/` as an unpacked Chromium extension.
+3. Open the pet settings menu and choose `AI Settings / Model & Key`.
+4. Keep `Alibaba Bailian / DashScope (Recommended)` selected.
+5. Keep or enter model ID `qwen-plus`.
+6. Save your DashScope Runtime Key.
+7. Click **Save & Connect**.
+8. Approve the exact DashScope host permission when the browser asks.
+9. Wait for the Connection Status card to show Connected.
+10. Use Chat, Explain, Translate, and Summarize from the pet UI.
 
-Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输入整理、Prompt 构建、模型调用、JSON 解析、响应归一化和安全 fallback。
+## Install From Release Package
 
-## 当前版本
-
-当前实现是 `v0.8.0 Backendless Runtime Phase 11.0`。
-
-### v0.8.0 Backendless Beta
-
-Recommended for v0.8.0: Backendless Beta.
-
-Development fallback: Local Backend Dev.
-
-Path A: Background Runtime Beta
-
-1. Load the Chromium extension from `dist/aflodit-pet-copilot-v0.8.0/` after running `node scripts\buildReleasePackage.js`.
-2. Open Runtime Setup.
-3. Select DeepSeek, Alibaba Bailian / DashScope, OpenAI, or OpenRouter.
-4. Save the provider-specific Runtime Key.
-5. Request the selected provider permission.
-6. Check Readiness.
-7. Run Real Test.
-8. Select Background Runtime Beta.
-9. Test Chat, Explain, Translate, and Summarize.
-
-Background Runtime Beta real providers in Phase 12.0:
-
-- DeepSeek: `deepseek-chat`
-- Alibaba Bailian / DashScope: `qwen-plus`
-- OpenAI: `gpt-4o-mini`
-- OpenRouter: `openai/gpt-4o-mini`
-
-DashScope currently uses the default China Beijing endpoint: `https://dashscope.aliyuncs.com/compatible-mode/v1`. Singapore, US Virginia, and Hong Kong region profiles are not exposed in the UI in this phase.
-
-Path B: Local Backend Dev
-
-1. Start the local backend.
-2. Load the extension from `extension/` for development, or the release package for a packaged smoke test.
-3. Keep Runtime Mode as Local Backend Dev.
-4. Use normal Chat, Explain, Translate, and Summarize actions.
-
-Packaging commands:
+Build the package:
 
 ```powershell
+node extension\build-content.js
 node scripts\buildReleasePackage.js
 node scripts\checkReleasePackage.js
 ```
 
-Chromium notes are in `docs/CHROMIUM_COMPATIBILITY.md`; release checks are in `docs/RELEASE_CHECKLIST.md`.
+Load it in a Chromium browser:
 
-### v0.8.0 Phase 12.0 Multi-Provider Real Runtime
-
-Phase 12.0 expands Background Runtime Beta real requests from DeepSeek-only to DeepSeek, Alibaba Bailian / DashScope, OpenAI, and OpenRouter using descriptor-defined OpenAI-compatible endpoints. Runtime Key storage is provider-specific, and the content script still cannot pass URLs, headers, request bodies, API keys, endpoints, or custom provider configuration.
-
-`requestEnabled` remains `false`, Local Backend Dev remains available, Real Test remains user-triggered, permissions are exact optional host permissions, and background failures still do not silently fall back to Local Backend.
-
-### v0.8.0 Phase 11.0 Release Mode Cleanup / Dev Tools Gate
-
-Phase 11.0 keeps the public release path focused on Backendless Beta. Runtime Setup opens in user mode by default and shows the release controls: Runtime Mode, Provider, Model, Runtime Key, Save Setup, Request Permission when applicable, Check Readiness, Run Real Test, Setup Checklist, Copy Diagnostics, Back, and Reload.
-
-Developer tools are gated behind the Developer Tools toggle. Developer mode exposes Mock Test, Check Permission, Clear Key, local backend development notes, and detailed diagnostics JSON. This UI mode is local to the setup panel and does not change routing, provider permissions, `requestEnabled`, or secret exposure.
-
-Recommended for v0.8.0: Backendless Beta. Development fallback: Local Backend Dev.
-
-### v0.8.0 Phase 9.0 Backendless Beta Setup Flow / Release Candidate
-
-Phase 9.0 renames the extension setup area to `Runtime Setup` and turns Background Runtime Beta into a guided release-candidate flow. The setup checklist covers Runtime Mode, Provider, Model, Runtime Key, Host Permission, Readiness, and Real Test. Local Backend remains the default.
-
-Runtime diagnostics are safe to copy: they include runtime mode, provider/model, masked key status, permission/readiness status, last safe Real Test metadata, and `requestEnabled=false`. They never include the full Runtime Key, Authorization headers, prompts, page text, selected text, raw request bodies, or raw provider responses.
-
-Run the release safety guard before publishing:
-
-```powershell
-node extension\runtime\checkReleaseSafety.js
-```
-
-### v0.8.0 Phase 8.0 Runtime Mode Selector / Backendless Beta
-
-Phase 8.0 replaces the old background runtime checkbox with a clear `Runtime Mode` selector: `Local Backend Dev` or `Background Runtime Beta`. `Local Backend Dev` keeps ordinary Chat / Explain / Translate / Summarize on `127.0.0.1`.
-
-`Background Runtime Beta` can route Chat / Explain / Translate / Summarize through the extension background runtime after setup, without the local backend. It currently supports DeepSeek only and requires a saved Runtime Key plus the exact DeepSeek permission. `Check Readiness` is local-only: it does not call the provider, request permission, run Real Test, or change `requestEnabled`. Real Test remains separate.
-
-Chat-only overrides remain available: `/bg` or `@background` force Background Runtime, and `/local` or `@local` force Local Backend. Background Runtime failures do not automatically fall back; switch Runtime Mode to Local Backend or use `/local` for Chat.
-
-### v0.8.0 Phase 7.0 Background Runtime Actions Beta
-
-Phase 7.0 upgrades the beta path from Chat-only to core actions. When Background Runtime Beta is off, ordinary Chat / Explain / Translate / Summarize still use the Local Backend. When it is on, those four actions use Background Runtime. Chat still supports `/bg` or `@background` to force Background Runtime, and `/local` or `@local` to force Local Backend.
-
-Background Runtime currently supports DeepSeek only. Readiness Check explains whether Background Runtime Beta can work without contacting the provider, requesting permission, running Real Test, or changing `requestEnabled`. Real Test remains separate. Background failures do not automatically fall back; switch to Local Backend Dev to return ordinary actions to Local Backend.
-
-### v0.8.0 Phase 6.4 Background Chat Readiness
-
-Phase 6.4 adds a compact `Background Chat Readiness` checklist in Backendless Beta. `Check Readiness` explains whether Background Chat can work before you use Background Runtime Beta or `/bg`.
-
-The readiness check is local to the extension background runtime. It does not call the provider, does not request permission, does not run Real Test, and does not change `requestEnabled`. DeepSeek Background Chat still requires a Runtime Key, exact DeepSeek host permission, and a model. Real Test remains separate and optional. Explain, Translate, and Summarize still use the Local Backend.
-
-### v0.8.0 Phase 6.3 Background Chat Beta Toggle
-
-Phase 6.3 adds an explicit Background Chat Beta toggle in Backendless Beta. The toggle is off by default. When enabled, ordinary Chat uses Background Runtime; `/local your message` and `@local your message` force Local Backend Chat. `/bg your message` and `@background your message` still force Background Runtime Chat.
-
-Explain, Translate, and Summarize always stay on the Local Backend. Background Runtime Chat remains DeepSeek-only, still requires a saved Runtime Key and the exact DeepSeek optional host permission, and failures do not silently fall back. If beta-mode Background Chat fails, the UI tells you that Local Backend Chat is still available and to use `/local` or turn off Background Chat Beta.
-
-### v0.8.0 Phase 6.2 Background Chat Beta Release Gate
-
-Phase 6.2 makes `/bg your message` and `@background your message` a clearly labeled Background Runtime Chat beta path. It currently supports DeepSeek only and requires a saved Runtime Key, granted DeepSeek optional host permission, and a valid model name.
-
-If Background Runtime Chat fails, the extension does not silently fall back. The UI tells you that Local Backend Chat is still available; remove `/bg` or `@background` to use ordinary Chat. Main Chat without the prefix, Explain, Translate, and Summarize still use the local backend.
-
-### v0.8.0 Phase 6.1 Chat Background Route Audit & UI Improvement
-
-Phase 6.1 tightens the optional background Chat payload. `runtime:chat` accepts only `providerId`, `model`, and `userText`; `userText` must be 1-512 characters after trimming, and extra fields are rejected.
-
-The Chat input now hints that `/bg ` or `@background ` runs the optional background runtime route. Background Chat results are labeled as coming from background runtime, while normal Chat still uses the local backend. `requestEnabled` remains `false`.
-
-### v0.8.0 Phase 6 Optional Background Chat Route
-
-Phase 6 adds one optional background AI route for Chat only. In the Chat panel, messages starting with `/bg ` or `@background ` are sent to the extension background runtime using only public fields: `providerId`, `model`, and user input. The background runtime reads the Runtime Key internally, builds the DeepSeek request from the allowlisted provider descriptor, and returns a normal pet reply.
-
-This does not switch the main AI route. Normal Chat plus Explain/Translate/Summarize still use the local backend. `requestEnabled` remains `false`; a successful background chat only means that one explicit background request worked.
-
-### v0.8.0 Phase 5C.2 DeepSeek-only Real Test Connection
-
-Phase 5C.2 adds a DeepSeek-only Real Test button in Backendless Beta. It sends one minimal DeepSeek chat completions request from the background runtime after the exact `https://api.deepseek.com/*` optional permission is granted and a Runtime Key is saved.
-
-Real Test may consume a tiny amount of DeepSeek quota. It does not switch Chat/Explain/Translate/Summarize to the background runtime, does not mark the provider as verified for general use, and does not enable provider requests globally.
-
-OpenAI, DashScope, and OpenRouter real tests are intentionally not configured in Backendless Beta. The main AI actions still use the local backend.
-
-### v0.8.0 Phase 5C.1 DeepSeek Permission Request UI
-
-Phase 5C.1 only requests the exact DeepSeek optional host permission `https://api.deepseek.com/*` from the background runtime. It does not request a model, does not connect to the provider, and keeps `requestEnabled=false`.
-
-OpenAI, DashScope, and OpenRouter permission requests are intentionally not configured in Backendless Beta.
-
-### v0.8.0 Phase 5C.0.1 Permission Status Wire Fix
-
-Phase 5C.0.1 fixes the `runtime:getProviderPermissionStatus` message wire across the content script and background runtime, adds a lightweight runtime test for permission status responses, and compacts the Backendless Beta action area.
-
-The phase remains status-only: it does not request permissions, does not call a provider, and keeps `requestEnabled=false`.
-
-### v0.8.0 Phase 5C.0 Provider Permission Status Skeleton
-
-Phase 5C.0 only checks DeepSeek optional host permission status from the background runtime. It adds the exact optional host permission `https://api.deepseek.com/*` and a Backendless Beta button for `runtime:getProviderPermissionStatus`.
-
-This phase does not request permissions, does not call a model provider, does not verify provider readiness, and does not move Chat/Explain/Translate/Summarize to the background runtime. `requestEnabled` remains `false` for every provider.
-
-OpenAI, DashScope, and OpenRouter permissions are intentionally not configured in Backendless Beta. Their permission status response is `PERMISSION_NOT_CONFIGURED`.
-
-
-### v0.8.0 Phase 5B Mock Test Connection Skeleton
-
-`v0.8.0 Phase 5B` 是 Backendless Beta 的 Mock Test Connection skeleton 阶段，不是最终 Backendless 用户版。当前普通功能仍需要本地 backend。
-
-本阶段在 Phase 4 Provider Registry UI / Provider Allowlist 基础上，新增 background runtime 的 mock-only Test Connection 消息和 Backendless Beta UI 按钮，用于验证 UI -> content script -> background runtime 的安全消息链路。AI 主链路仍保持不变：
+1. Open `chrome://extensions`, `edge://extensions`, or the equivalent page.
+2. Enable Developer mode.
+3. Choose **Load unpacked**.
+4. Select:
 
 ```text
-content.js -> http://127.0.0.1:3001/api/pet -> Local Backend -> LLM Runtime
+dist/aflodit-pet-copilot-v0.8.0/
 ```
 
-Phase 5B 的 background runtime 当前用于状态探测、脱敏 public settings metadata、Backendless Beta Runtime Key 存储、provider allowlist 选择，以及 mock Test Connection。支持消息：`runtime:getStatus`、`runtime:testConnectionMock`、`settings:getPublic`、`settings:savePublic`、`settings:saveSecret`、`settings:clearKey`。Background Runtime settings 保存 `provider`、`model`、`saveMode`、`debugEnabled` 等 public 字段；Runtime Key 只用于未来 Backendless runtime 预备能力，不影响旧 backend 模型配置，不迁移真实模型请求，不执行任意 fetch，不引入 `https://*/*`，不引入 `optional_host_permissions`，也不引入 Native Messaging。Chat、Explain、Translate、Summarize 仍走本地 backend。
+For source development, load `extension/` instead.
 
-Provider allowlist 当前包含 `Mock`、`OpenAI`、`DeepSeek`、`Qwen / DashScope` 和 `OpenRouter`。这些 provider descriptor 只用于 UI 预览和 settings 校验；`requestEnabled=false` 表示 background runtime 尚未启用真实 provider 请求能力。切换 provider 时，如果 model 为空或仍是旧 provider 的默认模型，UI 和 settings store 会自动填入新 provider 的默认模型。手动编辑过的 model 会被保留。
+## Provider Support
 
-Mock Test Connection 只检查 provider 是否在 allowlist、provider 是否 enabled、Runtime Key 是否存在，并回显安全的 mock 状态。它不会请求真实 provider，不会把任何 provider 的 `requestEnabled` 改为 `true`，也不会返回完整 Runtime Key。真实 provider Test Connection 计划留到 Phase 5C。
+Recommended:
 
-Runtime Key 的保存位置由 `saveMode` 决定：
+- Alibaba Bailian / DashScope: `qwen-plus`
 
-- `local`：保存到浏览器扩展的 `chrome.storage.local`，浏览器重启后仍可能保留。runtime 会尽力设置 `TRUSTED_CONTEXTS`，避免 content script 直接访问；不支持该能力的浏览器会安全降级。
-- `session`：保存到 `chrome.storage.session`，用于更短生命周期；扩展重载或浏览器重启后可能失效。不支持 session storage 的浏览器会安全降级为 background 内存态。
+Experimental:
 
-`settings:getPublic` 会返回脱敏 public settings、`hasApiKey`、`apiKeyPreview` 和 provider allowlist，不会返回完整 Runtime Key。Runtime Key 不会写入 `backend/.env`，也不会写入 `backend/.local/settings.local.json`，也不会发送给真实 provider。
+- DeepSeek: `deepseek-chat`
+- OpenAI: `gpt-4o-mini`
+- OpenRouter: `openai/gpt-4o-mini`
 
-当前仍保留此前版本中的本地模型设置能力：
+The extension uses descriptor-defined provider hosts only. It does not support custom endpoints in the release UI and does not request wildcard host permissions.
 
-- Settings 面板可以读取、保存、测试模型配置。
-- 新增 `GET /api/settings`、`PUT /api/settings`、`POST /api/settings/test`。
-- 本地设置保存在 `backend/.local/settings.local.json`。
-- API Key 不会保存到扩展的 `localStorage` 或 `chrome.storage`。
-- API Key 不会通过 `GET /api/settings` 原样返回，只返回 `apiKeySet` 和 `apiKeyPreview`。
-- 已保存的本地设置会覆盖 `.env` 默认值，并影响之后的 `/api/pet` 和 `/api/pet-stream` 请求。
+## Security Notes
 
-## 功能概览
+- The content script never receives the full Runtime Key.
+- The content script cannot pass provider URLs, headers, request bodies, API keys, base URLs, or custom endpoints to the background runtime.
+- Runtime Keys are stored by the extension background secret store.
+- Optional host permissions are exact provider origins, not `https://*/*`; the normal setup flow requests them only after **Save & Connect** is clicked.
+- Authorization headers and full API keys must not be logged or returned in diagnostics.
+- Background Runtime failures do not silently fall back to Local Backend.
 
-- **Floating Pet UI**：网页右下角的悬浮宠物入口。
-- **Chat**：向宠物发送普通问题或指令。
-- **Explain Selected Text**：选中网页文本后，让宠物用简洁中文解释。
-- **Translate Selected Text**：选中网页文本后，翻译或润色为自然的简体中文。
-- **Summarize Current Page**：提取当前页面可读内容并总结。
-- **Settings Panel**：在 UI 中配置 Base URL、Model、API Key、Provider。模型请求超时固定为 40000ms。
-- **Runtime Setup**：配置 Local Backend 或 Background Runtime Beta，包含 setup checklist、DeepSeek Runtime Key、permission、readiness、Real Test 和 safe diagnostics。
-- **Mock Mode**：无需 API Key 的本地演示模式，适合首次运行和测试。
-- **OpenAI-Compatible Provider**：支持标准 `/v1/chat/completions` 风格的模型服务。
-- **Experimental Streaming**：实验性 `/api/pet-stream` 流式回复。
-- **@Command foundation**：源码级命令解析基础，当前包含内置上下文命令。
-- **Pet Positioning**：支持 docked/free 位置、边缘吸附、窗口 resize 后位置约束。
+## Usage
 
-## 快速开始
+The pet UI supports:
 
-### Path A: Backendless Beta
+- Chat: answer typed user input.
+- Explain: explain selected page text.
+- Translate: translate or polish selected page text into Simplified Chinese.
+- Summarize: summarize readable page content.
 
-1. Load the `extension/` directory as an unpacked extension.
-2. Open `Runtime Setup`.
-3. Select `DeepSeek`, `Alibaba Bailian / DashScope`, `OpenAI`, or `OpenRouter`.
-4. Enter a model, for example `deepseek-chat`.
-5. Save the provider-specific Runtime Key.
-6. Request the selected provider permission.
-7. Check Readiness.
-8. Run Real Test.
-9. Select `Background Runtime Beta`.
-10. Test Chat / Explain / Translate / Summarize.
-
-Background Runtime Beta supports DeepSeek, Alibaba Bailian / DashScope, OpenAI, and OpenRouter in this release candidate. Readiness is local-only and does not call the provider; Real Test is separate and only runs after the user clicks it. Background failures do not automatically fall back.
-
-### Path B: Local Backend Dev
-
-1. Start the local backend.
-2. Keep Runtime Mode as `Local Backend Dev`.
-3. Use normal Chat / Explain / Translate / Summarize actions.
-
-Local Backend remains the default. `/bg` / `@background` and `/local` / `@local` remain Chat-only overrides.
-
-### 1. 准备环境
-
-你需要：
-
-- Node.js
-- Chromium 系浏览器，例如 Chrome、Edge
-- 浏览器扩展开发者模式，用于加载 unpacked extension
-
-### 2. 启动后端
-
-推荐先用 Mock Mode 启动，不需要任何 API Key。
-
-```bash
-cd backend
-npm install
-copy .env.example .env
-npm run dev
-```
-
-在 macOS 或 Linux 上可以把 `copy` 换成：
-
-```bash
-cp .env.example .env
-```
-
-默认后端地址是：
-
-```text
-http://127.0.0.1:3001
-```
-
-扩展默认会调用：
-
-```text
-POST http://127.0.0.1:3001/api/pet
-```
-
-### 3. 加载浏览器扩展
-
-1. 打开 Chrome 或 Edge 的扩展管理页面。
-2. 开启开发者模式。
-3. 选择“加载已解压的扩展程序”。
-4. 选择本仓库中的 `extension/` 目录。
-5. 打开一个普通网页，点击悬浮宠物开始使用。
-
-### 4. 使用 Mock Mode
-
-Mock Mode 是首次运行推荐模式。
-
-确认 `backend/.env` 中保留：
-
-```env
-MODEL_PROVIDER=mock
-MODEL_NAME=mock
-```
-
-Mock Mode 不需要 API Key，也不会访问真实模型服务。它会返回确定性的结构化回复，适合确认扩展、后端和 UI 链路是否正常。
-
-### 5. 配置真实模型
-
-你可以通过两种方式配置 OpenAI-Compatible 模型。
-
-#### 方式 A：通过 Settings UI
-
-1. 启动本地后端。
-2. 打开网页上的宠物面板。
-3. 点击标题栏里的设置按钮。
-4. 进入模型配置。
-5. 填写 Base URL、Model、API Key、Provider。
-6. 点击 Save。
-7. 点击 Test Connection。
-
-如果 API Key 输入框留空，保存时会保留已有的本地 Key。API Key 不会回填到输入框中。
-
-#### 方式 B：通过 `backend/.env`
-
-```env
-MODEL_PROVIDER=openai-compatible
-MODEL_BASE_URL=https://provider.example.com/v1
-MODEL_API_KEY=your_api_key_here
-MODEL_NAME=your_model_name
-MODEL_TEMPERATURE=0.3
-MODEL_MAX_TOKENS=512
-MODEL_RESPONSE_FORMAT=
-LLM_DEBUG=false
-```
-
-`MODEL_BASE_URL` 可以指向 `/v1`，也可以直接指向 `/v1/chat/completions`。
-
-不要提交真实 API Key。`.env`、`backend/.env`、`backend/.local/` 和 `*.local.json` 都应该保持为本地文件。
-
-后端支持通过 `apiKey="__CLEAR__"` 清除已保存的本地 Key；当前 UI 保持简洁，没有单独暴露清除按钮。
-
-## 使用手册
-
-### 普通聊天
-
-点击悬浮宠物打开面板，进入 Chat，输入问题后发送。普通 Chat 会优先回答你的输入；如果你用 `@选区` 或 `@页面` 引用了上下文，后端会把对应文本一起发送给模型。
-
-### 解释选中文本
-
-1. 在网页中选中一段文本。
-2. 点击宠物快捷菜单中的 explain。
-3. 宠物会用简洁的简体中文说明含义、重点和必要背景。
-
-如果没有选中文本，系统会提示你先选中需要解释的网页文本。
-
-### 翻译选中文本
-
-1. 在网页中选中一段文本。
-2. 点击 translate。
-3. 宠物会把选中文本翻译或润色为自然的简体中文。
-
-如果选中文本已经是中文，后端不会说“无法翻译”，而是提供更自然的中文润色版本。
-
-### 总结当前网页
-
-点击 summarize 后，扩展会尝试提取当前网页的可读正文，并发送给本地后端总结。
-
-页面总结质量取决于网页结构。有些网页正文清晰，效果会更好；有些页面包含大量导航、弹窗或动态内容，提取质量可能下降。
-
-### 设置模型
-
-打开设置按钮，进入模型配置：
-
-- Save：保存到 `backend/.local/settings.local.json`。
-- Test Connection：测试当前表单配置或已保存配置。
-- 测试成功时会显示 `Connected. <latency>ms.`。
-- 常见失败会显示简短原因，例如认证失败、请求超时、模型设置无效。
-
-### 宠物位置
-
-宠物支持 docked/free 两种位置状态：
-
-- docked：靠近页面边缘停靠。
-- free：拖动后自由放置。
-- edge snap：拖动结束后可吸附到边缘。
-- resize clamp：窗口尺寸变化后会尽量把宠物限制在可见区域内。
-
-### @Command
-
-项目中已有源码级 `@Command` 基础，位于 `extension/content-src/commands/`。
-
-当前内置命令主要用于 Chat 上下文和本地阅读模式，例如：
-
-- `@选区`
-- `@页面`
-- 本地阅读模式切换命令
-
-运行时不允许第三方插件加载，也不允许远程 JavaScript 加载。扩展能力应通过源码内的命令注册机制逐步扩展。
-
-## 安全说明
-
-本项目采用 local-first 的安全边界，但不声称是生产级账户安全系统。
-
-- 后端默认绑定到 `127.0.0.1`。
-- Settings API 需要本地 token。
-- API Key 保存在 `backend/.local/settings.local.json`。
-- Background Runtime settings 不影响 `backend/.local/settings.local.json`；Runtime Key 只保存在扩展 background secret store 中。
-- Runtime Setup provider 选择不会同步到 backend settings，也不会影响当前本地 backend 的模型配置。
-- `requestEnabled=false` 的 provider 只表示已进入 allowlist，不表示 background 已能请求真实模型。
-- `backend/.local/` 和 `*.local.json` 已加入 `.gitignore`。
-- `GET /api/settings` 只返回 `apiKeySet` 和 `apiKeyPreview`。
-- API Key 不会保存在扩展的 `localStorage` 或 `chrome.storage`。
-- 后端日志不应该输出完整 API Key 或 Authorization header。
-- 不要把后端绑定到 `0.0.0.0`，除非你明确理解网络暴露风险。
-- 不要提交 `.env`、本地 settings 文件、私有 endpoint 或任何真实密钥。
-
-## 本地 Settings API
-
-Settings API 用于本机保存和测试模型配置。
-
-```text
-GET  /api/settings
-PUT  /api/settings
-POST /api/settings/test
-```
-
-所有 settings 路由都需要本地 token。支持的请求头：
-
-```text
-Authorization: Bearer <LOCAL_CLIENT_TOKEN>
-X-Aflodit-Token: <LOCAL_CLIENT_TOKEN>
-X-Aflodit-Pet-Token: <LOCAL_CLIENT_TOKEN>
-```
-
-配置形状：
-
-```json
-{
-  "model": {
-    "provider": "openai-compatible",
-    "baseUrl": "https://api.openai.com/v1",
-    "model": "gpt-4o-mini",
-    "apiKey": "secret"
-  }
-}
-```
-
-`GET /api/settings` 返回的是脱敏结果，例如：
-
-```json
-{
-  "settings": {
-    "model": {
-      "provider": "openai-compatible",
-      "baseUrl": "https://api.openai.com/v1",
-      "model": "gpt-4o-mini",
-      "apiKeySet": true,
-      "apiKeyPreview": "sk-...abcd"
-    }
-  }
-}
-```
-
-`POST /api/settings/test` 会返回 `ok`、`provider`、`model`、`latencyMs` 和安全的人类可读消息。失败时会使用规范化错误码，例如：
-
-- `MODEL_AUTH_FAILED`
-- `MODEL_TIMEOUT`
-- `MODEL_NETWORK_ERROR`
-- `MODEL_BAD_RESPONSE`
-- `MODEL_CONFIG_INVALID`
-
-## API Contract
-
-`POST /api/pet` 是稳定的非流式接口。请求字段保持 snake_case，用于兼容浏览器扩展和早期输入约定。
+Request payloads use this stable shape internally and at the local backend boundary:
 
 ```json
 {
@@ -477,14 +90,7 @@ X-Aflodit-Pet-Token: <LOCAL_CLIENT_TOKEN>
 }
 ```
 
-支持的 canonical actions：
-
-- `chat`
-- `explain_selection`
-- `summarize_page`
-- `translate`
-
-后端响应保持前端兼容形状：
+Normalized responses use:
 
 ```json
 {
@@ -496,122 +102,79 @@ X-Aflodit-Pet-Token: <LOCAL_CLIENT_TOKEN>
 }
 ```
 
-允许的枚举值：
+## Local Backend Dev
 
-- `emotion`: `neutral`, `happy`, `thinking`, `confused`, `error`
-- `motion`: `idle`, `nod`, `shake`, `jump`, `think`
-- `bubble_type`: `normal`, `info`, `warning`, `error`
+The local backend is still available for development and compatibility testing:
 
-## Experimental Streaming
-
-`POST /api/pet-stream` 是实验性流式接口。它使用与 `/api/pet` 相同的请求 payload，但返回 newline-delimited JSON events，方便 Manifest V3 content script 通过 `fetch()` 和 `ReadableStream` 读取增量文本。
-
-事件示例：
-
-```json
-{ "streamExperimental": true, "type": "start", "action": "translate" }
-{ "streamExperimental": true, "type": "delta", "text": "partial reply text" }
-{ "streamExperimental": true, "type": "final", "data": { "reply": "complete reply", "emotion": "thinking", "motion": "think", "bubble_type": "info", "confidence": 0.75 } }
+```powershell
+cd backend
+copy .env.example .env
+npm install
+npm start
 ```
 
-流式接口只在 `delta` 中发送用户可见文本，不会把原始模型 JSON 输出流给用户。扩展当前配置为优先尝试 `/api/pet-stream`，失败后回退到稳定的 `/api/pet`。
-
-OpenAI-Compatible provider 的流式模式使用 `stream: true`，解析 `/v1/chat/completions` 返回的 `data:` chunks，并忽略 `[DONE]`。Mock Mode 也支持确定性的流式测试。
-
-## 调试与验证
-
-从 `backend/` 目录运行语法检查：
-
-```bash
-node --check server.js
-node --check src/llm/index.js
-node --check src/llm/modelClient.js
-node --check src/llm/promptBuilder.js
-node --check src/llm/responseNormalizer.js
-node --check src/llm/fallbackResponse.js
-node --check src/llm/inputNormalizer.js
-node --check ../extension/content.js
-```
-
-Mock Mode 测试：
-
-```bash
-npm run test:normalizer
-npm run test:input
-npm run test:llm
-npm run test:commands
-```
-
-本地调试模型输出时可以临时设置：
-
-```env
-LLM_DEBUG=true
-```
-
-`LLM_DEBUG=true` 可能让 API 响应或终端日志包含更多调试信息。日志仍应保存在本地，不要公开分享包含私有上下文的调试输出。调试结束后建议恢复为 `LLM_DEBUG=false`。
-
-## 常见问题
-
-### 扩展连接不上后端
-
-确认后端正在运行，并且地址是 `http://127.0.0.1:3001`。也可以访问：
+The extension can call:
 
 ```text
-GET http://127.0.0.1:3001/api/runtime-status
+POST http://127.0.0.1:3001/api/pet
 ```
 
-### Save/Test 被拒绝
-
-确认 `backend/.env` 中的 `LOCAL_CLIENT_TOKEN` 与扩展中的本地 token 一致。Settings API 会拒绝没有本地 token 或 token 不匹配的请求。
-
-### 真实模型测试失败
-
-检查 Provider、Base URL、Model 和 API Key。模型请求超时固定为 40000ms。`MODEL_BASE_URL` 可以是 `/v1` 或 `/v1/chat/completions`。如果返回认证失败，优先检查 API Key。
-
-### API Key 保存后没有显示出来
-
-这是预期行为。Settings UI 不会回填真实 API Key，只会显示类似 `Saved: sk-...abcd` 的安全占位信息。
-
-### Mock Mode 正常，真实模型不正常
-
-说明扩展和本地后端链路基本正常。问题通常在模型服务配置、网络、API Key 权限、模型名称或 provider 的 OpenAI-Compatible 兼容性上。
-
-### 页面总结质量不好
-
-页面正文提取依赖当前网页结构。文章页通常效果更好；复杂应用、动态页面、弹窗很多的页面可能会影响提取质量。
-
-### 后端端口冲突
-
-默认端口是 `3001`。如果被占用，可以在 `backend/.env` 中调整：
+Configure `backend/.env` for mock mode:
 
 ```env
-PORT=3002
+MODEL_PROVIDER=mock
+MODEL_NAME=mock
+LLM_DEBUG=false
 ```
 
-调整后也需要让扩展配置指向相同端口。
+Configure an OpenAI-compatible backend provider:
 
-### `npm install` 提示 moderate vulnerability
+```env
+MODEL_PROVIDER=openai-compatible
+MODEL_BASE_URL=https://provider.example.com/v1
+MODEL_API_KEY=replace-with-your-key
+MODEL_NAME=provider-model-id
+MODEL_TIMEOUT_MS=20000
+MODEL_TEMPERATURE=0.3
+MODEL_MAX_TOKENS=512
+LLM_DEBUG=false
+```
 
-先确认是否影响当前本地开发路径。不要为了消除提示盲目升级依赖导致运行时行为变化。需要升级时应单独检查变更和测试结果。
+Do not commit `.env` or real keys.
 
-## 已知限制
+## Troubleshooting
 
-- 使用扩展时必须运行本地后端。
-- 这是 Phase 7.0 的实验性限制，后续 Phase 计划继续评估 background runtime 路由扩展。
-- Runtime Setup 的 Mock Test Connection 只验证安全消息链路，不请求真实模型。
-- 后端不是 production hardened 服务。
-- OpenAI-Compatible provider 的兼容性取决于对方 `/chat/completions` 行为。
-- 网页内容提取质量会因网站结构而变化。
-- 真实模型延迟取决于 provider、网络和模型本身。
+- Missing key: save a Runtime Key for the selected provider in `AI Settings / Model & Key`.
+- Missing permission: click **Save & Connect** again and approve the browser permission prompt.
+- Connection failed: confirm provider, model ID, Runtime Key, provider quota, model access, account region, and key validity.
+- No pet UI: reload the extension and refresh the page.
+- Local Backend Dev errors: confirm the backend is running on `127.0.0.1:3001`.
 
-## 开发者说明
+## Release Package
 
-项目主要目录：
+The release package is generated at:
 
-- `extension/`：Manifest V3 浏览器扩展、content script 和宠物 UI 样式。
-- `backend/`：本地 Express 后端和模型运行时。
-- `backend/src/llm/`：输入归一化、Prompt 构建、Provider 调用、响应归一化、fallback 和 debug metadata。
-- `backend/src/settings/`：本地 settings 存储、校验、脱敏和 API routes。
-- `docs/`：架构、开发和 `@Command` 设计说明。
+```text
+dist/aflodit-pet-copilot-v0.8.0/
+```
 
-公共贡献时请保持本地密钥、本地 settings、日志、缓存和浏览器 profile 数据不进入 Git。
+It should contain the extension runtime files only: manifest, background script, generated content script, CSS, and required `runtime/` modules. It should not include backend code, source-only content fragments, tests, docs, `.env` files, or task files.
+
+`dist/` is intentionally ignored by git.
+
+## Validation
+
+Recommended release checks:
+
+```powershell
+node --check extension\content.js
+node --check extension\background.js
+node extension\runtime\testRuntimeSetupReleaseCandidate.js
+node extension\runtime\testMultiProviderRuntime.js
+node extension\runtime\testReleaseSafetyGuard.js
+node extension\runtime\checkReleaseSafety.js
+node scripts\buildReleasePackage.js
+node scripts\checkReleasePackage.js
+```
+
+Manual Chromium testing is still required before publishing a release.

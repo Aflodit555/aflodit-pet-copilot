@@ -1,6 +1,5 @@
 import {
   getDefaultModelForProvider,
-  getDefaultProviderId,
   hasProvider,
   normalizeProviderId,
   sanitizeModelForProvider
@@ -8,13 +7,14 @@ import {
 import { validatePublicSettings } from "./permissionGuard.js";
 
 const STORAGE_KEY = "afloditBackgroundRuntimePublicSettings";
+const USER_DEFAULT_PROVIDER_ID = "dashscope";
 
 const DEFAULT_SETTINGS = Object.freeze({
-  provider: getDefaultProviderId(),
-  model: getDefaultModelForProvider(getDefaultProviderId()),
+  provider: USER_DEFAULT_PROVIDER_ID,
+  model: getDefaultModelForProvider(USER_DEFAULT_PROVIDER_ID),
   saveMode: "local",
   debugEnabled: false,
-  runtimeMode: "local_backend",
+  runtimeMode: "background_runtime_beta",
   lastRealTestStatus: null
 });
 

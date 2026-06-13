@@ -40,23 +40,23 @@ This release does not claim Firefox or Safari support.
 
 For development, select `extension/` instead.
 
-## Runtime Setup
+## AI Settings / Model & Key
 
-Recommended for v0.8.0: Backendless Beta.
+Recommended for v0.8.0-beta: Background Runtime Beta with Alibaba Bailian / DashScope and model ID `qwen-plus`.
 
-Local Backend Dev remains available for development.
+Local Backend Dev remains available for development and fallback testing.
 
 For Background Runtime Beta:
 
-- Open Runtime Setup.
-- Select DeepSeek, Alibaba Bailian / DashScope, OpenAI, or OpenRouter.
+- Open `AI Settings / Model & Key`.
+- Select Alibaba Bailian / DashScope for the recommended path.
+- Treat DeepSeek, OpenAI, and OpenRouter as experimental unless manually verified for your account, region, and model access.
 - Save a provider-specific Runtime Key.
-- Request the exact optional host permission for the selected provider.
-- Run Check Readiness.
-- Run Real Test when you are ready to spend a small amount of provider quota.
-- Select Background Runtime Beta.
+- Click **Save & Connect**.
+- Approve the exact optional host permission if the browser prompts.
+- Wait for Connection Status to show Connected. The one-click flow saves settings, checks permission/readiness, and runs the lightweight real test from that explicit user action.
 
-Background Runtime Beta supports DeepSeek, Alibaba Bailian / DashScope, OpenAI, and OpenRouter in this release. DashScope uses the default China Beijing endpoint in this phase. It does not use a wildcard host permission, does not use Native Messaging, and does not support custom endpoints.
+Background Runtime Beta supports DeepSeek, Alibaba Bailian / DashScope, OpenAI, and OpenRouter in this release. DashScope uses the default China Beijing endpoint in this phase. It does not require the local Node backend for the recommended user path. It does not use a wildcard host permission, does not use Native Messaging, and does not support custom endpoints.
 
 ## Compatibility Notes
 

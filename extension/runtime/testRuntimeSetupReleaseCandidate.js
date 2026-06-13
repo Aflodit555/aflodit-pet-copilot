@@ -94,35 +94,106 @@ await check("diagnostics includes runtimeMode and hasRuntimeKey boolean", async 
   assert.equal(response.diagnostics.requestEnabled, false);
 });
 
-await check("setup checklist source includes required rows and safe copy diagnostics control", async () => {
-  const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
-  for (const label of [
-    "Setup Status",
-    "Runtime Mode",
-    "Provider",
-    "Model",
-    "Runtime Key",
-    "Host Permission",
-    "Readiness",
-    "Real Test"
-  ]) {
-    assert.match(source, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  }
+const UI_COPY = Object.freeze({
+  title: "AI &#35774;&#32622; / &#27169;&#22411;&#19982;&#23494;&#38053;",
+  connectionStatus: "&#36830;&#25509;&#29366;&#24577;",
+  provider: "&#26381;&#21153;&#21830;",
+  modelId: "&#27169;&#22411; ID",
+  runtimeKey: "&#36816;&#34892;&#23494;&#38053;",
+  lastCheck: "&#26368;&#36817;&#26816;&#26597;",
+  advancedTools: "&#39640;&#32423;&#24037;&#20855;",
+  back: "&#36820;&#22238;",
+  saveConnect: "&#20445;&#23384;&#24182;&#36830;&#25509;",
+  reload: "&#37325;&#26032;&#21152;&#36733;"
 });
 
-await check("primary visible setup actions are limited", async () => {
+await check("connection status source includes simplified user rows", async () => {
   const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
-  assert.match(source, />Save Setup</);
-  assert.match(source, />Check Readiness</);
-  assert.match(source, />Run Real Test</);
+  for (const label of [
+    UI_COPY.connectionStatus,
+    UI_COPY.provider,
+    UI_COPY.modelId,
+    UI_COPY.runtimeKey,
+    UI_COPY.lastCheck
+  ]) {
+    assert.ok(source.includes(label), `missing user label: ${label}`);
+  }
+  assert.doesNotMatch(source, /<b>Host Permission<\/b>/);
+  assert.doesNotMatch(source, /<b>Readiness<\/b>/);
+  assert.doesNotMatch(source, /<b>Real Test<\/b>/);
+});
+
+await check("primary visible setup action is Save and Connect", async () => {
+  const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
+  assert.ok(source.includes(`>${UI_COPY.saveConnect}</button>`));
+  assert.doesNotMatch(source, />Save Setup</);
+  assert.doesNotMatch(source, />Save &amp; Connect</);
   assert.doesNotMatch(source, />Save Settings</);
   assert.doesNotMatch(source, />Save Key</);
 });
 
+await check("AI Settings footer only contains Back Save Connect and Reload", async () => {
+  const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
+  const footerMatch = source.match(/<div class="pet-settings-actions pet-settings-footer pet-runtime-actions">([\s\S]*?)<\/div>\s*<\/div>\s*<div id="aflodit-pet-settings-commands"/);
+  assert.ok(footerMatch, "runtime footer block should be found");
+  const footer = footerMatch[1];
+  assert.match(footer, /aflodit-pet-runtime-back/);
+  assert.match(footer, /aflodit-pet-runtime-save/);
+  assert.ok(footer.includes(UI_COPY.back));
+  assert.ok(footer.includes(UI_COPY.saveConnect));
+  assert.match(footer, /aflodit-pet-runtime-reload/);
+  assert.ok(footer.includes(UI_COPY.reload));
+  assert.doesNotMatch(footer, /aflodit-pet-runtime-check-readiness/);
+  assert.doesNotMatch(footer, /aflodit-pet-runtime-test-real/);
+  assert.doesNotMatch(footer, /aflodit-pet-runtime-request-permission/);
+  assert.doesNotMatch(footer, /aflodit-pet-runtime-dev-toggle/);
+});
+
+await check("advanced setup actions are contained in Developer Tools", async () => {
+  const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
+  const devToolsStart = source.indexOf("aflodit-pet-runtime-developer-tools");
+  const footerStart = source.indexOf("pet-settings-actions pet-settings-footer pet-runtime-actions");
+  assert.ok(devToolsStart > -1, "developer tools block should exist");
+  assert.ok(devToolsStart < footerStart, "developer tools should stay outside the footer");
+  assert.match(source, /id="aflodit-pet-runtime-request-permission" class="pet-secondary-button hidden">Request Permission/);
+  assert.match(source, /id="aflodit-pet-runtime-check-readiness" class="pet-secondary-button">Check Readiness/);
+  assert.match(source, /id="aflodit-pet-runtime-test-real" class="pet-secondary-button">Run Real Test/);
+  assert.ok(source.includes(`id="aflodit-pet-runtime-dev-toggle" class="pet-link-button pet-runtime-dev-button">${UI_COPY.advancedTools}</button>`));
+  assert.doesNotMatch(source, /pet-runtime-status-actions/);
+  assert.doesNotMatch(source, /<div class="pet-runtime-actions-title">Setup<\/div>/);
+});
+
+await check("Display and Position footer orders Back before Reset Position", async () => {
+  const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
+  const backIndex = source.indexOf("aflodit-pet-display-back");
+  const resetIndex = source.indexOf("aflodit-pet-ui-reset-position");
+  assert.ok(backIndex > -1, "display back button should exist");
+  assert.ok(resetIndex > -1, "reset position button should exist");
+  assert.ok(backIndex < resetIndex, "Back should appear before Reset Position");
+});
+
+await check("default settings menu presents AI setup and hides legacy local backend", async () => {
+  const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
+  assert.ok(source.includes(UI_COPY.title));
+  assert.match(source, /data-settings-view="model" data-runtime-developer-only>Legacy Local Backend/);
+  assert.doesNotMatch(source, /data-settings-view="runtime">Runtime Setup/);
+  assert.doesNotMatch(source, /data-settings-view="model">Model Config/);
+});
+
+await check("DashScope model field uses model ID copy", async () => {
+  const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
+  const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
+  assert.ok(source.includes(`>${UI_COPY.modelId}</`));
+  assert.match(appSource, /Use a DashScope \/ Bailian model ID, for example qwen-plus/);
+  assert.match(appSource, /The model ID is sent directly to the provider/);
+});
+
 await check("diagnostics default collapsed and runtime mode switch button is absent", async () => {
   const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
+  const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
   assert.match(source, /id="aflodit-pet-runtime-developer-tools" class="pet-runtime-actions-group hidden"/);
-  assert.match(source, /Developer Tools/);
+  assert.ok(source.includes(UI_COPY.advancedTools));
+  assert.match(appSource, /advancedTools: "\\u9ad8\\u7ea7\\u5de5\\u5177"/);
   assert.doesNotMatch(source, /<details class="pet-runtime-actions-group" open>/);
   assert.doesNotMatch(source, /aflodit-pet-runtime-switch-beta/);
   assert.doesNotMatch(source, /Switch to Background Runtime Beta/);
@@ -135,6 +206,7 @@ await check("user mode hides developer-only setup controls", async () => {
   assert.match(source, /id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test/);
   assert.match(source, /id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission/);
   assert.match(source, /id="aflodit-pet-runtime-clear-key" class="pet-secondary-button"/);
+  assert.match(source, /id="aflodit-pet-runtime-local-backend" class="pet-secondary-button">Legacy Local Backend/);
   assert.match(source, /id="aflodit-pet-runtime-save-mode"/);
   assert.match(source, /id="aflodit-pet-runtime-debug"/);
   assert.match(appSource, /runtimeSetupViewMode === "developer"/);
@@ -145,9 +217,23 @@ await check("developer mode exposes advanced test tools", async () => {
   const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
   const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
   assert.match(source, /id="aflodit-pet-runtime-copy-diagnostics" class="pet-secondary-button">Copy Diagnostics/);
-  assert.match(appSource, /Hide Developer Tools/);
-  assert.match(appSource, /Developer Tools/);
+  assert.match(source, /id="aflodit-pet-runtime-request-permission" class="pet-secondary-button hidden">Request Permission/);
+  assert.match(source, /id="aflodit-pet-runtime-check-readiness" class="pet-secondary-button">Check Readiness/);
+  assert.match(source, /id="aflodit-pet-runtime-test-real" class="pet-secondary-button">Run Real Test/);
+  assert.match(appSource, /RUNTIME_COPY\.advancedTools/);
   assert.match(appSource, /runtimeDeveloperOnly/);
+});
+
+await check("Save and Connect is one explicit user-triggered flow", async () => {
+  const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
+  assert.match(appSource, /async saveAndConnect\(\)/);
+  assert.match(appSource, /BackgroundRuntimeClient\.savePublicSettings/);
+  assert.match(appSource, /BackgroundRuntimeClient\.saveSecret/);
+  assert.match(appSource, /BackgroundRuntimeClient\.getProviderPermissionStatus/);
+  assert.match(appSource, /BackgroundRuntimeClient\.requestProviderPermission/);
+  assert.match(appSource, /BackgroundRuntimeClient\.getBackgroundChatReadiness/);
+  assert.match(appSource, /BackgroundRuntimeClient\.testProviderConnection/);
+  assert.match(appSource, /RuntimeSettingsManager\.save\(\)/);
 });
 
 await check("setup screen avoids raw requestEnabled wording in user-facing source", async () => {
@@ -155,20 +241,24 @@ await check("setup screen avoids raw requestEnabled wording in user-facing sourc
   assert.doesNotMatch(source, /requestEnabled/);
 });
 
-await check("release docs use Backendless Beta wording instead of Preview wording", async () => {
+await check("release docs describe the current v0.8.0-beta path", async () => {
   const readme = readFileSync(new URL("../../README.md", import.meta.url), "utf8");
   const architecture = readFileSync(new URL("../../docs/ARCHITECTURE.md", import.meta.url), "utf8");
   const permissionRfc = readFileSync(new URL("../../docs/RUNTIME_PROVIDER_PERMISSION_RFC.md", import.meta.url), "utf8");
-  assert.match(readme, /Phase 11\.0 Release Mode Cleanup/);
-  assert.match(readme, /Recommended for v0\.8\.0: Backendless Beta/);
-  assert.match(readme, /Development fallback: Local Backend Dev/);
+  assert.match(readme, /Recommended Setup/);
+  assert.match(readme, /DashScope/);
+  assert.match(readme, /qwen-plus/);
+  assert.match(readme, /Local Backend Dev remains available for development and fallback testing/);
+  assert.match(architecture, /recommended Background Runtime Beta/);
+  assert.match(permissionRfc, /Current Status For v0\.8\.0-beta/);
   assert.doesNotMatch(`${readme}\n${architecture}\n${permissionRfc}`, /Backendless Preview|Runtime Preview|production ready|provider enabled|request enabled yes|provider is connected|provider connection/);
 });
 
-await check("Request Permission is hidden by default for unsupported providers", async () => {
+await check("Request Permission is hidden by default and only in developer tools", async () => {
   const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
   const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
   assert.match(source, /id="aflodit-pet-runtime-request-permission" class="pet-secondary-button hidden"/);
+  assert.ok(source.indexOf("aflodit-pet-runtime-request-permission") > source.indexOf("aflodit-pet-runtime-developer-tools"));
   assert.match(appSource, /not configured for this provider/);
 });
 

@@ -1,5 +1,17 @@
 # Runtime Provider Permission RFC
 
+## Current Status For v0.8.0-beta
+
+This RFC preserves historical phase notes for the Background Runtime migration. The current release posture is:
+
+- Background Runtime Beta is the recommended user path.
+- Alibaba Bailian / DashScope with model ID `qwen-plus` is the recommended verified provider/model path.
+- Normal user setup uses one explicit Save & Connect action; separate permission/readiness/real-test controls are developer-only.
+- DeepSeek, OpenAI, and OpenRouter remain experimental until manually verified for the user's account, region, and model access.
+- Local Backend Dev remains available for development and fallback testing.
+- Content scripts still cannot pass provider URLs, headers, raw request bodies, API keys, endpoints, base URLs, or custom provider configuration to the background runtime.
+- `requestEnabled` remains `false` as a release safety field; real requests are gated by runtime mode, provider allowlist, saved Runtime Key, exact optional host permission, and explicit user action.
+
 ## 1. Goal
 
 Phase 5A defines the permission strategy for future real provider requests from the extension background runtime. Phase 5B adds a mock-only Test Connection skeleton that exercises the UI and message path without contacting real providers. Phase 5C.0 adds a DeepSeek-only optional host permission status check.

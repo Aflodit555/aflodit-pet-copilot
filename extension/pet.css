@@ -570,6 +570,33 @@
   gap: 5px;
 }
 
+#aflodit-pet-root .pet-runtime-dev-button {
+  background: transparent !important;
+  color: #777 !important;
+}
+
+#aflodit-pet-root .pet-runtime-dev-entry {
+  display: flex;
+  justify-content: flex-end;
+  margin: -2px 0 4px;
+}
+
+#aflodit-pet-root .pet-link-button {
+  border: none;
+  background: transparent;
+  color: #777;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.25;
+  padding: 2px 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+#aflodit-pet-root .pet-link-button:hover {
+  color: #333;
+}
+
 #aflodit-pet-root .pet-runtime-nav-row {
   margin-top: 1px;
 }
