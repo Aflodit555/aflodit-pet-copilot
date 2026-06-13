@@ -12,27 +12,27 @@ The goals are:
 
 Phase 5B does not change the current AI request path. Chat, explain, translate, and summarize continue to use the local backend.
 
-Phase 5C.0 also does not change the current AI request path. It only checks whether the exact DeepSeek optional host permission is already granted. It does not request permission, does not request a model, does not mean the provider is connected, and keeps `requestEnabled=false`.
+Phase 5C.0 also does not change the current AI request path. It only checks whether the exact DeepSeek optional host permission is already granted. It does not request permission, does not request a model, does not verify provider readiness, and keeps `requestEnabled=false`.
 
-Phase 5C.0.1 fixes the permission status message wire and adds lightweight tests for `runtime:getProviderPermissionStatus`. It also compacts the Backendless Preview UI so Runtime Actions, Preview Checks, and navigation actions are visually distinct. It still does not request permissions or providers.
+Phase 5C.0.1 fixes the permission status message wire and adds lightweight tests for `runtime:getProviderPermissionStatus`. It also compacts the Backendless Beta UI so Runtime Actions, setup checks, and navigation actions are visually distinct. It still does not request permissions or providers.
 
-Phase 5C.1 adds a DeepSeek-only permission request UI. The background runtime may call `chrome.permissions.request` only for the exact allowlisted origin `https://api.deepseek.com/*`. This does not request a model, does not indicate provider connection, and keeps `requestEnabled=false`. OpenAI, DashScope, and OpenRouter permission requests remain unconfigured.
+Phase 5C.1 adds a DeepSeek-only permission request UI. The background runtime may call `chrome.permissions.request` only for the exact allowlisted origin `https://api.deepseek.com/*`. This does not request a model, does not verify provider readiness, and keeps `requestEnabled=false`. OpenAI, DashScope, and OpenRouter permission requests remain unconfigured.
 
-Phase 5C.2 adds a DeepSeek-only Real Test Connection. The background runtime may send one minimal DeepSeek chat completions request after permission is granted and a Runtime Key exists. This may consume a tiny amount of quota, does not switch Chat/Explain/Translate/Summarize to the background runtime, does not indicate provider connection, and keeps `requestEnabled=false`. OpenAI, DashScope, and OpenRouter real tests remain unconfigured.
+Phase 5C.2 adds a DeepSeek-only Real Test. The background runtime may send one minimal DeepSeek chat completions request after permission is granted and a Runtime Key exists. This may consume a tiny amount of quota, does not switch Chat/Explain/Translate/Summarize to the background runtime, does not make Background Runtime Beta generic, and keeps `requestEnabled=false`. OpenAI, DashScope, and OpenRouter real tests remain unconfigured.
 
 Phase 6 adds one optional background AI route for Chat only. The content script may send only `providerId`, `model`, and user input to `runtime:chat`; the background runtime reads the Runtime Key internally and calls the allowlisted DeepSeek chat completions endpoint. Normal Chat without the explicit background prefix, plus Explain, Translate, and Summarize, still use the local backend.
 
 Phase 6.1 audits the optional background Chat route. `runtime:chat` accepts only `providerId`, `model`, and `userText`; `userText` must be a trimmed 1-512 character string. Extra fields such as URL, headers, raw body, API key, token, or endpoint are rejected before any provider request is attempted.
 
-Phase 6.2 makes the optional background Chat route a release-gated preview. The UI labels Local Backend, Background Runtime, Mock Test, Permission Check, and Real Provider Test sources explicitly. Background Chat failures do not automatically fall back to the local backend; users remove `/bg` or `@background` to use ordinary Chat.
+Phase 6.2 makes the optional background Chat route a release-gated beta path. The UI labels Local Backend, Background Runtime, Mock Test, Permission Check, and Real Provider Test sources explicitly. Background Chat failures do not automatically fall back to the local backend; users remove `/bg` or `@background` to use ordinary Chat.
 
-Phase 6.3 adds a public `backgroundChatPreviewEnabled` setting and a compact Backendless Preview toggle. The setting defaults to `false`. When enabled, ordinary Chat uses Background Runtime, while `/local` and `@local` force Local Backend Chat. Explain, Translate, and Summarize continue to use the local backend.
+Phase 6.3 adds a public `backgroundChatPreviewEnabled` legacy setting and a compact Backendless Beta toggle. The setting defaults to `false`. When enabled, ordinary Chat uses Background Runtime, while `/local` and `@local` force Local Backend Chat. Explain, Translate, and Summarize continue to use the local backend.
 
-Phase 6.4 adds `runtime:getBackgroundChatReadiness` and a compact Backendless Preview checklist. The readiness API checks only local/background state: provider, Runtime Key presence, DeepSeek host permission, model fallback, preview toggle state, and Real Test optional status. It does not call a provider, request permission, run Real Test, expose secrets, or change `requestEnabled`.
+Phase 6.4 adds `runtime:getBackgroundChatReadiness` and a compact Backendless Beta checklist. The readiness API checks only local/background state: provider, Runtime Key presence, DeepSeek host permission, model fallback, runtime mode state, and Real Test optional status. It does not call a provider, request permission, run Real Test, expose secrets, or change `requestEnabled`.
 
-Phase 7.0 adds `runtime:action` and renames the preview setting to `backgroundRuntimePreviewEnabled`. The old `backgroundChatPreviewEnabled` value is still accepted for migration. When Runtime Preview is enabled, Chat, Explain, Translate, and Summarize can use the Background Runtime. When it is disabled, ordinary actions remain on the Local Backend except explicit Chat `/bg` or `@background`.
+Phase 7.0 adds `runtime:action` and renames the legacy setting to `backgroundRuntimePreviewEnabled`. The old `backgroundChatPreviewEnabled` value is still accepted for migration. When Background Runtime Beta is enabled, Chat, Explain, Translate, and Summarize can use the Background Runtime. When it is disabled, ordinary actions remain on the Local Backend except explicit Chat `/bg` or `@background`.
 
-Phase 8.0 replaces the preview checkbox with a public `runtimeMode` selector: `local_backend` or `background_runtime_beta`. `local_backend` is the default. `background_runtime_beta` routes Chat, Explain, Translate, and Summarize to the background runtime after setup. The background runtime remains DeepSeek-only, requires a saved Runtime Key and the exact DeepSeek permission, and still keeps `requestEnabled=false`. Readiness is local-only and does not call the provider, request permission, run Real Test, or change settings. Real Test remains separate.
+Phase 8.0 replaces the beta checkbox with a public `runtimeMode` selector: `local_backend` or `background_runtime_beta`. `local_backend` is the default. `background_runtime_beta` routes Chat, Explain, Translate, and Summarize to the background runtime after setup. The background runtime remains DeepSeek-only, requires a saved Runtime Key and the exact DeepSeek permission, and still keeps `requestEnabled=false`. Readiness is local-only and does not call the provider, request permission, run Real Test, or change settings. Real Test remains separate.
 
 Phase 9.0 renames the user-facing setup area to Runtime Setup and adds release-candidate setup affordances: a compact setup checklist, explicit setup action order, safe copyable diagnostics, safe `lastRealTestStatus` metadata, and a local release safety guard script. This phase does not expand providers, does not add permissions, does not change routing, and does not make Background Runtime Beta the default.
 
@@ -60,29 +60,29 @@ content script -> local backend -> provider
 The Runtime Setup path is currently:
 
 ```text
-content script -> background runtime settings/secret preview
+content script -> background runtime settings/secret metadata
 content script -> background runtime -> DeepSeek minimal real test
 ```
 
-The preview path stores and reloads public settings, provider allowlist state, a Runtime Key preview, a mock Test Connection result, a DeepSeek-only Real Test result, optional DeepSeek background action results, and the `runtimeMode` selector. `runtimeMode=local_backend` keeps ordinary Chat / Explain / Translate / Summarize on the local backend. `runtimeMode=background_runtime_beta` routes those four actions through Background Runtime after setup.
+The Backendless Beta path stores and reloads public settings, provider allowlist state, masked Runtime Key metadata, a mock Test Connection result, a DeepSeek-only Real Test result, optional DeepSeek background action results, and the `runtimeMode` selector. `runtimeMode=local_backend` keeps ordinary Chat / Explain / Translate / Summarize on the local backend. `runtimeMode=background_runtime_beta` routes those four actions through Background Runtime after setup.
 
 Phase 9.0 adds safe runtime diagnostics with only these user-support fields: version, runtime mode, provider id/name, model, Runtime Key presence, masked key preview, permission status, readiness status, last safe Real Test status, `requestEnabled=false`, and source label support. Diagnostics must not include full Runtime Keys, Authorization headers, raw provider responses, page text, selected text, prompts, headers, or raw request bodies.
 
-In Phase 5C.0, the preview path can also ask the background runtime for `runtime:getProviderPermissionStatus` with only `{ "providerId": "deepseek" }`. The background runtime resolves the provider from the allowlist and checks `chrome.permissions.contains` for `https://api.deepseek.com/*`.
+In Phase 5C.0, the Backendless Beta path can also ask the background runtime for `runtime:getProviderPermissionStatus` with only `{ "providerId": "deepseek" }`. The background runtime resolves the provider from the allowlist and checks `chrome.permissions.contains` for `https://api.deepseek.com/*`.
 
-In Phase 5C.2, the preview path can ask the background runtime for `runtime:testProviderConnection` with only `{ "providerId": "deepseek", "model": "deepseek-chat" }`. The background runtime builds the URL from the DeepSeek descriptor, reads the Runtime Key internally, sends the minimal request, and returns a redacted result with `requestEnabled=false`.
+In Phase 5C.2, the Backendless Beta path can ask the background runtime for `runtime:testProviderConnection` with only `{ "providerId": "deepseek", "model": "deepseek-chat" }`. The background runtime builds the URL from the DeepSeek descriptor, reads the Runtime Key internally, sends the minimal request, and returns a redacted result with `requestEnabled=false`.
 
-In Phase 6.1, the preview path can ask the background runtime for `runtime:chat` with only `{ "providerId": "deepseek", "model": "deepseek-chat", "userText": "hello" }`. It is opt-in from the Chat UI with `/bg ` or `@background ` and does not carry selected text, page text, URLs, headers, raw bodies, or API keys from the content script.
+In Phase 6.1, the Backendless Beta path can ask the background runtime for `runtime:chat` with only `{ "providerId": "deepseek", "model": "deepseek-chat", "userText": "hello" }`. It is opt-in from the Chat UI with `/bg ` or `@background ` and does not carry selected text, page text, URLs, headers, raw bodies, or API keys from the content script.
 
 In Phase 6.3, the Chat UI also supports `/local ` and `@local ` as explicit Local Backend overrides. With `backgroundChatPreviewEnabled=false`, ordinary Chat still uses the local backend. With `backgroundChatPreviewEnabled=true`, ordinary Chat uses the same `runtime:chat` readiness guard as `/bg`; it does not auto-request permission or run a real provider test during Chat.
 
-In Phase 6.4, the preview path can ask the background runtime for `runtime:getBackgroundChatReadiness` with only `{ "providerId": "deepseek", "model": "deepseek-chat" }`. The response is a safe checklist for UI display and never includes API keys, Authorization headers, URLs from content, raw provider responses, or request bodies.
+In Phase 6.4, the Backendless Beta path can ask the background runtime for `runtime:getBackgroundChatReadiness` with only `{ "providerId": "deepseek", "model": "deepseek-chat" }`. The response is a safe checklist for UI display and never includes API keys, Authorization headers, URLs from content, raw provider responses, or request bodies.
 
-In Phase 7.0, the preview path can ask the background runtime for `runtime:action` with only `providerId`, optional `model`, `action`, `userText`, optional `pageText`, and optional `selectionText`. The background runtime chooses the prompt internally from the action type. Content scripts cannot provide custom prompt templates, URLs, headers, request bodies, or secrets.
+In Phase 7.0, the Backendless Beta path can ask the background runtime for `runtime:action` with only `providerId`, optional `model`, `action`, `userText`, optional `pageText`, and optional `selectionText`. The background runtime chooses the prompt internally from the action type. Content scripts cannot provide custom prompt templates, URLs, headers, request bodies, or secrets.
 
 In Phase 8.0, the content script saves only the public `runtimeMode` enum. If a stored setting still has `backgroundRuntimePreviewEnabled=true` and no `runtimeMode`, it is migrated to `background_runtime_beta`. If both fields exist, `runtimeMode` wins. The UI allows selecting Background Runtime Beta even when readiness is not ready, but it warns about missing Runtime Key, permission, model, or unsupported provider and keeps Local Backend available.
 
-In Phase 9.0, the UI displays setup state without implying provider connection: Runtime Mode, Provider, Model, Runtime Key, Host Permission, Readiness, and Real Test. The user must explicitly save settings, save a key, request permission, check readiness, run Real Test, and select Background Runtime Beta. Real Test status is stored only as safe metadata:
+In Phase 9.0, the UI displays setup state without implying broad provider availability: Runtime Mode, Provider, Model, Runtime Key, Host Permission, Readiness, and Real Test. The user must explicitly save settings, save a key, request permission, check readiness, run Real Test, and select Background Runtime Beta. Real Test status is stored only as safe metadata:
 
 ```js
 {
@@ -288,7 +288,7 @@ Responses must not include:
 
 ## 6.1 Optional Background Chat Design And Audit
 
-Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior. Phase 6.2 adds release-gate source labels and explicit failure UX. Phase 6.3 adds a disabled-by-default Background Chat Preview toggle plus explicit Local Backend overrides. Phase 6.4 adds a read-only readiness checklist before users try Background Chat. Phase 7.0 generalizes the preview into Background Runtime Preview for Chat, Explain, Translate, and Summarize. Phase 8.0 replaces the checkbox with the Runtime Mode selector and keeps Local Backend as the default. Phase 9.0 productizes the setup UI as Runtime Setup and adds safe diagnostics plus a release safety guard.
+Phase 6 adds `runtime:chat` as the first single-action background AI route. Phase 6.1 tightens its payload and UI behavior. Phase 6.2 adds release-gate source labels and explicit failure UX. Phase 6.3 adds a disabled-by-default Background Chat Beta toggle plus explicit Local Backend overrides. Phase 6.4 adds a read-only readiness checklist before users try Background Chat. Phase 7.0 generalizes the beta path into Background Runtime Beta for Chat, Explain, Translate, and Summarize. Phase 8.0 replaces the checkbox with the Runtime Mode selector and keeps Local Backend as the default. Phase 9.0 productizes the setup UI as Runtime Setup and adds safe diagnostics plus a release safety guard.
 
 Rules:
 
@@ -348,11 +348,11 @@ Recommended rollout:
 
 Phase 4 intentionally has every provider set to `requestEnabled=false`. Phase 5B does not change that state.
 
-Phase 5C.0 keeps every provider at `requestEnabled=false`. A granted DeepSeek optional host permission only means the browser permission is present; it is not a successful provider connection and it does not enable real provider requests.
+Phase 5C.0 keeps every provider at `requestEnabled=false`. A granted DeepSeek optional host permission only means the browser permission is present; it is not a successful provider readiness check and it does not enable real provider requests.
 
 Phase 5C.2 also keeps every provider at `requestEnabled=false`. A successful DeepSeek Real Test means only that the Runtime Key, exact DeepSeek host permission, and DeepSeek API reachability worked for the minimal test request. It does not enable the main AI route.
 
-Phase 6.1 keeps every provider at `requestEnabled=false`. A successful optional background Chat response means only that the explicit single-action preview route worked for that request. It does not enable the main AI route or any other action.
+Phase 6.1 keeps every provider at `requestEnabled=false`. A successful optional background Chat response means only that the explicit single-action beta route worked for that request. It does not enable the main AI route or any other action.
 
 ## 9. Logging and Redaction
 
@@ -371,20 +371,20 @@ Recommended follow-up phases:
 ```text
 Phase 5B: mock Test Connection skeleton
 Phase 5C.0: DeepSeek optional host permission status skeleton
-Phase 5C.0.1: permission status wire fix + compact runtime preview UI
+Phase 5C.0.1: permission status wire fix + compact Runtime Setup UI
 Phase 5C.1: DeepSeek permission request UI
 Phase 5C.2: DeepSeek-only real Test Connection
 Phase 6: optional background AI route for chat
 Phase 6.1: background chat route audit and UI improvement
-Phase 6.2: background chat preview release gate
-Phase 6.3: background chat preview toggle and local override
+Phase 6.2: background chat beta release gate
+Phase 6.3: background chat beta toggle and local override
 Phase 6.4: background chat readiness checklist
-Phase 7.0: background runtime actions preview
+Phase 7.0: background runtime actions beta
 Phase 7.1: provider adapter hardening
 Phase 7: optional background AI route expansion
 ```
 
-Phase 7.0 should remain experimental and DeepSeek-only. Validate explicit Runtime Preview readiness and failure behavior before considering broader provider support.
+Phase 7.0 should remain experimental and DeepSeek-only. Validate explicit Background Runtime Beta readiness and failure behavior before considering broader provider support.
 
 ## 11. Security Checklist
 

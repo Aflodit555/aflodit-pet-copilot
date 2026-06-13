@@ -22,7 +22,7 @@ Dify 现在不再是运行时依赖。仓库中的本地后端已经接管了输
 
 ## 当前版本
 
-当前实现是 `v0.8.0 Backendless Runtime Phase 9.0`。
+当前实现是 `v0.8.0 Backendless Runtime Phase 11.0`。
 
 ### v0.8.0 Backendless Beta
 
@@ -57,6 +57,14 @@ node scripts\checkReleasePackage.js
 ```
 
 Chromium notes are in `docs/CHROMIUM_COMPATIBILITY.md`; release checks are in `docs/RELEASE_CHECKLIST.md`.
+
+### v0.8.0 Phase 11.0 Release Mode Cleanup / Dev Tools Gate
+
+Phase 11.0 keeps the public release path focused on Backendless Beta. Runtime Setup opens in user mode by default and shows the release controls: Runtime Mode, Provider, Model, Runtime Key, Save Setup, Request Permission when applicable, Check Readiness, Run Real Test, Setup Checklist, Copy Diagnostics, Back, and Reload.
+
+Developer tools are gated behind the Developer Tools toggle. Developer mode exposes Mock Test, Check Permission, Clear Key, local backend development notes, and detailed diagnostics JSON. This UI mode is local to the setup panel and does not change routing, provider permissions, `requestEnabled`, or secret exposure.
+
+Recommended for v0.8.0: Backendless Beta. Development fallback: Local Backend Dev.
 
 ### v0.8.0 Phase 9.0 Backendless Beta Setup Flow / Release Candidate
 
@@ -112,7 +120,7 @@ The Chat input now hints that `/bg ` or `@background ` runs the optional backgro
 
 Phase 6 adds one optional background AI route for Chat only. In the Chat panel, messages starting with `/bg ` or `@background ` are sent to the extension background runtime using only public fields: `providerId`, `model`, and user input. The background runtime reads the Runtime Key internally, builds the DeepSeek request from the allowlisted provider descriptor, and returns a normal pet reply.
 
-This does not switch the main AI route. Normal Chat plus Explain/Translate/Summarize still use the local backend. `requestEnabled` remains `false`; a successful background chat does not mean the provider is connected or enabled for the main route.
+This does not switch the main AI route. Normal Chat plus Explain/Translate/Summarize still use the local backend. `requestEnabled` remains `false`; a successful background chat only means that one explicit background request worked.
 
 ### v0.8.0 Phase 5C.2 DeepSeek-only Real Test Connection
 
@@ -138,7 +146,7 @@ The phase remains status-only: it does not request permissions, does not call a 
 
 Phase 5C.0 only checks DeepSeek optional host permission status from the background runtime. It adds the exact optional host permission `https://api.deepseek.com/*` and a Backendless Beta button for `runtime:getProviderPermissionStatus`.
 
-This phase does not request permissions, does not call a model provider, does not mean the provider is connected, and does not move Chat/Explain/Translate/Summarize to the background runtime. `requestEnabled` remains `false` for every provider.
+This phase does not request permissions, does not call a model provider, does not verify provider readiness, and does not move Chat/Explain/Translate/Summarize to the background runtime. `requestEnabled` remains `false` for every provider.
 
 OpenAI, DashScope, and OpenRouter permissions are intentionally not configured in Backendless Beta. Their permission status response is `PERMISSION_NOT_CONFIGURED`.
 
@@ -210,7 +218,7 @@ Background Runtime Beta is DeepSeek-only in this release candidate. Readiness is
 ### Path B: Local Backend Dev
 
 1. Start the local backend.
-2. Keep Runtime Mode as `Local Backend`.
+2. Keep Runtime Mode as `Local Backend Dev`.
 3. Use normal Chat / Explain / Translate / Summarize actions.
 
 Local Backend remains the default. `/bg` / `@background` and `/local` / `@local` remain Chat-only overrides.

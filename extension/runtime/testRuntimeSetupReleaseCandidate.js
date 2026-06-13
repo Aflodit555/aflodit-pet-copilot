@@ -146,6 +146,16 @@ await check("developer mode exposes advanced test tools", async () => {
   assert.match(appSource, /runtimeDeveloperOnly/);
 });
 
+await check("release docs use Backendless Beta wording instead of Preview wording", async () => {
+  const readme = readFileSync(new URL("../../README.md", import.meta.url), "utf8");
+  const architecture = readFileSync(new URL("../../docs/ARCHITECTURE.md", import.meta.url), "utf8");
+  const permissionRfc = readFileSync(new URL("../../docs/RUNTIME_PROVIDER_PERMISSION_RFC.md", import.meta.url), "utf8");
+  assert.match(readme, /Phase 11\.0 Release Mode Cleanup/);
+  assert.match(readme, /Recommended for v0\.8\.0: Backendless Beta/);
+  assert.match(readme, /Development fallback: Local Backend Dev/);
+  assert.doesNotMatch(`${readme}\n${architecture}\n${permissionRfc}`, /Backendless Preview|Runtime Preview|production ready|provider enabled|request enabled yes|provider is connected|provider connection/);
+});
+
 await check("Request Permission is hidden by default for unsupported providers", async () => {
   const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
   const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");

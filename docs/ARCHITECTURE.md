@@ -37,9 +37,9 @@ The backend supports:
 
 Provider keys stay in the backend environment. The extension never calls model providers directly.
 
-## Backendless Preview Phase 4
+## Background Runtime Beta
 
-`extension/background.js` hosts a preview background runtime for the future backendless path. In Phase 4 it provides:
+`extension/background.js` hosts the Background Runtime Beta path for Backendless Beta. It provides:
 
 - `runtime:getStatus`
 - `settings:getPublic`
@@ -49,7 +49,7 @@ Provider keys stay in the backend environment. The extension never calls model p
 
 The background runtime has a provider registry and allowlist for `Mock`, `OpenAI`, `DeepSeek`, `Qwen / DashScope`, and `OpenRouter`. Provider descriptors may contain provider origins inside `extension/runtime/providerRegistry.js`, but the request capability remains disabled with `requestEnabled=false`.
 
-The preview UI can save public runtime settings (`provider`, `model`, `saveMode`, `debugEnabled`) and a separate Runtime Key. It does not perform Test Connection, does not request real providers, does not add host permissions, and does not change the stable content script to local backend AI flow.
+Runtime Setup can save public runtime settings (`provider`, `model`, `saveMode`, `debugEnabled`, `runtimeMode`) and a separate Runtime Key. In user mode it exposes the Backendless Beta setup path. Developer-only tools are gated behind the setup panel's Developer Tools toggle. Background Runtime Beta remains DeepSeek-only, does not add broad host permissions, and does not change Local Backend Dev availability.
 
 ## Fallbacks And Debug
 
