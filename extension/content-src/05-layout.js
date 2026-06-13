@@ -22,11 +22,20 @@
     },
 
     getAvatarRect() {
-      return dom.avatar?.getBoundingClientRect?.() || dom.root?.getBoundingClientRect?.();
+      return safeGetRect(dom.avatar) || safeGetRect(dom.root) || {
+        left: 0,
+        top: 0,
+        right: CONFIG.drag.avatarSize,
+        bottom: CONFIG.drag.avatarSize,
+        width: CONFIG.drag.avatarSize,
+        height: CONFIG.drag.avatarSize,
+        x: 0,
+        y: 0
+      };
     },
 
     getPositioningRect(position = state.position) {
-      const rootRect = dom.root?.getBoundingClientRect?.();
+      const rootRect = safeGetRect(dom.root);
       if (rootRect?.width && rootRect?.height) {
         return {
           left: rootRect.left,
@@ -218,7 +227,8 @@
     },
 
     setAbsolutePosition(element, left, top, callerLabel = "Geometry.setAbsolutePosition") {
-      const rootRect = dom.root.getBoundingClientRect();
+      const rootRect = safeGetRect(dom.root);
+      if (!element || !rootRect) return;
       element.style.left = `${Math.round(left - rootRect.left)}px`;
       element.style.top = `${Math.round(top - rootRect.top)}px`;
       element.style.right = "auto";
@@ -419,7 +429,8 @@
     },
 
     applyMenuButtonLayout(button, left, top) {
-      const rootRect = dom.root.getBoundingClientRect();
+      const rootRect = safeGetRect(dom.root);
+      if (!button || !rootRect) return;
       button.style.left = `${Math.round(left - rootRect.left)}px`;
       button.style.top = `${Math.round(top - rootRect.top)}px`;
       button.style.right = "auto";
@@ -432,8 +443,9 @@
     },
 
     applyMenuTailDirection(button) {
-      const buttonRect = button.getBoundingClientRect();
+      const buttonRect = safeGetRect(button);
       const avatarRect = Geometry.getAvatarRect();
+      if (!buttonRect || !avatarRect) return;
       const buttonCenterX = buttonRect.left + buttonRect.width / 2;
       const buttonCenterY = buttonRect.top + buttonRect.height / 2;
       const avatarCenterX = avatarRect.left + avatarRect.width / 2;
@@ -452,7 +464,8 @@
     updateMenuLayout() {
       if (!dom.menu || dom.menu.classList.contains("hidden")) return;
 
-      const rootRect = dom.root.getBoundingClientRect();
+      const rootRect = safeGetRect(dom.root);
+      if (!rootRect) return;
       const orientation = this.getOpenOrientation();
       state.layout.menuVariant = orientation.menuVariant;
       dom.menu.dataset.variant = orientation.menuVariant;

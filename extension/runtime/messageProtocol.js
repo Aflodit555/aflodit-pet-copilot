@@ -58,6 +58,7 @@ const FORBIDDEN_PAYLOAD_KEYS = Object.freeze([
 ]);
 
 const SECRET_PAYLOAD_KEYS = Object.freeze(["apiKey", "secret"]);
+const SECRET_SAFE_METADATA_KEYS = Object.freeze(["providerId"]);
 
 function hasOwn(value, key) {
   return Object.prototype.hasOwnProperty.call(value, key);
@@ -159,7 +160,7 @@ export function validateMessage(message) {
     const payload = message.payload || {};
     const keys = Object.keys(payload);
     const secretKeys = keys.filter((key) => SECRET_PAYLOAD_KEYS.includes(key));
-    const unsupportedKey = keys.find((key) => !SECRET_PAYLOAD_KEYS.includes(key));
+    const unsupportedKey = keys.find((key) => !SECRET_PAYLOAD_KEYS.includes(key) && !SECRET_SAFE_METADATA_KEYS.includes(key));
 
     if (unsupportedKey) {
       return {

@@ -93,7 +93,7 @@ async function withRuntime({ permissionGranted = true, fetchImpl } = {}, fn) {
 async function saveKey(runtime) {
   const response = await runtime.handleMessage({
     type: "settings:saveSecret",
-    payload: { apiKey: RUNTIME_KEY }
+    payload: { apiKey: RUNTIME_KEY, providerId: "deepseek" }
   });
   assert.equal(response.ok, true);
 }

@@ -49,19 +49,19 @@ Local Backend Dev remains available for development.
 For Background Runtime Beta:
 
 - Open Runtime Setup.
-- Select DeepSeek.
-- Save a Runtime Key.
-- Request the exact DeepSeek optional host permission.
+- Select DeepSeek, Alibaba Bailian / DashScope, OpenAI, or OpenRouter.
+- Save a provider-specific Runtime Key.
+- Request the exact optional host permission for the selected provider.
 - Run Check Readiness.
 - Run Real Test when you are ready to spend a small amount of provider quota.
 - Select Background Runtime Beta.
 
-Background Runtime Beta is DeepSeek-only in this release. It does not use a wildcard host permission, does not use Native Messaging, and does not support custom endpoints.
+Background Runtime Beta supports DeepSeek, Alibaba Bailian / DashScope, OpenAI, and OpenRouter in this release. DashScope uses the default China Beijing endpoint in this phase. It does not use a wildcard host permission, does not use Native Messaging, and does not support custom endpoints.
 
 ## Compatibility Notes
 
 - The extension uses Manifest V3 service workers.
-- Optional permission request is limited to `https://api.deepseek.com/*`.
+- Optional permission requests are limited to exact provider hosts: `https://api.deepseek.com/*`, `https://dashscope.aliyuncs.com/*`, `https://api.openai.com/*`, and `https://openrouter.ai/*`.
 - Background Runtime Beta failures do not silently fall back to Local Backend.
 - `/bg` and `@background` force background runtime for Chat.
 - `/local` and `@local` force Local Backend for Chat.

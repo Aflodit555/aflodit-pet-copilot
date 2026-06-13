@@ -65,7 +65,7 @@ async function saveSettings(runtime, overrides = {}) {
 async function saveKey(runtime) {
   const response = await runtime.handleMessage({
     type: "settings:saveSecret",
-    payload: { apiKey: RUNTIME_KEY }
+    payload: { apiKey: RUNTIME_KEY, providerId: "deepseek" }
   });
   assert.equal(response.ok, true);
 }

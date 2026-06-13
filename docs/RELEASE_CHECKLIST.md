@@ -48,14 +48,14 @@ Confirm:
 - No `https://*/*`.
 - No Native Messaging.
 - No custom endpoint support.
-- No new providers.
-- No new host permissions.
+- No providers beyond DeepSeek, Alibaba Bailian / DashScope, OpenAI, and OpenRouter.
+- No host permissions beyond exact listed provider hosts.
 - `requestEnabled` remains false.
 - Local Backend development mode remains available in source.
 - Background Runtime Beta is not default.
 - Full Runtime Key is never returned to content script public settings.
 - No Authorization header or full API key is logged.
-- Background Runtime remains DeepSeek-only.
+- Background Runtime real requests remain descriptor-driven and limited to listed providers.
 
 ## Chromium Manual Test
 
@@ -66,7 +66,7 @@ Confirm:
 5. Confirm the pet UI appears.
 6. Confirm Runtime Setup opens in user mode and hides Mock Test / Check Permission.
 7. Open Runtime Setup.
-8. Select DeepSeek, save Runtime Key, request permission, check readiness, and run Real Test.
+8. Select each supported real provider you need, save its provider-specific Runtime Key, request permission, check readiness, and run Real Test.
 9. Select Background Runtime Beta.
 10. Test Chat, Explain, Translate, and Summarize.
 11. Confirm `/local` forces Local Backend Chat.

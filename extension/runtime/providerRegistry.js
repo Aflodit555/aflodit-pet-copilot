@@ -15,8 +15,11 @@ const PROVIDERS = Object.freeze({
     displayName: "OpenAI",
     protocol: "openai-compatible",
     origin: "https://api.openai.com",
-    chatPath: "/v1/chat/completions",
+    baseURL: "https://api.openai.com/v1",
+    chatPath: "/chat/completions",
+    requiredHostPermission: "https://api.openai.com/*",
     defaultModel: "gpt-4o-mini",
+    setupHint: "Use OpenAI API Key.",
     enabled: true,
     requestEnabled: false,
     customEndpoint: false
@@ -26,20 +29,25 @@ const PROVIDERS = Object.freeze({
     displayName: "DeepSeek",
     protocol: "openai-compatible",
     origin: "https://api.deepseek.com",
+    baseURL: "https://api.deepseek.com",
     chatPath: "/chat/completions",
     requiredHostPermission: "https://api.deepseek.com/*",
     defaultModel: "deepseek-chat",
+    setupHint: "Use DeepSeek API Key.",
     enabled: true,
     requestEnabled: false,
     customEndpoint: false
   }),
   dashscope: Object.freeze({
     id: "dashscope",
-    displayName: "Qwen / DashScope",
+    displayName: "Alibaba Bailian / DashScope",
     protocol: "openai-compatible",
     origin: "https://dashscope.aliyuncs.com",
-    chatPath: "/compatible-mode/v1/chat/completions",
+    baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    chatPath: "/chat/completions",
+    requiredHostPermission: "https://dashscope.aliyuncs.com/*",
     defaultModel: "qwen-plus",
+    setupHint: "Start with qwen-plus for first Real Test. Other model names must match Alibaba Cloud Model Studio.",
     enabled: true,
     requestEnabled: false,
     customEndpoint: false
@@ -49,8 +57,11 @@ const PROVIDERS = Object.freeze({
     displayName: "OpenRouter",
     protocol: "openai-compatible",
     origin: "https://openrouter.ai",
-    chatPath: "/api/v1/chat/completions",
+    baseURL: "https://openrouter.ai/api/v1",
+    chatPath: "/chat/completions",
+    requiredHostPermission: "https://openrouter.ai/*",
     defaultModel: "openai/gpt-4o-mini",
+    setupHint: "Use OpenRouter API Key. Model names are OpenRouter slugs.",
     enabled: true,
     requestEnabled: false,
     customEndpoint: false
@@ -69,6 +80,8 @@ export function listPublicProviders() {
     displayName: provider.displayName,
     protocol: provider.protocol,
     defaultModel: provider.defaultModel,
+    setupHint: provider.setupHint || "",
+    hasRequiredHostPermission: Boolean(provider.requiredHostPermission),
     enabled: Boolean(provider.enabled),
     requestEnabled: Boolean(provider.requestEnabled)
   }));
@@ -99,6 +112,15 @@ export function sanitizeModelForProvider(providerId, model) {
   if (typeof model !== "string") return fallback;
   const trimmed = model.trim();
   return trimmed ? trimmed.slice(0, 120) : fallback;
+}
+
+export function isRealRuntimeProvider(provider) {
+  return Boolean(provider)
+    && provider.protocol === "openai-compatible"
+    && Boolean(provider.baseURL)
+    && Boolean(provider.chatPath)
+    && Boolean(provider.requiredHostPermission)
+    && provider.customEndpoint === false;
 }
 
 export function isDefaultModel(model) {

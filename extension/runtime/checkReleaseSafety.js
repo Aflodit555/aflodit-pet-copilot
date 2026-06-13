@@ -49,10 +49,11 @@ function addViolation(violations, file, message) {
 function isApprovedPermissionRequest(file) {
   return file.relativePath === "extension/runtime/backgroundRuntime.js"
     && file.content.includes(APPROVED_PERMISSION_REQUEST_SNIPPET)
-    && file.content.includes("const DEEPSEEK_REQUIRED_HOST_PERMISSION = \"https://api.deepseek.com/*\"");
+    && file.content.includes("isExactHostPermission(provider.requiredHostPermission)");
 }
 
 function isApprovedFetchFile(file) {
+  if (file.relativePath === "extension/runtime/openAiCompatibleRequest.js") return true;
   if (file.relativePath === "extension/runtime/deepseekTestConnection.js") return true;
   if (/^extension\/runtime\/test.+\.js$/.test(file.relativePath)) return true;
   return false;

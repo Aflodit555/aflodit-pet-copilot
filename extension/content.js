@@ -700,6 +700,18 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const randomBetween = (min, max) => min + Math.random() * (max - min);
 
+  function safeGetRect(element) {
+    if (!element || typeof element.getBoundingClientRect !== "function") return null;
+    if (element.isConnected === false) return null;
+    try {
+      const rect = element.getBoundingClientRect();
+      if (!rect || rect.width < 0 || rect.height < 0) return null;
+      return rect;
+    } catch (_) {
+      return null;
+    }
+  }
+
   function traceElementName(element) {
     if (!element) return "(null)";
     const id = element.id ? `#${element.id}` : "";
@@ -860,6 +872,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                   <option value="mock">mock</option>
                 </select>
               </label>
+              <div id="aflodit-pet-runtime-provider-hint" class="pet-settings-message pet-runtime-compact-note">API keys are provider-specific.</div>
               <label class="pet-settings-field">
                 <span>Model</span>
                 <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
@@ -909,7 +922,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                 <div><b>6. Readiness</b>: <span id="aflodit-pet-runtime-readiness-summary">not checked</span></div>
                 <div><b>7. Real Test</b>: <span id="aflodit-pet-runtime-readiness-real-test">not checked</span></div>
               </div>
-              <div class="pet-settings-message pet-runtime-warning">Runtime Key is stored only in extension background secret storage. It does not change backend/.env or local backend settings.</div>
+              <div class="pet-settings-message pet-runtime-warning">Runtime Key is stored only in extension background secret storage. API keys are provider-specific. A DashScope key will not work with DeepSeek, OpenAI, or OpenRouter. It does not change backend/.env or local backend settings.</div>
               <div id="aflodit-pet-runtime-dev-note" class="pet-settings-message pet-runtime-compact-note hidden" data-runtime-developer-only>Developer tools are for local backend development and release troubleshooting only.</div>
               <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button hidden">Request Permission</button>
               <textarea id="aflodit-pet-runtime-diagnostics-output" class="pet-runtime-diagnostics-output hidden" readonly rows="6" spellcheck="false"></textarea>
@@ -1422,6 +1435,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeSummaryProvider: root.querySelector("#aflodit-pet-runtime-summary-provider"),
       runtimeSummaryBeta: root.querySelector("#aflodit-pet-runtime-summary-beta"),
       runtimeProvider: root.querySelector("#aflodit-pet-runtime-provider"),
+      runtimeProviderHint: root.querySelector("#aflodit-pet-runtime-provider-hint"),
       runtimeModel: root.querySelector("#aflodit-pet-runtime-model"),
       runtimeProviderSelected: root.querySelector("#aflodit-pet-runtime-provider-selected"),
       runtimeProviderProtocol: root.querySelector("#aflodit-pet-runtime-provider-protocol"),
@@ -1708,7 +1722,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
     lookAtElement(element) {
       if (!element || element.classList.contains("hidden")) return this.setLookCenter();
-      const rect = element.getBoundingClientRect();
+      const rect = safeGetRect(element);
+      if (!rect) return this.setLookCenter();
       this.lookAtPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
     },
 
@@ -1924,11 +1939,20 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     },
 
     getAvatarRect() {
-      return dom.avatar?.getBoundingClientRect?.() || dom.root?.getBoundingClientRect?.();
+      return safeGetRect(dom.avatar) || safeGetRect(dom.root) || {
+        left: 0,
+        top: 0,
+        right: CONFIG.drag.avatarSize,
+        bottom: CONFIG.drag.avatarSize,
+        width: CONFIG.drag.avatarSize,
+        height: CONFIG.drag.avatarSize,
+        x: 0,
+        y: 0
+      };
     },
 
     getPositioningRect(position = state.position) {
-      const rootRect = dom.root?.getBoundingClientRect?.();
+      const rootRect = safeGetRect(dom.root);
       if (rootRect?.width && rootRect?.height) {
         return {
           left: rootRect.left,
@@ -2120,7 +2144,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     },
 
     setAbsolutePosition(element, left, top, callerLabel = "Geometry.setAbsolutePosition") {
-      const rootRect = dom.root.getBoundingClientRect();
+      const rootRect = safeGetRect(dom.root);
+      if (!element || !rootRect) return;
       element.style.left = `${Math.round(left - rootRect.left)}px`;
       element.style.top = `${Math.round(top - rootRect.top)}px`;
       element.style.right = "auto";
@@ -2321,7 +2346,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     },
 
     applyMenuButtonLayout(button, left, top) {
-      const rootRect = dom.root.getBoundingClientRect();
+      const rootRect = safeGetRect(dom.root);
+      if (!button || !rootRect) return;
       button.style.left = `${Math.round(left - rootRect.left)}px`;
       button.style.top = `${Math.round(top - rootRect.top)}px`;
       button.style.right = "auto";
@@ -2334,8 +2360,9 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     },
 
     applyMenuTailDirection(button) {
-      const buttonRect = button.getBoundingClientRect();
+      const buttonRect = safeGetRect(button);
       const avatarRect = Geometry.getAvatarRect();
+      if (!buttonRect || !avatarRect) return;
       const buttonCenterX = buttonRect.left + buttonRect.width / 2;
       const buttonCenterY = buttonRect.top + buttonRect.height / 2;
       const avatarCenterX = avatarRect.left + avatarRect.width / 2;
@@ -2354,7 +2381,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     updateMenuLayout() {
       if (!dom.menu || dom.menu.classList.contains("hidden")) return;
 
-      const rootRect = dom.root.getBoundingClientRect();
+      const rootRect = safeGetRect(dom.root);
+      if (!rootRect) return;
       const orientation = this.getOpenOrientation();
       state.layout.menuVariant = orientation.menuVariant;
       dom.menu.dataset.variant = orientation.menuVariant;
@@ -2902,7 +2930,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       ...(dom.quickButtons || []).filter(isElementVisible)
     ];
 
-    return elements.some((element) => expandedRectContains(element.getBoundingClientRect(), clientX, clientY, padding));
+    return elements.some((element) => expandedRectContains(safeGetRect(element), clientX, clientY, padding));
   }
 
   function canHoverOpenMenu() {
@@ -3394,16 +3422,17 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       const code = String(error.code || error.errorCode || error.data?.errorCode || error.data?.error?.code || "").trim();
       const details = {
         MISSING_RUNTIME_KEY: "Save a Runtime Key in Runtime Setup.",
-        MISSING_PROVIDER_PERMISSION: "Grant DeepSeek permission in Runtime Setup.",
-        AUTH_FAILED: "DeepSeek authentication failed. Check your Runtime Key.",
-        RATE_LIMITED: "DeepSeek rate limit reached. Try again later.",
+        MISSING_PROVIDER_PERMISSION: "Grant provider permission in Runtime Setup.",
+        AUTH_FAILED: "Provider authentication failed. Check your Runtime Key.",
+        RATE_LIMITED: "Provider rate limit reached. Try again later.",
         TIMEOUT: "Background Runtime timed out.",
         NETWORK_ERROR: "Background Runtime network request failed.",
-        PROVIDER_UNAVAILABLE: "DeepSeek is unavailable. Try again later.",
-        PROVIDER_BAD_REQUEST: "DeepSeek rejected the background runtime request.",
-        PROVIDER_ERROR: "DeepSeek returned no usable background runtime result.",
-        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek.",
-        BACKGROUND_ACTION_NOT_CONFIGURED: "Background Runtime actions are only configured for DeepSeek.",
+        PROVIDER_UNAVAILABLE: "Provider is unavailable. Try again later.",
+        PROVIDER_BAD_REQUEST: "Provider rejected the background runtime request.",
+        PROVIDER_QUOTA_EXCEEDED: "Provider quota appears to be exhausted.",
+        PROVIDER_ERROR: "Provider returned no usable background runtime result.",
+        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is not configured for this provider.",
+        BACKGROUND_ACTION_NOT_CONFIGURED: "Background Runtime actions are not configured for this provider.",
         INVALID_PAYLOAD: "The background runtime payload was rejected."
       };
       const detail = details[code] || error.message || "Background Runtime failed.";
@@ -3644,7 +3673,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     async saveSecret(apiKey = "") {
       return this.request({
         type: "settings:saveSecret",
-        payload: { apiKey }
+        payload: { apiKey, providerId: dom.runtimeProvider?.value || state.runtimePublicSettings.provider }
       });
     },
 
@@ -3674,6 +3703,41 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       if (action === ACTION.TRANSLATE) return "translate";
       if (action === ACTION.SUMMARY) return "summarize";
       return "chat";
+    }
+
+    const expectedBackgroundRuntimeErrorCodes = new Set([
+      "MISSING_PROVIDER_PERMISSION",
+      "MISSING_RUNTIME_KEY",
+      "AUTH_FAILED",
+      "RATE_LIMITED",
+      "PROVIDER_BAD_REQUEST",
+      "PROVIDER_QUOTA_EXCEEDED",
+      "PROVIDER_UNAVAILABLE",
+      "PROVIDER_ERROR",
+      "TIMEOUT",
+      "NETWORK_ERROR",
+      "PERMISSION_NOT_CONFIGURED",
+      "PERMISSION_DENIED",
+      "BACKGROUND_CHAT_NOT_CONFIGURED",
+      "BACKGROUND_ACTION_NOT_CONFIGURED",
+      "BACKGROUND_UNAVAILABLE",
+      "INVALID_PAYLOAD"
+    ]);
+
+    function backgroundRuntimeErrorCode(error = {}) {
+      return String(error.code || error.errorCode || error.data?.errorCode || error.data?.error?.code || "").trim();
+    }
+
+    function isExpectedBackgroundRuntimeError(error = {}) {
+      const code = backgroundRuntimeErrorCode(error);
+      return expectedBackgroundRuntimeErrorCodes.has(code);
+    }
+
+    function warnExpectedBackgroundRuntimeError(error = {}) {
+      if (!state.runtimePublicSettings.debugEnabled || !globalThis.console?.warn) return;
+      const code = backgroundRuntimeErrorCode(error) || "UNKNOWN";
+      const message = String(error.message || "Background Runtime failed.").slice(0, 200);
+      globalThis.console.warn("[AFlodit Pet] expected background runtime failure", { code, message });
     }
 
     ActionRunner.applyBackgroundChatInputHint = function applyBackgroundChatInputHint() {
@@ -3803,7 +3867,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       } catch (error) {
         if (requestId !== state.requestId || state.ui !== UI.PANEL) return;
         error.backgroundChatSource = backgroundRoute.source;
-        console.error(error);
+        if (isExpectedBackgroundRuntimeError(error)) {
+          warnExpectedBackgroundRuntimeError(error);
+        } else {
+          console.error("[AFlodit Pet] unexpected background runtime failure", error);
+        }
         UIController.showBackgroundChatError(error);
       } finally {
         if (requestId === state.requestId) state.pendingRequest = null;
@@ -3870,20 +3938,20 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         PROVIDER_NOT_ALLOWED: "Provider is not available in Runtime Setup.",
         PERMISSION_NOT_CONFIGURED: "Provider permission is not configured for Backendless Beta.",
         PERMISSION_DENIED: "Provider permission was not granted. Real provider requests are still disabled.",
-        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is only configured for DeepSeek in Backendless Beta.",
+        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is not configured for this provider in Backendless Beta.",
         UNKNOWN_PROVIDER: "Provider is not available in Runtime Setup.",
         RUNTIME_MODE_INVALID: "Runtime mode must be Local Backend or Background Runtime Beta.",
-        REAL_TEST_NOT_CONFIGURED: "Real provider test is only configured for DeepSeek in Backendless Beta.",
-        MISSING_PROVIDER_PERMISSION: "DeepSeek permission is missing. Grant provider permission before running a real test.",
+        REAL_TEST_NOT_CONFIGURED: "Real provider test is not configured for this provider in Backendless Beta.",
+        MISSING_PROVIDER_PERMISSION: "Provider permission is missing. Grant provider permission before running a real test.",
         MISSING_RUNTIME_KEY: "Runtime key is missing. Save a Runtime Key before running a real test.",
-        AUTH_FAILED: "DeepSeek authentication failed. Check your Runtime Key.",
-        RATE_LIMITED: "DeepSeek rate limit reached. Try again later.",
-        PROVIDER_QUOTA_EXCEEDED: "DeepSeek quota appears to be exhausted.",
-        PROVIDER_BAD_REQUEST: "DeepSeek rejected the minimal test request.",
-        PROVIDER_UNAVAILABLE: "DeepSeek service is currently unavailable. Try again later.",
-        NETWORK_ERROR: "DeepSeek real test failed due to a network error.",
-        TIMEOUT: "DeepSeek real test timed out.",
-        PROVIDER_ERROR: "DeepSeek real test failed.",
+        AUTH_FAILED: "Provider authentication failed. Check your Runtime Key.",
+        RATE_LIMITED: "Provider rate limit reached. Try again later.",
+        PROVIDER_QUOTA_EXCEEDED: "Provider quota appears to be exhausted.",
+        PROVIDER_BAD_REQUEST: "Provider rejected the minimal test request.",
+        PROVIDER_UNAVAILABLE: "Provider service is currently unavailable. Try again later.",
+        NETWORK_ERROR: "Provider real test failed due to a network error.",
+        TIMEOUT: "Provider real test timed out.",
+        PROVIDER_ERROR: "Provider real test failed.",
         INVALID_PAYLOAD: "Provider request rejected invalid payload.",
         RUNTIME_TEST_PAYLOAD_FORBIDDEN: "Runtime mock test rejected unsafe fields.",
         RUNTIME_TEST_PAYLOAD_UNKNOWN: "Runtime mock test rejected unsupported fields."
@@ -3900,8 +3968,12 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           displayName: String(provider.displayName).trim(),
           protocol: String(provider.protocol || "").trim(),
           defaultModel: String(provider.defaultModel || "").trim(),
+          setupHint: String(provider.setupHint || "").trim(),
+          hasRequiredHostPermission: Boolean(provider.hasRequiredHostPermission),
           enabled: Boolean(provider.enabled),
-          requestEnabled: Boolean(provider.requestEnabled)
+          requestEnabled: Boolean(provider.requestEnabled),
+          hasApiKey: Boolean(provider.hasApiKey),
+          apiKeyPreview: String(provider.apiKeyPreview || "").trim()
         }))
         .filter((provider) => provider.id && provider.displayName);
 
@@ -3910,6 +3982,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
     providerById(providerId) {
       return state.runtimeProviders.find((provider) => provider.id === providerId) || state.runtimeProviders[0];
+    },
+
+    providerHasHostPermission(provider) {
+      return Boolean(provider?.id !== "mock" && provider?.protocol === "openai-compatible" && provider?.hasRequiredHostPermission);
     },
 
     renderProviderOptions(selectedProvider = "mock") {
@@ -3936,7 +4012,9 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       if (dom.runtimeProviderSelected) dom.runtimeProviderSelected.textContent = provider.displayName;
       if (dom.runtimeProviderProtocol) dom.runtimeProviderProtocol.textContent = provider.protocol || "unknown";
       if (dom.runtimeProviderDefaultModel) dom.runtimeProviderDefaultModel.textContent = provider.defaultModel || "";
+      if (dom.runtimeProviderHint) dom.runtimeProviderHint.textContent = provider.setupHint || "API keys are provider-specific.";
       if (dom.runtimeProviderPermissionStatus) dom.runtimeProviderPermissionStatus.textContent = "unknown";
+      this.updateRuntimeKeyPlaceholder(provider);
       this.updatePermissionRequestButton(provider.id);
       this.updateRealTestButton(provider.id);
       this.renderSetupChecklist();
@@ -3944,21 +4022,30 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
     updatePermissionRequestButton(providerId = dom.runtimeProvider?.value || "mock") {
       if (!dom.runtimeRequestPermission) return;
-      const permissionText = String(dom.runtimeReadinessPermission?.textContent || "").trim();
-      const shouldShow = providerId === "deepseek" && permissionText !== "granted";
+      const provider = this.providerById(providerId);
+      const hasPermission = this.providerHasHostPermission(provider);
+      const status = this.lastPermissionStatus?.providerId === provider?.id ? this.lastPermissionStatus : null;
+      const readinessPermission = (this.lastReadiness?.providerId === provider?.id ? this.lastReadiness?.checks : [])
+        ?.find?.((check) => check.id === "permission");
+      const permissionGranted = Boolean(
+        (status?.ok && status.permissionGranted)
+        || (readinessPermission && readinessPermission.ok)
+      );
+      const shouldShow = hasPermission && !permissionGranted;
       dom.runtimeRequestPermission.classList.toggle("hidden", !shouldShow);
       dom.runtimeRequestPermission.disabled = this.busy || !shouldShow;
-      dom.runtimeRequestPermission.title = providerId === "deepseek"
-        ? "Request DeepSeek optional host permission."
+      dom.runtimeRequestPermission.title = hasPermission
+        ? `Request ${provider.displayName} optional host permission.`
         : "Host Permission is not configured for this provider.";
     },
 
     updateRealTestButton(providerId = dom.runtimeProvider?.value || "mock") {
       if (!dom.runtimeTestReal) return;
+      const provider = this.providerById(providerId);
       dom.runtimeTestReal.disabled = this.busy;
-      dom.runtimeTestReal.title = providerId === "deepseek"
-        ? "Run a minimal DeepSeek real test. Main AI actions still use the local backend."
-        : "Real provider test is only configured for DeepSeek in Backendless Beta.";
+      dom.runtimeTestReal.title = provider?.id !== "mock" && provider?.protocol === "openai-compatible"
+        ? `Run a minimal ${provider.displayName} real test.`
+        : "Real provider test is configured for listed real providers only.";
     },
 
     applyPermissionStatus(response = {}, providerId = dom.runtimeProvider?.value || "mock") {
@@ -3973,9 +4060,9 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           dom.runtimeProviderPermissionStatus.textContent = "unknown";
         }
       }
+      this.lastPermissionStatus = { ...(response || {}), providerId };
       this.updatePermissionRequestButton(providerId);
       this.updateRealTestButton(providerId);
-      this.lastPermissionStatus = response || null;
       this.renderSetupChecklist(this.lastReadiness);
     },
 
@@ -4005,17 +4092,22 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           : "not checked";
       }
       if (dom.runtimeReadinessProvider) dom.runtimeReadinessProvider.textContent = provider?.displayName || "missing";
-      if (dom.runtimeReadinessKey) dom.runtimeReadinessKey.textContent = state.runtimePublicSettings.hasApiKey ? "saved" : "missing";
+      if (dom.runtimeReadinessKey) {
+        const providerHasKey = provider?.id === state.runtimePublicSettings.provider
+          ? state.runtimePublicSettings.hasApiKey
+          : Boolean(provider?.hasApiKey);
+        dom.runtimeReadinessKey.textContent = providerHasKey ? "saved" : "missing";
+      }
       if (dom.runtimeReadinessPermission) {
         if (byId.permission) {
           dom.runtimeReadinessPermission.textContent = byId.permission.ok ? "granted" : "missing";
-        } else if (provider?.id !== "deepseek") {
+        } else if (!this.providerHasHostPermission(provider)) {
           dom.runtimeReadinessPermission.textContent = "not configured for this provider";
-        } else if (this.lastPermissionStatus?.ok && this.lastPermissionStatus.permissionGranted) {
+        } else if (this.lastPermissionStatus?.providerId === provider?.id && this.lastPermissionStatus?.ok && this.lastPermissionStatus.permissionGranted) {
           dom.runtimeReadinessPermission.textContent = "granted";
-        } else if (this.lastPermissionStatus?.ok && this.lastPermissionStatus.permissionConfigured) {
+        } else if (this.lastPermissionStatus?.providerId === provider?.id && this.lastPermissionStatus?.ok && this.lastPermissionStatus.permissionConfigured) {
           dom.runtimeReadinessPermission.textContent = "missing";
-        } else if (this.lastPermissionStatus?.errorCode === "PERMISSION_NOT_CONFIGURED") {
+        } else if (this.lastPermissionStatus?.providerId === provider?.id && this.lastPermissionStatus?.errorCode === "PERMISSION_NOT_CONFIGURED") {
           dom.runtimeReadinessPermission.textContent = "not configured";
         } else {
           dom.runtimeReadinessPermission.textContent = "not checked";
@@ -4031,7 +4123,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       if (dom.runtimeSummaryBeta) {
         dom.runtimeSummaryBeta.textContent = response
           ? (response.canUseBackgroundRuntime ? "Ready" : "Not ready")
-          : (provider?.id !== "deepseek" ? "Not configured" : "Not checked");
+          : (!provider || provider.id === "mock" || provider.protocol !== "openai-compatible" ? "Not configured" : "Not checked");
       }
       this.updatePermissionRequestButton(provider?.id);
       LayoutManager.schedulePetLayout();
@@ -4084,9 +4176,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       }
 
       state.runtimePublicSettings.provider = nextProviderId;
+      state.runtimePublicSettings.hasApiKey = Boolean(nextProvider?.hasApiKey);
+      state.runtimePublicSettings.apiKeyPreview = nextProvider?.apiKeyPreview || "";
       this.lastReadiness = null;
+      this.lastPermissionStatus = null;
       this.renderReadiness(null);
       this.updateProviderStatus(nextProviderId);
+      this.refreshProviderPermissionStatus(nextProviderId);
       LayoutManager.schedulePetLayout();
     },
 
@@ -4111,9 +4207,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       this.renderProviderOptions(provider);
       dom.runtimeModel.value = state.runtimePublicSettings.model;
       dom.runtimeApiKey.value = "";
-      dom.runtimeApiKey.placeholder = state.runtimePublicSettings.hasApiKey
-        ? `Saved: ${state.runtimePublicSettings.apiKeyPreview || "configured"}`
-        : "Enter API Key for future backendless runtime";
+      this.updateRuntimeKeyPlaceholder(this.providerById(provider));
       dom.runtimeSaveMode.value = state.runtimePublicSettings.saveMode;
       dom.runtimeDebug.checked = state.runtimePublicSettings.debugEnabled;
       this.updateRuntimeModeUi(state.runtimePublicSettings.runtimeMode);
@@ -4140,6 +4234,19 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
     readSecretForm() {
       return String(dom.runtimeApiKey.value || "").trim();
+    },
+
+    updateRuntimeKeyPlaceholder(provider = this.providerById(dom.runtimeProvider?.value || state.runtimePublicSettings.provider)) {
+      if (!dom.runtimeApiKey) return;
+      const hasApiKey = provider?.id === state.runtimePublicSettings.provider
+        ? state.runtimePublicSettings.hasApiKey
+        : Boolean(provider?.hasApiKey);
+      const preview = provider?.id === state.runtimePublicSettings.provider
+        ? state.runtimePublicSettings.apiKeyPreview
+        : provider?.apiKeyPreview;
+      dom.runtimeApiKey.placeholder = hasApiKey
+        ? `Saved for ${provider?.displayName || "provider"}: ${preview || "configured"}`
+        : `Enter ${provider?.displayName || "provider"} Runtime Key`;
     },
 
     async refreshStatus() {
@@ -4250,6 +4357,37 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       }
     },
 
+    async refreshProviderPermissionStatus(providerId = dom.runtimeProvider?.value || "mock") {
+      const provider = this.providerById(providerId);
+      if (!this.providerHasHostPermission(provider)) {
+        this.applyPermissionStatus({
+          ok: false,
+          providerId,
+          errorCode: "PERMISSION_NOT_CONFIGURED",
+          permissionConfigured: false,
+          permissionGranted: false,
+          requestEnabled: false
+        }, providerId);
+        return;
+      }
+
+      try {
+        const response = await BackgroundRuntimeClient.getProviderPermissionStatus({ providerId });
+        if ((dom.runtimeProvider?.value || "mock") !== providerId) return;
+        this.applyPermissionStatus(response, providerId);
+      } catch (error) {
+        if ((dom.runtimeProvider?.value || "mock") !== providerId) return;
+        this.applyPermissionStatus({
+          ok: false,
+          providerId,
+          errorCode: "PERMISSION_STATUS_UNAVAILABLE",
+          permissionConfigured: true,
+          permissionGranted: false,
+          requestEnabled: false
+        }, providerId);
+      }
+    },
+
     async checkPermission() {
       if (this.busy) return;
       this.setBusy(true);
@@ -4325,9 +4463,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     async testReal() {
       if (this.busy) return;
       const form = this.readForm();
-      if (form.provider === "deepseek") {
+      const provider = this.providerById(form.provider);
+      if (provider?.id !== "mock" && provider?.protocol === "openai-compatible") {
         const confirmed = window.confirm(
-          "This sends a minimal DeepSeek request and may consume a tiny amount of quota. Main AI actions still use the local backend."
+          `This sends a minimal ${provider.displayName} request and may consume a tiny amount of quota.`
         );
         if (!confirmed) return;
       }
@@ -4351,7 +4490,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           state.runtimePublicSettings.lastRealTestStatus = response.lastRealTestStatus;
           this.renderSetupChecklist();
         }
-        this.setMessage(`[Real Provider Test] ${response.message || "DeepSeek real test passed. Main AI actions still use the local backend."}`);
+        this.setMessage(`[Real Provider Test] ${response.message || "Real provider test passed."}`);
       } catch (error) {
         this.setMessage(`[Real Provider Test] ${error?.message || "Real provider test failed."}`);
       } finally {
@@ -4370,7 +4509,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           return;
         }
         this.hydrate(response);
-        this.setMessage("Runtime key cleared. Backend API Key is unchanged.");
+        this.setMessage("Runtime key cleared for the selected provider. Backend API Key is unchanged.");
       } catch (error) {
         this.setMessage(error?.message || "Runtime settings request failed.");
       } finally {

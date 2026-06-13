@@ -288,6 +288,18 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const randomBetween = (min, max) => min + Math.random() * (max - min);
 
+  function safeGetRect(element) {
+    if (!element || typeof element.getBoundingClientRect !== "function") return null;
+    if (element.isConnected === false) return null;
+    try {
+      const rect = element.getBoundingClientRect();
+      if (!rect || rect.width < 0 || rect.height < 0) return null;
+      return rect;
+    } catch (_) {
+      return null;
+    }
+  }
+
   function traceElementName(element) {
     if (!element) return "(null)";
     const id = element.id ? `#${element.id}` : "";

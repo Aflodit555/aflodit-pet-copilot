@@ -76,6 +76,7 @@
                   <option value="mock">mock</option>
                 </select>
               </label>
+              <div id="aflodit-pet-runtime-provider-hint" class="pet-settings-message pet-runtime-compact-note">API keys are provider-specific.</div>
               <label class="pet-settings-field">
                 <span>Model</span>
                 <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
@@ -125,7 +126,7 @@
                 <div><b>6. Readiness</b>: <span id="aflodit-pet-runtime-readiness-summary">not checked</span></div>
                 <div><b>7. Real Test</b>: <span id="aflodit-pet-runtime-readiness-real-test">not checked</span></div>
               </div>
-              <div class="pet-settings-message pet-runtime-warning">Runtime Key is stored only in extension background secret storage. It does not change backend/.env or local backend settings.</div>
+              <div class="pet-settings-message pet-runtime-warning">Runtime Key is stored only in extension background secret storage. API keys are provider-specific. A DashScope key will not work with DeepSeek, OpenAI, or OpenRouter. It does not change backend/.env or local backend settings.</div>
               <div id="aflodit-pet-runtime-dev-note" class="pet-settings-message pet-runtime-compact-note hidden" data-runtime-developer-only>Developer tools are for local backend development and release troubleshooting only.</div>
               <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button hidden">Request Permission</button>
               <textarea id="aflodit-pet-runtime-diagnostics-output" class="pet-runtime-diagnostics-output hidden" readonly rows="6" spellcheck="false"></textarea>
@@ -638,6 +639,7 @@
       runtimeSummaryProvider: root.querySelector("#aflodit-pet-runtime-summary-provider"),
       runtimeSummaryBeta: root.querySelector("#aflodit-pet-runtime-summary-beta"),
       runtimeProvider: root.querySelector("#aflodit-pet-runtime-provider"),
+      runtimeProviderHint: root.querySelector("#aflodit-pet-runtime-provider-hint"),
       runtimeModel: root.querySelector("#aflodit-pet-runtime-model"),
       runtimeProviderSelected: root.querySelector("#aflodit-pet-runtime-provider-selected"),
       runtimeProviderProtocol: root.querySelector("#aflodit-pet-runtime-provider-protocol"),

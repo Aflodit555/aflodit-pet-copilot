@@ -23,7 +23,7 @@ assert(missing.requestEnabled === false, "missing key response must keep request
 
 await runtime.handleMessage({
   type: "settings:saveSecret",
-  payload: { apiKey: "sk-test-1234567890" }
+  payload: { apiKey: "sk-test-1234567890", providerId: "deepseek" }
 });
 
 const success = await runtime.handleMessage({

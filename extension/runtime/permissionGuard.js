@@ -408,7 +408,7 @@ function invalidBackgroundChatReadinessPayload() {
 }
 
 export function validateSecretPayload(payload = {}) {
-  const allowedKeys = new Set(["apiKey", "secret"]);
+  const allowedKeys = new Set(["apiKey", "secret", "providerId"]);
   const keys = Object.keys(payload || {});
   const unsupportedKey = keys.find((key) => !allowedKeys.has(key));
   if (unsupportedKey) {
@@ -435,7 +435,8 @@ export function validateSecretPayload(payload = {}) {
 
   return {
     ok: true,
-    secret: (payload.apiKey || payload.secret).trim()
+    secret: (payload.apiKey || payload.secret).trim(),
+    providerId: typeof payload.providerId === "string" ? payload.providerId.trim().slice(0, 64) : ""
   };
 }
 

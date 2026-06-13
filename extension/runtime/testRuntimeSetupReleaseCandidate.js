@@ -52,7 +52,7 @@ async function saveDeepSeekSettings(runtime) {
 async function saveKey(runtime) {
   const response = await runtime.handleMessage({
     type: "settings:saveSecret",
-    payload: { apiKey: RUNTIME_KEY }
+    payload: { apiKey: RUNTIME_KEY, providerId: "deepseek" }
   });
   assert.equal(response.ok, true);
 }
@@ -161,6 +161,29 @@ await check("Request Permission is hidden by default for unsupported providers",
   const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
   assert.match(source, /id="aflodit-pet-runtime-request-permission" class="pet-secondary-button hidden"/);
   assert.match(appSource, /not configured for this provider/);
+});
+
+await check("Request Permission is available for real providers when permission is missing or unknown", async () => {
+  const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
+  assert.match(appSource, /providerHasHostPermission\(provider\)/);
+  assert.match(appSource, /provider\?\.hasRequiredHostPermission/);
+  assert.match(appSource, /const shouldShow = hasPermission && !permissionGranted/);
+  assert.match(appSource, /refreshProviderPermissionStatus\(nextProviderId\)/);
+});
+
+await check("DashScope setup hint recommends qwen-plus without hardcoded model validation", async () => {
+  const source = readFileSync(new URL("./providerRegistry.js", import.meta.url), "utf8");
+  assert.match(source, /Start with qwen-plus for first Real Test/);
+  assert.match(source, /Other model names must match Alibaba Cloud Model Studio/);
+  assert.doesNotMatch(source, /qwen-plus.*includes|allowedModels|modelList/);
+});
+
+await check("expected background runtime failures do not log full Error objects by default", async () => {
+  const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
+  assert.doesNotMatch(appSource, /console\.error\(error\)/);
+  assert.match(appSource, /expectedBackgroundRuntimeErrorCodes/);
+  assert.match(appSource, /warnExpectedBackgroundRuntimeError\(error\)/);
+  assert.match(appSource, /unexpected background runtime failure/);
 });
 
 await check("setup checklist reflects missing key through readiness", async () => {

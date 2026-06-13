@@ -12,6 +12,11 @@ function normalizeSecret(secret) {
   return typeof secret === "string" ? secret.trim() : "";
 }
 
+function normalizeProviderId(providerId = "") {
+  const normalized = typeof providerId === "string" ? providerId.trim().slice(0, 64) : "";
+  return /^[a-z0-9_-]+$/i.test(normalized) ? normalized : "";
+}
+
 function storageArea(chromeApi, saveMode) {
   if (saveMode === "session") return chromeApi?.storage?.session || null;
   return chromeApi?.storage?.local || null;
@@ -19,6 +24,35 @@ function storageArea(chromeApi, saveMode) {
 
 function storageKey(saveMode) {
   return saveMode === "session" ? SESSION_SECRET_KEY : LOCAL_SECRET_KEY;
+}
+
+function emptyState() {
+  return { runtimeKeys: {} };
+}
+
+function sanitizeState(value) {
+  const state = emptyState();
+  if (typeof value === "string") {
+    const legacySecret = normalizeSecret(value);
+    if (legacySecret) state.legacySecret = legacySecret;
+    return state;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return state;
+
+  const runtimeKeys = value.runtimeKeys && typeof value.runtimeKeys === "object" && !Array.isArray(value.runtimeKeys)
+    ? value.runtimeKeys
+    : {};
+  for (const [providerId, secret] of Object.entries(runtimeKeys)) {
+    const normalizedProviderId = normalizeProviderId(providerId);
+    const normalizedSecret = normalizeSecret(secret);
+    if (normalizedProviderId && normalizedSecret) {
+      state.runtimeKeys[normalizedProviderId] = normalizedSecret;
+    }
+  }
+
+  const legacySecret = normalizeSecret(value.legacySecret);
+  if (legacySecret) state.legacySecret = legacySecret;
+  return state;
 }
 
 function setAccessLevel(area, logger, label) {
@@ -36,27 +70,27 @@ function setAccessLevel(area, logger, label) {
 }
 
 function getFromStorage(chromeApi, area, key) {
-  if (!area?.get) return Promise.resolve("");
+  if (!area?.get) return Promise.resolve(null);
   return new Promise((resolve) => {
     try {
       area.get(key, (result = {}) => {
         if (chromeApi?.runtime?.lastError) {
-          resolve("");
+          resolve(null);
           return;
         }
-        resolve(normalizeSecret(result[key]));
+        resolve(result[key]);
       });
     } catch {
-      resolve("");
+      resolve(null);
     }
   });
 }
 
-function setToStorage(area, key, secret) {
+function setToStorage(area, key, value) {
   if (!area?.set) return Promise.resolve(false);
   return new Promise((resolve) => {
     try {
-      area.set({ [key]: secret }, () => resolve(true));
+      area.set({ [key]: value }, () => resolve(true));
     } catch {
       resolve(false);
     }
@@ -76,8 +110,8 @@ function removeFromStorage(area, key) {
 
 export function createSecretStore(chromeApi, logger) {
   let memory = {
-    local: "",
-    session: ""
+    local: emptyState(),
+    session: emptyState()
   };
 
   async function initializeAccessLevels() {
@@ -87,15 +121,28 @@ export function createSecretStore(chromeApi, logger) {
     ]);
   }
 
-  async function readSecret(saveMode = "local") {
+  async function readState(saveMode = "local") {
     const mode = normalizeSaveMode(saveMode);
     const area = storageArea(chromeApi, mode);
     const stored = await getFromStorage(chromeApi, area, storageKey(mode));
-    if (stored) {
-      memory[mode] = stored;
-      return stored;
-    }
-    return memory[mode] || "";
+    const state = sanitizeState(stored ?? memory[mode]);
+    memory[mode] = state;
+    return state;
+  }
+
+  async function writeState(saveMode = "local", state = emptyState()) {
+    const mode = normalizeSaveMode(saveMode);
+    const normalized = sanitizeState(state);
+    memory[mode] = normalized;
+    await setToStorage(storageArea(chromeApi, mode), storageKey(mode), normalized);
+    return normalized;
+  }
+
+  async function readSecret(saveMode = "local", providerId = "") {
+    const normalizedProviderId = normalizeProviderId(providerId);
+    const state = await readState(saveMode);
+    if (normalizedProviderId) return state.runtimeKeys[normalizedProviderId] || "";
+    return Object.values(state.runtimeKeys).find(Boolean) || state.legacySecret || "";
   }
 
   return {
@@ -112,33 +159,55 @@ export function createSecretStore(chromeApi, logger) {
         };
       }
 
+      const providerId = normalizeProviderId(options.providerId);
+      if (!providerId) {
+        return {
+          ok: false,
+          error: {
+            code: "SECRET_PROVIDER_INVALID",
+            message: "Runtime API Key must be saved for a valid provider."
+          }
+        };
+      }
+
       const saveMode = normalizeSaveMode(options.saveMode);
-      memory[saveMode] = normalized;
-      const area = storageArea(chromeApi, saveMode);
-      await setToStorage(area, storageKey(saveMode), normalized);
+      const state = await readState(saveMode);
+      state.runtimeKeys[providerId] = normalized;
+      await writeState(saveMode, state);
 
       return {
         ok: true,
+        providerId,
         hasApiKey: true,
         apiKeyPreview: maskSecret(normalized),
         saveMode
       };
     },
 
-    async hasSecret(saveMode = null) {
-      if (saveMode) return Boolean(await readSecret(saveMode));
-      return Boolean((await readSecret("session")) || (await readSecret("local")));
+    async hasSecret(saveMode = null, providerId = "") {
+      if (saveMode) return Boolean(await readSecret(saveMode, providerId));
+      return Boolean((await readSecret("session", providerId)) || (await readSecret("local", providerId)));
     },
 
-    async getMaskedPreview(saveMode = null) {
+    async getMaskedPreview(saveMode = null, providerId = "") {
       const secret = saveMode
-        ? await readSecret(saveMode)
-        : ((await readSecret("session")) || (await readSecret("local")));
+        ? await readSecret(saveMode, providerId)
+        : ((await readSecret("session", providerId)) || (await readSecret("local", providerId)));
       return secret ? maskSecret(secret) : "";
     },
 
-    async clearSecret() {
-      memory = { local: "", session: "" };
+    async clearSecret(options = {}) {
+      const providerId = normalizeProviderId(options.providerId);
+      if (providerId) {
+        for (const mode of ["local", "session"]) {
+          const state = await readState(mode);
+          delete state.runtimeKeys[providerId];
+          await writeState(mode, state);
+        }
+        return { ok: true, cleared: true, providerId };
+      }
+
+      memory = { local: emptyState(), session: emptyState() };
       await Promise.all([
         removeFromStorage(chromeApi?.storage?.local, LOCAL_SECRET_KEY),
         removeFromStorage(chromeApi?.storage?.session, SESSION_SECRET_KEY)
@@ -146,9 +215,9 @@ export function createSecretStore(chromeApi, logger) {
       return { ok: true, cleared: true };
     },
 
-    async getSecretForTrustedRuntimeOnly(saveMode = null) {
-      if (saveMode) return readSecret(saveMode);
-      return (await readSecret("session")) || (await readSecret("local"));
+    async getSecretForTrustedRuntimeOnly(saveMode = null, providerId = "") {
+      if (saveMode) return readSecret(saveMode, providerId);
+      return (await readSecret("session", providerId)) || (await readSecret("local", providerId));
     }
   };
 }

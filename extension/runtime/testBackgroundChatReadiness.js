@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { createBackgroundRuntime } from "./backgroundRuntime.js";
 
 const MESSAGE_TYPE = "runtime:getBackgroundChatReadiness";
-const DEEPSEEK_ORIGIN = "https://api.deepseek.com/*";
 const RUNTIME_KEY = "sk-test-readiness-secret";
 
 async function check(name, fn) {
@@ -20,7 +19,10 @@ function createChromeApi(permissionGranted = true) {
     runtime: {},
     permissions: {
       contains(query, callback) {
-        assert.deepEqual(query, { origins: [DEEPSEEK_ORIGIN] });
+        assert.equal(Array.isArray(query.origins), true);
+        assert.equal(query.origins.length, 1);
+        assert.match(query.origins[0], /^https:\/\/[^/*]+\/\*$/);
+        assert.notEqual(query.origins[0], `https://${"*"}/*`);
         callback(permissionGranted);
       }
     }
@@ -69,7 +71,7 @@ async function saveDeepSeekSettings(runtime, overrides = {}) {
 async function saveKey(runtime) {
   const response = await runtime.handleMessage({
     type: "settings:saveSecret",
-    payload: { apiKey: RUNTIME_KEY }
+    payload: { apiKey: RUNTIME_KEY, providerId: "deepseek" }
   });
   assert.equal(response.ok, true);
 }
@@ -140,7 +142,7 @@ await check("missing permission returns not ready", async () => {
   });
 });
 
-await check("OpenAI returns provider not supported", async () => {
+await check("OpenAI is supported but needs provider-specific Runtime Key", async () => {
   await withRuntime({ permissionGranted: true }, async (runtime, getFetchCount) => {
     await saveKey(runtime);
     const response = await send(runtime, { providerId: "openai", model: "gpt-4o-mini" });
@@ -148,8 +150,9 @@ await check("OpenAI returns provider not supported", async () => {
     assert.equal(response.ok, true);
     assert.equal(response.providerId, "openai");
     assert.equal(response.canUseBackgroundRuntime, false);
-    assert.equal(checkById(response, "provider").ok, false);
-    assert.equal(checkById(response, "permission").ok, false);
+    assert.equal(checkById(response, "provider").ok, true);
+    assert.equal(checkById(response, "runtimeKey").ok, false);
+    assert.equal(checkById(response, "permission").ok, true);
     assert.equal(response.requestEnabled, false);
     assert.equal(getFetchCount(), 0);
   });

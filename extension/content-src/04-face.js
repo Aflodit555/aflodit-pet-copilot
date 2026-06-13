@@ -53,7 +53,8 @@
 
     lookAtElement(element) {
       if (!element || element.classList.contains("hidden")) return this.setLookCenter();
-      const rect = element.getBoundingClientRect();
+      const rect = safeGetRect(element);
+      if (!rect) return this.setLookCenter();
       this.lookAtPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
     },
 

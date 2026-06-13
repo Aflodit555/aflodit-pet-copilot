@@ -34,13 +34,22 @@ Path A: Background Runtime Beta
 
 1. Load the Chromium extension from `dist/aflodit-pet-copilot-v0.8.0/` after running `node scripts\buildReleasePackage.js`.
 2. Open Runtime Setup.
-3. Select DeepSeek.
-4. Save Runtime Key.
-5. Request DeepSeek permission.
+3. Select DeepSeek, Alibaba Bailian / DashScope, OpenAI, or OpenRouter.
+4. Save the provider-specific Runtime Key.
+5. Request the selected provider permission.
 6. Check Readiness.
 7. Run Real Test.
 8. Select Background Runtime Beta.
 9. Test Chat, Explain, Translate, and Summarize.
+
+Background Runtime Beta real providers in Phase 12.0:
+
+- DeepSeek: `deepseek-chat`
+- Alibaba Bailian / DashScope: `qwen-plus`
+- OpenAI: `gpt-4o-mini`
+- OpenRouter: `openai/gpt-4o-mini`
+
+DashScope currently uses the default China Beijing endpoint: `https://dashscope.aliyuncs.com/compatible-mode/v1`. Singapore, US Virginia, and Hong Kong region profiles are not exposed in the UI in this phase.
 
 Path B: Local Backend Dev
 
@@ -57,6 +66,12 @@ node scripts\checkReleasePackage.js
 ```
 
 Chromium notes are in `docs/CHROMIUM_COMPATIBILITY.md`; release checks are in `docs/RELEASE_CHECKLIST.md`.
+
+### v0.8.0 Phase 12.0 Multi-Provider Real Runtime
+
+Phase 12.0 expands Background Runtime Beta real requests from DeepSeek-only to DeepSeek, Alibaba Bailian / DashScope, OpenAI, and OpenRouter using descriptor-defined OpenAI-compatible endpoints. Runtime Key storage is provider-specific, and the content script still cannot pass URLs, headers, request bodies, API keys, endpoints, or custom provider configuration.
+
+`requestEnabled` remains `false`, Local Backend Dev remains available, Real Test remains user-triggered, permissions are exact optional host permissions, and background failures still do not silently fall back to Local Backend.
 
 ### v0.8.0 Phase 11.0 Release Mode Cleanup / Dev Tools Gate
 
@@ -204,16 +219,16 @@ Runtime Key 的保存位置由 `saveMode` 决定：
 
 1. Load the `extension/` directory as an unpacked extension.
 2. Open `Runtime Setup`.
-3. Select `DeepSeek`.
+3. Select `DeepSeek`, `Alibaba Bailian / DashScope`, `OpenAI`, or `OpenRouter`.
 4. Enter a model, for example `deepseek-chat`.
-5. Save Runtime Key.
-6. Request DeepSeek permission.
+5. Save the provider-specific Runtime Key.
+6. Request the selected provider permission.
 7. Check Readiness.
 8. Run Real Test.
 9. Select `Background Runtime Beta`.
 10. Test Chat / Explain / Translate / Summarize.
 
-Background Runtime Beta is DeepSeek-only in this release candidate. Readiness is local-only and does not call the provider; Real Test is separate and only runs after the user clicks it. Background failures do not automatically fall back.
+Background Runtime Beta supports DeepSeek, Alibaba Bailian / DashScope, OpenAI, and OpenRouter in this release candidate. Readiness is local-only and does not call the provider; Real Test is separate and only runs after the user clicks it. Background failures do not automatically fall back.
 
 ### Path B: Local Backend Dev
 

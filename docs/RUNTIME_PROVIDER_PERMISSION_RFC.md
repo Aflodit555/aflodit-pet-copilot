@@ -36,6 +36,8 @@ Phase 8.0 replaces the beta checkbox with a public `runtimeMode` selector: `loca
 
 Phase 9.0 renames the user-facing setup area to Runtime Setup and adds release-candidate setup affordances: a compact setup checklist, explicit setup action order, safe copyable diagnostics, safe `lastRealTestStatus` metadata, and a local release safety guard script. This phase does not expand providers, does not add permissions, does not change routing, and does not make Background Runtime Beta the default.
 
+Phase 12.0 expands the real Background Runtime Beta path to all listed real providers: DeepSeek, Alibaba Bailian / DashScope, OpenAI, and OpenRouter. Requests remain descriptor-driven, Runtime Keys are provider-specific, `requestEnabled` remains `false`, and the content script still cannot pass URLs, headers, raw request bodies, API keys, endpoints, base URLs, or custom provider configuration.
+
 ## 2. Non-goals
 
 Phase 5A through Phase 9.0 does not:

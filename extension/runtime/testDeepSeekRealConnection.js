@@ -50,7 +50,7 @@ async function send(runtime, payload) {
 async function saveKey(runtime) {
   const response = await runtime.handleMessage({
     type: "settings:saveSecret",
-    payload: { apiKey: RUNTIME_KEY }
+    payload: { apiKey: RUNTIME_KEY, providerId: "deepseek" }
   });
   assert.equal(response.ok, true);
 }
@@ -165,7 +165,7 @@ await check("invalid payload with headers.Authorization is rejected", async () =
   }
 });
 
-await check("OpenAI returns REAL_TEST_NOT_CONFIGURED without fetch", async () => {
+await check("OpenAI real test requires OpenAI permission without fetch", async () => {
   let fetchCalled = false;
   const { runtime, restore } = await createRuntime({
     fetchImpl: async () => {
@@ -176,7 +176,7 @@ await check("OpenAI returns REAL_TEST_NOT_CONFIGURED without fetch", async () =>
   try {
     const response = await send(runtime, { providerId: "openai", model: "gpt-4o-mini" });
     assert.equal(response.ok, false);
-    assert.equal(response.errorCode, "REAL_TEST_NOT_CONFIGURED");
+    assert.equal(response.errorCode, "MISSING_PROVIDER_PERMISSION");
     assert.equal(response.requestEnabled, false);
     assert.equal(fetchCalled, false);
   } finally {
@@ -212,7 +212,7 @@ await check("HTTP 401 maps to AUTH_FAILED", async () => {
     const response = await send(runtime, { providerId: "deepseek", model: "deepseek-chat" });
     assert.equal(response.ok, false);
     assert.equal(response.errorCode, "AUTH_FAILED");
-    assert.equal(response.message, "DeepSeek authentication failed. Check your Runtime Key.");
+    assert.equal(response.message, "DeepSeek authentication failed. Check the Runtime Key for this provider.");
     assertNoSecretLeak(response);
   } finally {
     restore();

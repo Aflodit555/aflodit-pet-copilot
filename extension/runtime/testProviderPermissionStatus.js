@@ -2,13 +2,19 @@ import assert from "node:assert/strict";
 import { createBackgroundRuntime } from "./backgroundRuntime.js";
 
 const MESSAGE_TYPE = "runtime:getProviderPermissionStatus";
+const PROVIDER_ORIGINS = {
+  deepseek: "https://api.deepseek.com/*",
+  dashscope: "https://dashscope.aliyuncs.com/*",
+  openai: "https://api.openai.com/*",
+  openrouter: "https://openrouter.ai/*"
+};
 
-function createChromeApi(permissionGranted) {
+function createChromeApi(permissionGranted, onContains = () => {}) {
   return {
     runtime: {},
     permissions: {
       contains(query, callback) {
-        assert.deepEqual(query, { origins: ["https://api.deepseek.com/*"] });
+        onContains(query);
         callback(permissionGranted);
       }
     }
@@ -25,28 +31,35 @@ async function check(name, fn) {
   }
 }
 
-async function send(payload, permissionGranted = false) {
-  const runtime = createBackgroundRuntime({ chromeApi: createChromeApi(permissionGranted) });
+async function send(payload, permissionGranted = false, onContains) {
+  const runtime = createBackgroundRuntime({ chromeApi: createChromeApi(permissionGranted, onContains) });
   return runtime.handleMessage({ type: MESSAGE_TYPE, payload });
 }
 
-await check("DeepSeek permission missing", async () => {
-  const response = await send({ providerId: "deepseek" }, false);
-  assert.equal(response.ok, true);
-  assert.equal(response.permissionConfigured, true);
-  assert.equal(response.permissionGranted, false);
-  assert.equal(response.requestEnabled, false);
-});
+for (const [providerId, origin] of Object.entries(PROVIDER_ORIGINS)) {
+  await check(`${providerId} permission missing`, async () => {
+    let seen = null;
+    const response = await send({ providerId }, false, (query) => {
+      seen = query;
+    });
+    assert.deepEqual(seen, { origins: [origin] });
+    assert.equal(response.ok, true);
+    assert.equal(response.providerId, providerId);
+    assert.equal(response.permissionConfigured, true);
+    assert.equal(response.permissionGranted, false);
+    assert.equal(response.requestEnabled, false);
+  });
 
-await check("DeepSeek permission granted", async () => {
-  const response = await send({ providerId: "deepseek" }, true);
-  assert.equal(response.ok, true);
-  assert.equal(response.permissionGranted, true);
-  assert.equal(response.requestEnabled, false);
-});
+  await check(`${providerId} permission granted`, async () => {
+    const response = await send({ providerId }, true);
+    assert.equal(response.ok, true);
+    assert.equal(response.permissionGranted, true);
+    assert.equal(response.requestEnabled, false);
+  });
+}
 
-await check("OpenAI permission not configured", async () => {
-  const response = await send({ providerId: "openai" });
+await check("Mock permission not configured", async () => {
+  const response = await send({ providerId: "mock" });
   assert.equal(response.ok, false);
   assert.equal(response.errorCode, "PERMISSION_NOT_CONFIGURED");
   assert.equal(response.requestEnabled, false);

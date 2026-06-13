@@ -49,7 +49,7 @@ Provider keys stay in the backend environment. The extension never calls model p
 
 The background runtime has a provider registry and allowlist for `Mock`, `OpenAI`, `DeepSeek`, `Qwen / DashScope`, and `OpenRouter`. Provider descriptors may contain provider origins inside `extension/runtime/providerRegistry.js`, but the request capability remains disabled with `requestEnabled=false`.
 
-Runtime Setup can save public runtime settings (`provider`, `model`, `saveMode`, `debugEnabled`, `runtimeMode`) and a separate Runtime Key. In user mode it exposes the Backendless Beta setup path. Developer-only tools are gated behind the setup panel's Developer Tools toggle. Background Runtime Beta remains DeepSeek-only, does not add broad host permissions, and does not change Local Backend Dev availability.
+Runtime Setup can save public runtime settings (`provider`, `model`, `saveMode`, `debugEnabled`, `runtimeMode`) and provider-specific Runtime Keys. In user mode it exposes the Backendless Beta setup path. Developer-only tools are gated behind the setup panel's Developer Tools toggle. Background Runtime Beta supports DeepSeek, Alibaba Bailian / DashScope, OpenAI, and OpenRouter through descriptor-defined OpenAI-compatible endpoints. It does not add broad host permissions and does not change Local Backend Dev availability.
 
 ## Fallbacks And Debug
 
