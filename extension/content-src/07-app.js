@@ -485,10 +485,10 @@
       const finalFace = this.resolveFinalFace(result);
       enforceScrollBoxes();
       dom.status.textContent = "本地后端已返回结果。";
-      if (result.mode === "background-chat") {
-        dom.status.textContent = "Source: Background Runtime. Main AI actions still use the local backend.";
+      if (result.source === "Background Runtime" || String(result.mode || "").startsWith("background-")) {
+        dom.status.textContent = "Source: Background Runtime. Background Runtime Beta is active.";
       } else {
-        dom.status.textContent = "Source: Local Backend. Main AI actions use the local backend.";
+        dom.status.textContent = "Source: Local Backend.";
       }
       dom.reply.textContent = normalizeUserErrorMessage(null, {
         result,
@@ -510,7 +510,7 @@
 
     showError(error) {
       FaceController.stopReplyPeekLoop(true);
-      dom.status.textContent = "Source: Local Backend. Runtime mode: Local Backend. Local backend request failed.";
+      dom.status.textContent = "Source: Local Backend. Local backend request failed.";
       dom.reply.textContent = normalizeUserErrorMessage(error);
       delete dom.reply.dataset.streaming;
       scrollReplyToTop();

@@ -272,8 +272,9 @@ await check("core non-chat actions are available for runtime mode routing", asyn
 
 await check("content source labels cover local and background success/failure", async () => {
   const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
-  assert.match(appSource, /Source: Local Backend\. Main AI actions use the local backend\./);
-  assert.match(appSource, /Source: Local Backend\. Runtime mode: Local Backend\. Local backend request failed\./);
-  assert.match(appSource, /Source: Background Runtime\. Main AI actions still use the local backend\./);
+  assert.match(appSource, /Source: Local Backend\./);
+  assert.match(appSource, /Source: Local Backend\. Local backend request failed\./);
+  assert.match(appSource, /Source: Background Runtime\. Background Runtime Beta is active\./);
   assert.match(appSource, /Source: Background Runtime\. Background Runtime failed\./);
+  assert.doesNotMatch(appSource, /Source: Background Runtime\. Main AI actions still use the local backend\./);
 });

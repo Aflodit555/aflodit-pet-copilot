@@ -97,14 +97,14 @@ await check("diagnostics includes runtimeMode and hasRuntimeKey boolean", async 
 await check("setup checklist source includes required rows and safe copy diagnostics control", async () => {
   const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
   for (const label of [
-    "1. Runtime Mode",
-    "2. Provider",
-    "3. Model",
-    "4. Runtime Key",
-    "5. Host Permission",
-    "6. Readiness",
-    "7. Real Test",
-    "Copy Diagnostics"
+    "Setup Status",
+    "Runtime Mode",
+    "Provider",
+    "Model",
+    "Runtime Key",
+    "Host Permission",
+    "Readiness",
+    "Real Test"
   ]) {
     assert.match(source, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
@@ -122,28 +122,37 @@ await check("primary visible setup actions are limited", async () => {
 await check("diagnostics default collapsed and runtime mode switch button is absent", async () => {
   const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
   assert.match(source, /id="aflodit-pet-runtime-developer-tools" class="pet-runtime-actions-group hidden"/);
-  assert.match(source, /Advanced Diagnostics/);
+  assert.match(source, /Developer Tools/);
   assert.doesNotMatch(source, /<details class="pet-runtime-actions-group" open>/);
   assert.doesNotMatch(source, /aflodit-pet-runtime-switch-beta/);
   assert.doesNotMatch(source, /Switch to Background Runtime Beta/);
 });
 
-await check("user mode hides developer test tools but keeps Copy Diagnostics", async () => {
+await check("user mode hides developer-only setup controls", async () => {
   const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
   const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
-  assert.match(source, /id="aflodit-pet-runtime-copy-diagnostics" class="pet-secondary-button">Copy Diagnostics/);
   assert.match(source, /id="aflodit-pet-runtime-developer-tools" class="pet-runtime-actions-group hidden" data-runtime-developer-only/);
   assert.match(source, /id="aflodit-pet-runtime-test-mock" class="pet-secondary-button">Mock Test/);
   assert.match(source, /id="aflodit-pet-runtime-check-permission" class="pet-secondary-button">Check Permission/);
+  assert.match(source, /id="aflodit-pet-runtime-clear-key" class="pet-secondary-button"/);
+  assert.match(source, /id="aflodit-pet-runtime-save-mode"/);
+  assert.match(source, /id="aflodit-pet-runtime-debug"/);
   assert.match(appSource, /runtimeSetupViewMode === "developer"/);
   assert.match(appSource, /setSetupViewMode\("user"\)/);
 });
 
 await check("developer mode exposes advanced test tools", async () => {
+  const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
   const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
+  assert.match(source, /id="aflodit-pet-runtime-copy-diagnostics" class="pet-secondary-button">Copy Diagnostics/);
   assert.match(appSource, /Hide Developer Tools/);
   assert.match(appSource, /Developer Tools/);
   assert.match(appSource, /runtimeDeveloperOnly/);
+});
+
+await check("setup screen avoids raw requestEnabled wording in user-facing source", async () => {
+  const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /requestEnabled/);
 });
 
 await check("release docs use Backendless Beta wording instead of Preview wording", async () => {
@@ -173,8 +182,7 @@ await check("Request Permission is available for real providers when permission 
 
 await check("DashScope setup hint recommends qwen-plus without hardcoded model validation", async () => {
   const source = readFileSync(new URL("./providerRegistry.js", import.meta.url), "utf8");
-  assert.match(source, /Start with qwen-plus for first Real Test/);
-  assert.match(source, /Other model names must match Alibaba Cloud Model Studio/);
+  assert.match(source, /Use Alibaba Cloud Model Studio \/ Bailian API Key\. Start with qwen-plus\./);
   assert.doesNotMatch(source, /qwen-plus.*includes|allowedModels|modelList/);
 });
 

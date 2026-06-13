@@ -33,7 +33,7 @@ const PROVIDERS = Object.freeze({
     chatPath: "/chat/completions",
     requiredHostPermission: "https://api.deepseek.com/*",
     defaultModel: "deepseek-chat",
-    setupHint: "Use DeepSeek API Key.",
+    setupHint: "Use DeepSeek API Key. Default model: deepseek-chat.",
     enabled: true,
     requestEnabled: false,
     customEndpoint: false
@@ -47,7 +47,7 @@ const PROVIDERS = Object.freeze({
     chatPath: "/chat/completions",
     requiredHostPermission: "https://dashscope.aliyuncs.com/*",
     defaultModel: "qwen-plus",
-    setupHint: "Start with qwen-plus for first Real Test. Other model names must match Alibaba Cloud Model Studio.",
+    setupHint: "Use Alibaba Cloud Model Studio / Bailian API Key. Start with qwen-plus.",
     enabled: true,
     requestEnabled: false,
     customEndpoint: false
