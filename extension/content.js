@@ -660,7 +660,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeMode: "background_runtime_beta",
       hasApiKey: false,
       apiKeyPreview: "",
-      lastRealTestStatus: null
+      lastRealTestStatus: null,
+      lastActionFailure: null
     },
     runtimeProviders: [
       {
@@ -871,73 +872,68 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
             <div id="aflodit-pet-settings-runtime" class="pet-settings-view pet-settings-fixed-footer hidden">
               <div class="pet-settings-body">
               <div class="pet-settings-title">AI &#35774;&#32622; / &#27169;&#22411;&#19982;&#23494;&#38053;</div>
-              <div class="pet-settings-message pet-runtime-warning">API keys are provider-specific.</div>
-              <div class="pet-runtime-summary">
-                <div><b>Runtime</b>: <span id="aflodit-pet-runtime-summary-mode">Local Backend</span></div>
-                <div><b>&#26381;&#21153;&#21830;</b>: <span id="aflodit-pet-runtime-summary-provider">Mock</span></div>
-                <div><b>&#21518;&#21488;&#36816;&#34892;</b>: <span id="aflodit-pet-runtime-summary-beta">&#26410;&#26816;&#26597;</span></div>
-              </div>
               <label class="pet-settings-field">
                 <span>&#26381;&#21153;&#21830;</span>
                 <select id="aflodit-pet-runtime-provider">
                   <option value="mock">mock</option>
                 </select>
               </label>
-              <div id="aflodit-pet-runtime-provider-hint" class="pet-settings-message pet-runtime-compact-note">API keys are provider-specific.</div>
+              <div id="aflodit-pet-runtime-provider-hint" class="pet-settings-message pet-runtime-compact-note">&#20351;&#29992;&#24403;&#21069;&#26381;&#21153;&#21830;&#30340; API Key&#12290;</div>
               <label class="pet-settings-field">
                 <span>&#27169;&#22411; ID</span>
                 <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
               </label>
-              <div id="aflodit-pet-runtime-model-hint" class="pet-settings-message pet-runtime-compact-note">Use a provider model ID.</div>
-              <div class="pet-runtime-provider-card hidden" data-runtime-developer-only>
-                <div><b>Provider selected</b>: <span id="aflodit-pet-runtime-provider-selected">Mock</span></div>
-                <div><b>Protocol</b>: <span id="aflodit-pet-runtime-provider-protocol">mock</span></div>
-                <div><b>Default model</b>: <span id="aflodit-pet-runtime-provider-default-model">mock-model</span></div>
-                <div><b>Permission status</b>: <span id="aflodit-pet-runtime-provider-permission-status">unknown</span></div>
-              </div>
+              <div id="aflodit-pet-runtime-model-hint" class="pet-settings-message pet-runtime-compact-note">&#27169;&#22411; ID &#20250;&#21407;&#26679;&#21457;&#36865;&#32473;&#24403;&#21069;&#26381;&#21153;&#21830;&#12290;</div>
               <label class="pet-settings-field">
                 <span>&#36816;&#34892;&#23494;&#38053;</span>
                 <input id="aflodit-pet-runtime-api-key" type="password" autocomplete="off" placeholder="&#36755;&#20837;&#36816;&#34892;&#23494;&#38053;" />
               </label>
-              <label class="pet-settings-field hidden" data-runtime-developer-only>
-                <span>Save mode</span>
-                <select id="aflodit-pet-runtime-save-mode">
-                  <option value="local">local</option>
-                  <option value="session">session</option>
-                </select>
-              </label>
-              <label class="pet-settings-check hidden" data-runtime-developer-only>
-                <input id="aflodit-pet-runtime-debug" type="checkbox" />
-                <span>Debug enabled</span>
-              </label>
-              <div class="pet-runtime-provider-card hidden" data-runtime-developer-only>
-                <div><b>Runtime Mode</b>: <span id="aflodit-pet-runtime-mode-label">Local Backend</span></div>
-                <label class="pet-settings-check hidden" title="Uses 127.0.0.1 backend for development." data-runtime-developer-only>
-                  <input id="aflodit-pet-runtime-mode-local" name="aflodit-pet-runtime-mode" type="radio" value="local_backend" />
-                  <span>Local Backend Dev</span>
-                </label>
-                <div class="pet-settings-message pet-runtime-compact-note hidden" data-runtime-developer-only>Uses 127.0.0.1 backend for development.</div>
-                <label class="pet-settings-check" title="Uses extension background runtime. No local backend needed after setup.">
-                  <input id="aflodit-pet-runtime-mode-background" name="aflodit-pet-runtime-mode" type="radio" value="background_runtime_beta" />
-                  <span>&#21518;&#21488;&#36816;&#34892; Beta</span>
-                </label>
-                <div class="pet-settings-message pet-runtime-compact-note">Uses extension background runtime. No local backend needed after setup.</div>
+              <div class="pet-runtime-provider-card pet-runtime-status-card" aria-live="polite">
+                <div class="pet-runtime-status-label">&#36830;&#25509;&#29366;&#24577;</div>
+                <div id="aflodit-pet-runtime-connection-status" class="pet-runtime-status-title">&#26410;&#36830;&#25509;</div>
+                <div id="aflodit-pet-runtime-status-provider-model" class="pet-runtime-status-subtitle">-</div>
+                <div class="pet-runtime-status-check">&#26368;&#36817;&#26816;&#26597;&#65306;<span id="aflodit-pet-runtime-connection-message">-</span></div>
               </div>
-              <div class="pet-runtime-provider-card" aria-live="polite">
-                <div><b>&#36830;&#25509;&#29366;&#24577;</b>: <span id="aflodit-pet-runtime-connection-status">&#26410;&#36830;&#25509;</span></div>
-                <div><b>&#26381;&#21153;&#21830;</b>: <span id="aflodit-pet-runtime-readiness-provider">-</span></div>
-                <div><b>&#27169;&#22411; ID</b>: <span id="aflodit-pet-runtime-readiness-model">-</span></div>
-                <div><b>&#36816;&#34892;&#23494;&#38053;</b>: <span id="aflodit-pet-runtime-readiness-key">&#26410;&#20445;&#23384;</span></div>
-                <div><b>&#26368;&#36817;&#26816;&#26597;</b>: <span id="aflodit-pet-runtime-connection-message">-</span></div>
-              </div>
-              <div id="aflodit-pet-runtime-dev-note" class="pet-settings-message pet-runtime-compact-note hidden" data-runtime-developer-only>Developer tools are for local backend development and release troubleshooting only.</div>
-              <textarea id="aflodit-pet-runtime-diagnostics-output" class="pet-runtime-diagnostics-output hidden" readonly rows="6" spellcheck="false"></textarea>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
               <div class="pet-runtime-dev-entry">
                 <button id="aflodit-pet-runtime-dev-toggle" class="pet-link-button pet-runtime-dev-button">&#39640;&#32423;&#24037;&#20855;</button>
               </div>
                 <details id="aflodit-pet-runtime-developer-tools" class="pet-runtime-actions-group hidden" data-runtime-developer-only>
-                  <summary class="pet-runtime-actions-title">Developer Tools</summary>
+                  <summary class="pet-runtime-actions-title">&#36816;&#34892;&#35786;&#26029;</summary>
+                  <div class="pet-runtime-provider-card">
+                    <div><b>Runtime</b>: <span id="aflodit-pet-runtime-mode-label">Local Backend</span></div>
+                    <div><b>Permission</b>: <span id="aflodit-pet-runtime-readiness-permission">unknown</span></div>
+                    <div><b>Last test</b>: <span id="aflodit-pet-runtime-readiness-real-test">not checked</span></div>
+                    <div><b>Last action</b>: <span id="aflodit-pet-runtime-last-action">none</span></div>
+                    <div><b>Provider selected</b>: <span id="aflodit-pet-runtime-provider-selected">Mock</span></div>
+                    <div><b>Protocol</b>: <span id="aflodit-pet-runtime-provider-protocol">mock</span></div>
+                    <div><b>Default model</b>: <span id="aflodit-pet-runtime-provider-default-model">mock-model</span></div>
+                    <div><b>Permission status</b>: <span id="aflodit-pet-runtime-provider-permission-status">unknown</span></div>
+                    <div class="hidden"><span id="aflodit-pet-runtime-summary-mode">Local Backend</span><span id="aflodit-pet-runtime-summary-provider">Mock</span><span id="aflodit-pet-runtime-summary-beta">&#26410;&#26816;&#26597;</span><span id="aflodit-pet-runtime-readiness-provider">-</span><span id="aflodit-pet-runtime-readiness-model">-</span><span id="aflodit-pet-runtime-readiness-key">&#26410;&#20445;&#23384;</span><span id="aflodit-pet-runtime-readiness-mode">-</span><span id="aflodit-pet-runtime-readiness-summary">-</span></div>
+                  </div>
+                  <div class="pet-runtime-provider-card">
+                    <div class="pet-runtime-actions-title">&#26412;&#22320;&#21518;&#31471;&#24320;&#21457;</div>
+                    <label class="pet-settings-field hidden" data-runtime-developer-only>
+                      <span>Save mode</span>
+                      <select id="aflodit-pet-runtime-save-mode">
+                        <option value="local">local</option>
+                        <option value="session">session</option>
+                      </select>
+                    </label>
+                    <label class="pet-settings-check hidden" data-runtime-developer-only>
+                      <input id="aflodit-pet-runtime-debug" type="checkbox" />
+                      <span>Debug enabled</span>
+                    </label>
+                    <label class="pet-settings-check hidden" title="Uses 127.0.0.1 backend for development." data-runtime-developer-only>
+                      <input id="aflodit-pet-runtime-mode-local" name="aflodit-pet-runtime-mode" type="radio" value="local_backend" />
+                      <span>Local Backend Dev</span>
+                    </label>
+                    <label class="pet-settings-check hidden" title="Uses extension background runtime. No local backend needed after setup." data-runtime-developer-only>
+                      <input id="aflodit-pet-runtime-mode-background" name="aflodit-pet-runtime-mode" type="radio" value="background_runtime_beta" />
+                      <span>&#21518;&#21488;&#36816;&#34892; Beta</span>
+                    </label>
+                    <div id="aflodit-pet-runtime-dev-note" class="pet-settings-message pet-runtime-compact-note hidden" data-runtime-developer-only>&#35786;&#26029;&#20449;&#24687;&#19981;&#20250;&#21253;&#21547; API Key&#12290;</div>
+                  </div>
                   <div class="pet-runtime-actions-row">
                     <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button hidden">Request Permission</button>
                     <button id="aflodit-pet-runtime-check-readiness" class="pet-secondary-button">Check Readiness</button>
@@ -948,6 +944,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
                     <button id="aflodit-pet-runtime-local-backend" class="pet-secondary-button">Legacy Local Backend</button>
                     <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears the selected provider Runtime Key, not backend key.">Clear Key</button>
                   </div>
+                  <textarea id="aflodit-pet-runtime-diagnostics-output" class="pet-runtime-diagnostics-output hidden" readonly rows="6" spellcheck="false"></textarea>
                 </details>
               </div>
               <div class="pet-settings-actions pet-settings-footer pet-runtime-actions">
@@ -1451,6 +1448,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeModeBackground: root.querySelector("#aflodit-pet-runtime-mode-background"),
       runtimeConnectionStatus: root.querySelector("#aflodit-pet-runtime-connection-status"),
       runtimeConnectionMessage: root.querySelector("#aflodit-pet-runtime-connection-message"),
+      runtimeStatusProviderModel: root.querySelector("#aflodit-pet-runtime-status-provider-model"),
       runtimeReadinessSummary: root.querySelector("#aflodit-pet-runtime-readiness-summary"),
       runtimeReadinessProvider: root.querySelector("#aflodit-pet-runtime-readiness-provider"),
       runtimeReadinessKey: root.querySelector("#aflodit-pet-runtime-readiness-key"),
@@ -1458,6 +1456,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       runtimeReadinessModel: root.querySelector("#aflodit-pet-runtime-readiness-model"),
       runtimeReadinessMode: root.querySelector("#aflodit-pet-runtime-readiness-mode"),
       runtimeReadinessRealTest: root.querySelector("#aflodit-pet-runtime-readiness-real-test"),
+      runtimeLastAction: root.querySelector("#aflodit-pet-runtime-last-action"),
       runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),
       runtimeSave: root.querySelector("#aflodit-pet-runtime-save"),
       runtimeTestMock: root.querySelector("#aflodit-pet-runtime-test-mock"),
@@ -3904,6 +3903,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     connected: "\u5df2\u8fde\u63a5",
     connecting: "\u6b63\u5728\u8fde\u63a5...",
     failed: "\u8fde\u63a5\u5931\u8d25",
+    failedHelp: "\u8bf7\u68c0\u67e5\u6a21\u578b ID\u3001API Key \u6216\u670d\u52a1\u989d\u5ea6\u3002",
+    syncing: "\u540e\u53f0\u6b63\u5728\u540c\u6b65\u72b6\u6001...",
     saved: "\u5df2\u4fdd\u5b58",
     notSaved: "\u672a\u4fdd\u5b58",
     testPassed: "\u6d4b\u8bd5\u901a\u8fc7",
@@ -3929,7 +3930,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       state.runtimeSetupViewMode = mode === "developer" ? "developer" : "user";
       const developer = this.isDeveloperMode();
       (dom.runtimeDeveloperOnly || []).forEach((node) => node.classList.toggle("hidden", !developer));
-      if (dom.runtimeDeveloperTools && !developer) dom.runtimeDeveloperTools.open = false;
+      if (dom.runtimeDeveloperTools) dom.runtimeDeveloperTools.open = developer;
       if (dom.runtimeDeveloperToggle) {
         dom.runtimeDeveloperToggle.textContent = RUNTIME_COPY.advancedTools;
       }
@@ -3965,6 +3966,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       if (dom.runtimeConnectionStatus) dom.runtimeConnectionStatus.textContent = status;
       if (dom.runtimeConnectionMessage) dom.runtimeConnectionMessage.textContent = message || "-";
       LayoutManager.schedulePetLayout();
+    },
+
+    setStatusProviderModel(provider = this.providerById(dom.runtimeProvider?.value || state.runtimePublicSettings.provider), model = "") {
+      if (!dom.runtimeStatusProviderModel) return;
+      const providerName = provider?.displayName || "provider";
+      const modelId = String(model || dom.runtimeModel?.value || state.runtimePublicSettings.model || "").trim();
+      dom.runtimeStatusProviderModel.textContent = modelId ? `${providerName} \u00b7 ${modelId}` : providerName;
     },
 
     userMessage(response, fallback = "Runtime settings request failed.") {
@@ -4057,11 +4065,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       if (dom.runtimeProviderSelected) dom.runtimeProviderSelected.textContent = provider.displayName;
       if (dom.runtimeProviderProtocol) dom.runtimeProviderProtocol.textContent = provider.protocol || "unknown";
       if (dom.runtimeProviderDefaultModel) dom.runtimeProviderDefaultModel.textContent = provider.defaultModel || "";
-      if (dom.runtimeProviderHint) dom.runtimeProviderHint.textContent = provider.setupHint || "API keys are provider-specific.";
+      if (dom.runtimeProviderHint) {
+        dom.runtimeProviderHint.textContent = provider.id === "dashscope"
+          ? "\u4f7f\u7528\u963f\u91cc\u4e91\u767e\u70bc API Key\u3002\u63a8\u8350\u4ece qwen-plus \u5f00\u59cb\u3002"
+          : "\u4f7f\u7528\u5f53\u524d\u670d\u52a1\u5546\u7684 API Key\u3002";
+      }
       if (dom.runtimeModelHint) {
-        dom.runtimeModelHint.textContent = provider.id === "dashscope"
-          ? "Use a DashScope / Bailian model ID, for example qwen-plus. The model ID is sent directly to the provider."
-          : "Use the provider model ID exactly as the provider expects it.";
+        dom.runtimeModelHint.textContent = "\u6a21\u578b ID \u4f1a\u539f\u6837\u53d1\u9001\u7ed9\u5f53\u524d\u670d\u52a1\u5546\u3002";
       }
       if (dom.runtimeProviderPermissionStatus) dom.runtimeProviderPermissionStatus.textContent = "unknown";
       this.updateRuntimeKeyPlaceholder(provider);
@@ -4128,6 +4138,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       return `failed - ${status.errorCode || "UNKNOWN"}`;
     },
 
+    lastActionText(status = state.runtimePublicSettings.lastActionFailure) {
+      if (!status) return "none";
+      return status.errorCode || status.reason || status.type || "failed";
+    },
+
     hasSuccessfulRealTest(providerId = "", model = "") {
       const status = state.runtimePublicSettings.lastRealTestStatus;
       if (!status?.ok) return false;
@@ -4140,8 +4155,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     },
 
     showRuntimeSyncing(providerId = "", model = "") {
-      this.setConnectionStatus(RUNTIME_COPY.connected, "后台正在同步状态...");
-      this.setMessage("后台正在同步状态...");
+      const provider = this.providerById(providerId);
+      this.setStatusProviderModel(provider, model);
+      this.setConnectionStatus(RUNTIME_COPY.syncing, RUNTIME_COPY.syncing);
+      this.setMessage(RUNTIME_COPY.syncing);
       if (dom.runtimeReadinessRealTest) {
         dom.runtimeReadinessRealTest.textContent = `passed - ${providerId || "provider"} / ${model || "model"}`;
       }
@@ -4163,6 +4180,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       const model = String(dom.runtimeModel?.value || state.runtimePublicSettings.model || "").trim();
       const providerHasKey = this.providerHasSavedKey(provider);
       const realTest = state.runtimePublicSettings.lastRealTestStatus;
+      this.setStatusProviderModel(provider, model);
 
       if (dom.runtimeReadinessSummary) {
         dom.runtimeReadinessSummary.textContent = response
@@ -4193,6 +4211,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       if (dom.runtimeReadinessRealTest) {
         dom.runtimeReadinessRealTest.textContent = this.realTestText();
       }
+      if (dom.runtimeLastAction) dom.runtimeLastAction.textContent = this.lastActionText();
       if (dom.runtimeSummaryMode) dom.runtimeSummaryMode.textContent = this.runtimeModeLabel(this.readRuntimeMode());
       if (dom.runtimeSummaryProvider) dom.runtimeSummaryProvider.textContent = provider?.displayName || "missing";
       if (dom.runtimeSummaryBeta) {
@@ -4201,9 +4220,9 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           : (!provider || provider.id === "mock" || provider.protocol !== "openai-compatible" ? RUNTIME_COPY.notConfigured : RUNTIME_COPY.notChecked);
       }
       if (realTest?.ok && realTest.providerId === provider?.id && (!model || realTest.model === model)) {
-        this.setConnectionStatus(RUNTIME_COPY.connected, `${RUNTIME_COPY.testPassed} (${realTest.model || model || "model"})`);
+        this.setConnectionStatus(RUNTIME_COPY.connected, RUNTIME_COPY.testPassed);
       } else if (realTest && realTest.providerId === provider?.id && realTest.ok === false) {
-        this.setConnectionStatus(RUNTIME_COPY.failed, realTest.errorCode || "UNKNOWN");
+        this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
       } else {
         this.setConnectionStatus(RUNTIME_COPY.notConnected, providerHasKey ? RUNTIME_COPY.saved : "-");
       }
@@ -4280,7 +4299,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         runtimeMode: settings.runtimeMode === "background_runtime_beta" ? "background_runtime_beta" : "local_backend",
         hasApiKey: Boolean(settings.hasApiKey),
         apiKeyPreview: settings.apiKeyPreview || "",
-        lastRealTestStatus: settings.lastRealTestStatus || null
+        lastRealTestStatus: settings.lastRealTestStatus || null,
+        lastActionFailure: settings.lastActionFailure || null
       };
       this.lastReadiness = null;
       this.lastPermissionStatus = null;
@@ -4351,7 +4371,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           return;
         }
         this.hydrate(response);
-        this.setMessage("AI settings loaded.");
+        this.setMessage("");
       } catch (error) {
         this.setMessage(error?.message || "Runtime settings request failed.");
       } finally {
@@ -4365,7 +4385,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
     connectionFailureMessage(response = {}, fallback = "Model test failed. Check your Model ID or provider account.") {
       const code = response?.error?.code || response?.errorCode || response?.code || "";
-      const genericProviderFailure = "连接失败，请检查模型 ID、API Key 或服务额度。";
+      const genericProviderFailure = RUNTIME_COPY.failedHelp;
       const messages = {
         BACKGROUND_UNAVAILABLE: "Background runtime unavailable.",
         MISSING_RUNTIME_KEY: "Runtime Key is missing.",
@@ -4403,23 +4423,23 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     async saveAndConnect() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setConnectionStatus(RUNTIME_COPY.connecting, "Saving settings...");
-      this.setMessage("Saving and connecting...");
+      this.setConnectionStatus(RUNTIME_COPY.connecting, RUNTIME_COPY.connecting);
+      this.setMessage("");
       let form = null;
       try {
         form = this.readForm();
         const provider = this.providerById(form.provider);
         if (!provider || provider.id === "mock" || provider.protocol !== "openai-compatible") {
-          this.setConnectionStatus(RUNTIME_COPY.failed, "Provider is experimental and may not be verified.");
-          this.setMessage("Provider is experimental and may not be verified.");
+          this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+          this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
 
         const existingKey = this.providerHasSavedKey(provider);
         const apiKey = this.readSecretForm();
         if (!apiKey && !existingKey) {
-          this.setConnectionStatus(RUNTIME_COPY.failed, "Runtime Key is missing.");
-          this.setMessage("Runtime Key is missing.");
+          this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+          this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
 
@@ -4430,8 +4450,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
             return;
           }
           const message = this.connectionFailureMessage(response, this.userMessage(response));
-          this.setConnectionStatus(RUNTIME_COPY.failed, message);
-          this.setMessage(message);
+          this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+          this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
         let hydrated = response;
@@ -4440,15 +4460,15 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           if (!keyResponse.ok) {
             this.hydrate(response);
             const message = this.connectionFailureMessage(keyResponse, "Runtime Key is missing.");
-            this.setConnectionStatus(RUNTIME_COPY.failed, message);
-            this.setMessage(message);
+            this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+            this.setMessage(RUNTIME_COPY.failedHelp);
             return;
           }
           hydrated = keyResponse;
         }
         this.hydrate(hydrated);
 
-        this.setConnectionStatus(RUNTIME_COPY.connecting, "Checking provider permission...");
+        this.setConnectionStatus(RUNTIME_COPY.connecting, RUNTIME_COPY.connecting);
         let permissionStatus = await BackgroundRuntimeClient.getProviderPermissionStatus({ providerId: form.provider });
         this.applyPermissionStatus(permissionStatus, form.provider);
         if (!permissionStatus.ok && permissionStatus.errorCode !== "PERMISSION_NOT_CONFIGURED") {
@@ -4457,12 +4477,12 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
             return;
           }
           const message = this.connectionFailureMessage(permissionStatus, "Provider permission was denied.");
-          this.setConnectionStatus(RUNTIME_COPY.failed, message);
-          this.setMessage(message);
+          this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+          this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
         if (this.providerHasHostPermission(provider) && !permissionStatus.permissionGranted) {
-          this.setConnectionStatus(RUNTIME_COPY.connecting, "Requesting provider permission...");
+          this.setConnectionStatus(RUNTIME_COPY.connecting, RUNTIME_COPY.connecting);
           const permissionResponse = await BackgroundRuntimeClient.requestProviderPermission({ providerId: form.provider });
           if (!permissionResponse.ok || permissionResponse.permissionGranted === false) {
             this.applyPermissionStatus(permissionResponse, form.provider);
@@ -4471,8 +4491,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
               return;
             }
             const message = this.connectionFailureMessage(permissionResponse, "Provider permission was denied.");
-            this.setConnectionStatus(RUNTIME_COPY.failed, message);
-            this.setMessage(message);
+            this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+            this.setMessage(RUNTIME_COPY.failedHelp);
             return;
           }
           permissionStatus = await BackgroundRuntimeClient.getProviderPermissionStatus({ providerId: form.provider });
@@ -4483,13 +4503,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
               return;
             }
             const message = this.connectionFailureMessage(permissionStatus, "Provider permission was denied.");
-            this.setConnectionStatus(RUNTIME_COPY.failed, message);
-            this.setMessage(message);
+            this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+            this.setMessage(RUNTIME_COPY.failedHelp);
             return;
           }
         }
 
-        this.setConnectionStatus(RUNTIME_COPY.connecting, "Checking readiness...");
+        this.setConnectionStatus(RUNTIME_COPY.connecting, RUNTIME_COPY.connecting);
         const readiness = await BackgroundRuntimeClient.getBackgroundChatReadiness({
           providerId: form.provider,
           model: form.model
@@ -4505,12 +4525,12 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
             return;
           }
           const message = this.connectionFailureMessage(readiness, readiness.nextAction || "Model test failed. Check your Model ID or provider account.");
-          this.setConnectionStatus(RUNTIME_COPY.failed, message);
-          this.setMessage(message);
+          this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+          this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
 
-        this.setConnectionStatus(RUNTIME_COPY.connecting, "Running lightweight model test...");
+        this.setConnectionStatus(RUNTIME_COPY.connecting, RUNTIME_COPY.connecting);
         const testResponse = await BackgroundRuntimeClient.testProviderConnection({
           providerId: form.provider,
           model: form.model
@@ -4529,21 +4549,22 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
             return;
           }
           const message = this.connectionFailureMessage(testResponse);
-          this.setConnectionStatus(RUNTIME_COPY.failed, message);
-          this.setMessage(message);
+          this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+          this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
 
-        this.setConnectionStatus(RUNTIME_COPY.connected, `${RUNTIME_COPY.testPassed} (${testResponse.model || form.model})`);
-        this.setMessage(`${provider.displayName} connected.`);
+        this.setStatusProviderModel(provider, testResponse.model || form.model);
+        this.setConnectionStatus(RUNTIME_COPY.connected, RUNTIME_COPY.testPassed);
+        this.setMessage("");
       } catch (error) {
         if (this.hasSuccessfulRealTest(form?.provider, form?.model)) {
           this.showRuntimeSyncing(form.provider, form.model);
           return;
         }
         const message = error?.message || "Model test failed. Check your Model ID or provider account.";
-        this.setConnectionStatus(RUNTIME_COPY.failed, message);
-        this.setMessage(message);
+        this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+        this.setMessage(RUNTIME_COPY.failedHelp);
       } finally {
         this.setBusy(false);
       }

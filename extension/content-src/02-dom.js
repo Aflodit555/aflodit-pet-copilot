@@ -65,73 +65,68 @@
             <div id="aflodit-pet-settings-runtime" class="pet-settings-view pet-settings-fixed-footer hidden">
               <div class="pet-settings-body">
               <div class="pet-settings-title">AI &#35774;&#32622; / &#27169;&#22411;&#19982;&#23494;&#38053;</div>
-              <div class="pet-settings-message pet-runtime-warning">API keys are provider-specific.</div>
-              <div class="pet-runtime-summary">
-                <div><b>Runtime</b>: <span id="aflodit-pet-runtime-summary-mode">Local Backend</span></div>
-                <div><b>&#26381;&#21153;&#21830;</b>: <span id="aflodit-pet-runtime-summary-provider">Mock</span></div>
-                <div><b>&#21518;&#21488;&#36816;&#34892;</b>: <span id="aflodit-pet-runtime-summary-beta">&#26410;&#26816;&#26597;</span></div>
-              </div>
               <label class="pet-settings-field">
                 <span>&#26381;&#21153;&#21830;</span>
                 <select id="aflodit-pet-runtime-provider">
                   <option value="mock">mock</option>
                 </select>
               </label>
-              <div id="aflodit-pet-runtime-provider-hint" class="pet-settings-message pet-runtime-compact-note">API keys are provider-specific.</div>
+              <div id="aflodit-pet-runtime-provider-hint" class="pet-settings-message pet-runtime-compact-note">&#20351;&#29992;&#24403;&#21069;&#26381;&#21153;&#21830;&#30340; API Key&#12290;</div>
               <label class="pet-settings-field">
                 <span>&#27169;&#22411; ID</span>
                 <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
               </label>
-              <div id="aflodit-pet-runtime-model-hint" class="pet-settings-message pet-runtime-compact-note">Use a provider model ID.</div>
-              <div class="pet-runtime-provider-card hidden" data-runtime-developer-only>
-                <div><b>Provider selected</b>: <span id="aflodit-pet-runtime-provider-selected">Mock</span></div>
-                <div><b>Protocol</b>: <span id="aflodit-pet-runtime-provider-protocol">mock</span></div>
-                <div><b>Default model</b>: <span id="aflodit-pet-runtime-provider-default-model">mock-model</span></div>
-                <div><b>Permission status</b>: <span id="aflodit-pet-runtime-provider-permission-status">unknown</span></div>
-              </div>
+              <div id="aflodit-pet-runtime-model-hint" class="pet-settings-message pet-runtime-compact-note">&#27169;&#22411; ID &#20250;&#21407;&#26679;&#21457;&#36865;&#32473;&#24403;&#21069;&#26381;&#21153;&#21830;&#12290;</div>
               <label class="pet-settings-field">
                 <span>&#36816;&#34892;&#23494;&#38053;</span>
                 <input id="aflodit-pet-runtime-api-key" type="password" autocomplete="off" placeholder="&#36755;&#20837;&#36816;&#34892;&#23494;&#38053;" />
               </label>
-              <label class="pet-settings-field hidden" data-runtime-developer-only>
-                <span>Save mode</span>
-                <select id="aflodit-pet-runtime-save-mode">
-                  <option value="local">local</option>
-                  <option value="session">session</option>
-                </select>
-              </label>
-              <label class="pet-settings-check hidden" data-runtime-developer-only>
-                <input id="aflodit-pet-runtime-debug" type="checkbox" />
-                <span>Debug enabled</span>
-              </label>
-              <div class="pet-runtime-provider-card hidden" data-runtime-developer-only>
-                <div><b>Runtime Mode</b>: <span id="aflodit-pet-runtime-mode-label">Local Backend</span></div>
-                <label class="pet-settings-check hidden" title="Uses 127.0.0.1 backend for development." data-runtime-developer-only>
-                  <input id="aflodit-pet-runtime-mode-local" name="aflodit-pet-runtime-mode" type="radio" value="local_backend" />
-                  <span>Local Backend Dev</span>
-                </label>
-                <div class="pet-settings-message pet-runtime-compact-note hidden" data-runtime-developer-only>Uses 127.0.0.1 backend for development.</div>
-                <label class="pet-settings-check" title="Uses extension background runtime. No local backend needed after setup.">
-                  <input id="aflodit-pet-runtime-mode-background" name="aflodit-pet-runtime-mode" type="radio" value="background_runtime_beta" />
-                  <span>&#21518;&#21488;&#36816;&#34892; Beta</span>
-                </label>
-                <div class="pet-settings-message pet-runtime-compact-note">Uses extension background runtime. No local backend needed after setup.</div>
+              <div class="pet-runtime-provider-card pet-runtime-status-card" aria-live="polite">
+                <div class="pet-runtime-status-label">&#36830;&#25509;&#29366;&#24577;</div>
+                <div id="aflodit-pet-runtime-connection-status" class="pet-runtime-status-title">&#26410;&#36830;&#25509;</div>
+                <div id="aflodit-pet-runtime-status-provider-model" class="pet-runtime-status-subtitle">-</div>
+                <div class="pet-runtime-status-check">&#26368;&#36817;&#26816;&#26597;&#65306;<span id="aflodit-pet-runtime-connection-message">-</span></div>
               </div>
-              <div class="pet-runtime-provider-card" aria-live="polite">
-                <div><b>&#36830;&#25509;&#29366;&#24577;</b>: <span id="aflodit-pet-runtime-connection-status">&#26410;&#36830;&#25509;</span></div>
-                <div><b>&#26381;&#21153;&#21830;</b>: <span id="aflodit-pet-runtime-readiness-provider">-</span></div>
-                <div><b>&#27169;&#22411; ID</b>: <span id="aflodit-pet-runtime-readiness-model">-</span></div>
-                <div><b>&#36816;&#34892;&#23494;&#38053;</b>: <span id="aflodit-pet-runtime-readiness-key">&#26410;&#20445;&#23384;</span></div>
-                <div><b>&#26368;&#36817;&#26816;&#26597;</b>: <span id="aflodit-pet-runtime-connection-message">-</span></div>
-              </div>
-              <div id="aflodit-pet-runtime-dev-note" class="pet-settings-message pet-runtime-compact-note hidden" data-runtime-developer-only>Developer tools are for local backend development and release troubleshooting only.</div>
-              <textarea id="aflodit-pet-runtime-diagnostics-output" class="pet-runtime-diagnostics-output hidden" readonly rows="6" spellcheck="false"></textarea>
               <div id="aflodit-pet-runtime-message" class="pet-settings-message" aria-live="polite"></div>
               <div class="pet-runtime-dev-entry">
                 <button id="aflodit-pet-runtime-dev-toggle" class="pet-link-button pet-runtime-dev-button">&#39640;&#32423;&#24037;&#20855;</button>
               </div>
                 <details id="aflodit-pet-runtime-developer-tools" class="pet-runtime-actions-group hidden" data-runtime-developer-only>
-                  <summary class="pet-runtime-actions-title">Developer Tools</summary>
+                  <summary class="pet-runtime-actions-title">&#36816;&#34892;&#35786;&#26029;</summary>
+                  <div class="pet-runtime-provider-card">
+                    <div><b>Runtime</b>: <span id="aflodit-pet-runtime-mode-label">Local Backend</span></div>
+                    <div><b>Permission</b>: <span id="aflodit-pet-runtime-readiness-permission">unknown</span></div>
+                    <div><b>Last test</b>: <span id="aflodit-pet-runtime-readiness-real-test">not checked</span></div>
+                    <div><b>Last action</b>: <span id="aflodit-pet-runtime-last-action">none</span></div>
+                    <div><b>Provider selected</b>: <span id="aflodit-pet-runtime-provider-selected">Mock</span></div>
+                    <div><b>Protocol</b>: <span id="aflodit-pet-runtime-provider-protocol">mock</span></div>
+                    <div><b>Default model</b>: <span id="aflodit-pet-runtime-provider-default-model">mock-model</span></div>
+                    <div><b>Permission status</b>: <span id="aflodit-pet-runtime-provider-permission-status">unknown</span></div>
+                    <div class="hidden"><span id="aflodit-pet-runtime-summary-mode">Local Backend</span><span id="aflodit-pet-runtime-summary-provider">Mock</span><span id="aflodit-pet-runtime-summary-beta">&#26410;&#26816;&#26597;</span><span id="aflodit-pet-runtime-readiness-provider">-</span><span id="aflodit-pet-runtime-readiness-model">-</span><span id="aflodit-pet-runtime-readiness-key">&#26410;&#20445;&#23384;</span><span id="aflodit-pet-runtime-readiness-mode">-</span><span id="aflodit-pet-runtime-readiness-summary">-</span></div>
+                  </div>
+                  <div class="pet-runtime-provider-card">
+                    <div class="pet-runtime-actions-title">&#26412;&#22320;&#21518;&#31471;&#24320;&#21457;</div>
+                    <label class="pet-settings-field hidden" data-runtime-developer-only>
+                      <span>Save mode</span>
+                      <select id="aflodit-pet-runtime-save-mode">
+                        <option value="local">local</option>
+                        <option value="session">session</option>
+                      </select>
+                    </label>
+                    <label class="pet-settings-check hidden" data-runtime-developer-only>
+                      <input id="aflodit-pet-runtime-debug" type="checkbox" />
+                      <span>Debug enabled</span>
+                    </label>
+                    <label class="pet-settings-check hidden" title="Uses 127.0.0.1 backend for development." data-runtime-developer-only>
+                      <input id="aflodit-pet-runtime-mode-local" name="aflodit-pet-runtime-mode" type="radio" value="local_backend" />
+                      <span>Local Backend Dev</span>
+                    </label>
+                    <label class="pet-settings-check hidden" title="Uses extension background runtime. No local backend needed after setup." data-runtime-developer-only>
+                      <input id="aflodit-pet-runtime-mode-background" name="aflodit-pet-runtime-mode" type="radio" value="background_runtime_beta" />
+                      <span>&#21518;&#21488;&#36816;&#34892; Beta</span>
+                    </label>
+                    <div id="aflodit-pet-runtime-dev-note" class="pet-settings-message pet-runtime-compact-note hidden" data-runtime-developer-only>&#35786;&#26029;&#20449;&#24687;&#19981;&#20250;&#21253;&#21547; API Key&#12290;</div>
+                  </div>
                   <div class="pet-runtime-actions-row">
                     <button id="aflodit-pet-runtime-request-permission" class="pet-secondary-button hidden">Request Permission</button>
                     <button id="aflodit-pet-runtime-check-readiness" class="pet-secondary-button">Check Readiness</button>
@@ -142,6 +137,7 @@
                     <button id="aflodit-pet-runtime-local-backend" class="pet-secondary-button">Legacy Local Backend</button>
                     <button id="aflodit-pet-runtime-clear-key" class="pet-secondary-button" title="Only clears the selected provider Runtime Key, not backend key.">Clear Key</button>
                   </div>
+                  <textarea id="aflodit-pet-runtime-diagnostics-output" class="pet-runtime-diagnostics-output hidden" readonly rows="6" spellcheck="false"></textarea>
                 </details>
               </div>
               <div class="pet-settings-actions pet-settings-footer pet-runtime-actions">
@@ -645,6 +641,7 @@
       runtimeModeBackground: root.querySelector("#aflodit-pet-runtime-mode-background"),
       runtimeConnectionStatus: root.querySelector("#aflodit-pet-runtime-connection-status"),
       runtimeConnectionMessage: root.querySelector("#aflodit-pet-runtime-connection-message"),
+      runtimeStatusProviderModel: root.querySelector("#aflodit-pet-runtime-status-provider-model"),
       runtimeReadinessSummary: root.querySelector("#aflodit-pet-runtime-readiness-summary"),
       runtimeReadinessProvider: root.querySelector("#aflodit-pet-runtime-readiness-provider"),
       runtimeReadinessKey: root.querySelector("#aflodit-pet-runtime-readiness-key"),
@@ -652,6 +649,7 @@
       runtimeReadinessModel: root.querySelector("#aflodit-pet-runtime-readiness-model"),
       runtimeReadinessMode: root.querySelector("#aflodit-pet-runtime-readiness-mode"),
       runtimeReadinessRealTest: root.querySelector("#aflodit-pet-runtime-readiness-real-test"),
+      runtimeLastAction: root.querySelector("#aflodit-pet-runtime-last-action"),
       runtimeMessage: root.querySelector("#aflodit-pet-runtime-message"),
       runtimeSave: root.querySelector("#aflodit-pet-runtime-save"),
       runtimeTestMock: root.querySelector("#aflodit-pet-runtime-test-mock"),

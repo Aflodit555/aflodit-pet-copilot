@@ -539,6 +539,31 @@
   word-break: break-word;
 }
 
+#aflodit-pet-root .pet-runtime-status-card {
+  gap: 2px;
+  background: #fafafa;
+}
+
+#aflodit-pet-root .pet-runtime-status-label {
+  color: #777;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#aflodit-pet-root .pet-runtime-status-title {
+  color: #222;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+#aflodit-pet-root .pet-runtime-status-subtitle,
+#aflodit-pet-root .pet-runtime-status-check {
+  color: #555;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 #aflodit-pet-root .pet-settings-actions {
   display: flex;
   flex-wrap: wrap;

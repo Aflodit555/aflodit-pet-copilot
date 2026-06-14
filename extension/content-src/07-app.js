@@ -993,6 +993,8 @@
     connected: "\u5df2\u8fde\u63a5",
     connecting: "\u6b63\u5728\u8fde\u63a5...",
     failed: "\u8fde\u63a5\u5931\u8d25",
+    failedHelp: "\u8bf7\u68c0\u67e5\u6a21\u578b ID\u3001API Key \u6216\u670d\u52a1\u989d\u5ea6\u3002",
+    syncing: "\u540e\u53f0\u6b63\u5728\u540c\u6b65\u72b6\u6001...",
     saved: "\u5df2\u4fdd\u5b58",
     notSaved: "\u672a\u4fdd\u5b58",
     testPassed: "\u6d4b\u8bd5\u901a\u8fc7",
@@ -1018,7 +1020,7 @@
       state.runtimeSetupViewMode = mode === "developer" ? "developer" : "user";
       const developer = this.isDeveloperMode();
       (dom.runtimeDeveloperOnly || []).forEach((node) => node.classList.toggle("hidden", !developer));
-      if (dom.runtimeDeveloperTools && !developer) dom.runtimeDeveloperTools.open = false;
+      if (dom.runtimeDeveloperTools) dom.runtimeDeveloperTools.open = developer;
       if (dom.runtimeDeveloperToggle) {
         dom.runtimeDeveloperToggle.textContent = RUNTIME_COPY.advancedTools;
       }
@@ -1054,6 +1056,13 @@
       if (dom.runtimeConnectionStatus) dom.runtimeConnectionStatus.textContent = status;
       if (dom.runtimeConnectionMessage) dom.runtimeConnectionMessage.textContent = message || "-";
       LayoutManager.schedulePetLayout();
+    },
+
+    setStatusProviderModel(provider = this.providerById(dom.runtimeProvider?.value || state.runtimePublicSettings.provider), model = "") {
+      if (!dom.runtimeStatusProviderModel) return;
+      const providerName = provider?.displayName || "provider";
+      const modelId = String(model || dom.runtimeModel?.value || state.runtimePublicSettings.model || "").trim();
+      dom.runtimeStatusProviderModel.textContent = modelId ? `${providerName} \u00b7 ${modelId}` : providerName;
     },
 
     userMessage(response, fallback = "Runtime settings request failed.") {
@@ -1146,11 +1155,13 @@
       if (dom.runtimeProviderSelected) dom.runtimeProviderSelected.textContent = provider.displayName;
       if (dom.runtimeProviderProtocol) dom.runtimeProviderProtocol.textContent = provider.protocol || "unknown";
       if (dom.runtimeProviderDefaultModel) dom.runtimeProviderDefaultModel.textContent = provider.defaultModel || "";
-      if (dom.runtimeProviderHint) dom.runtimeProviderHint.textContent = provider.setupHint || "API keys are provider-specific.";
+      if (dom.runtimeProviderHint) {
+        dom.runtimeProviderHint.textContent = provider.id === "dashscope"
+          ? "\u4f7f\u7528\u963f\u91cc\u4e91\u767e\u70bc API Key\u3002\u63a8\u8350\u4ece qwen-plus \u5f00\u59cb\u3002"
+          : "\u4f7f\u7528\u5f53\u524d\u670d\u52a1\u5546\u7684 API Key\u3002";
+      }
       if (dom.runtimeModelHint) {
-        dom.runtimeModelHint.textContent = provider.id === "dashscope"
-          ? "Use a DashScope / Bailian model ID, for example qwen-plus. The model ID is sent directly to the provider."
-          : "Use the provider model ID exactly as the provider expects it.";
+        dom.runtimeModelHint.textContent = "\u6a21\u578b ID \u4f1a\u539f\u6837\u53d1\u9001\u7ed9\u5f53\u524d\u670d\u52a1\u5546\u3002";
       }
       if (dom.runtimeProviderPermissionStatus) dom.runtimeProviderPermissionStatus.textContent = "unknown";
       this.updateRuntimeKeyPlaceholder(provider);
@@ -1217,6 +1228,11 @@
       return `failed - ${status.errorCode || "UNKNOWN"}`;
     },
 
+    lastActionText(status = state.runtimePublicSettings.lastActionFailure) {
+      if (!status) return "none";
+      return status.errorCode || status.reason || status.type || "failed";
+    },
+
     hasSuccessfulRealTest(providerId = "", model = "") {
       const status = state.runtimePublicSettings.lastRealTestStatus;
       if (!status?.ok) return false;
@@ -1229,8 +1245,10 @@
     },
 
     showRuntimeSyncing(providerId = "", model = "") {
-      this.setConnectionStatus(RUNTIME_COPY.connected, "后台正在同步状态...");
-      this.setMessage("后台正在同步状态...");
+      const provider = this.providerById(providerId);
+      this.setStatusProviderModel(provider, model);
+      this.setConnectionStatus(RUNTIME_COPY.syncing, RUNTIME_COPY.syncing);
+      this.setMessage(RUNTIME_COPY.syncing);
       if (dom.runtimeReadinessRealTest) {
         dom.runtimeReadinessRealTest.textContent = `passed - ${providerId || "provider"} / ${model || "model"}`;
       }
@@ -1252,6 +1270,7 @@
       const model = String(dom.runtimeModel?.value || state.runtimePublicSettings.model || "").trim();
       const providerHasKey = this.providerHasSavedKey(provider);
       const realTest = state.runtimePublicSettings.lastRealTestStatus;
+      this.setStatusProviderModel(provider, model);
 
       if (dom.runtimeReadinessSummary) {
         dom.runtimeReadinessSummary.textContent = response
@@ -1282,6 +1301,7 @@
       if (dom.runtimeReadinessRealTest) {
         dom.runtimeReadinessRealTest.textContent = this.realTestText();
       }
+      if (dom.runtimeLastAction) dom.runtimeLastAction.textContent = this.lastActionText();
       if (dom.runtimeSummaryMode) dom.runtimeSummaryMode.textContent = this.runtimeModeLabel(this.readRuntimeMode());
       if (dom.runtimeSummaryProvider) dom.runtimeSummaryProvider.textContent = provider?.displayName || "missing";
       if (dom.runtimeSummaryBeta) {
@@ -1290,9 +1310,9 @@
           : (!provider || provider.id === "mock" || provider.protocol !== "openai-compatible" ? RUNTIME_COPY.notConfigured : RUNTIME_COPY.notChecked);
       }
       if (realTest?.ok && realTest.providerId === provider?.id && (!model || realTest.model === model)) {
-        this.setConnectionStatus(RUNTIME_COPY.connected, `${RUNTIME_COPY.testPassed} (${realTest.model || model || "model"})`);
+        this.setConnectionStatus(RUNTIME_COPY.connected, RUNTIME_COPY.testPassed);
       } else if (realTest && realTest.providerId === provider?.id && realTest.ok === false) {
-        this.setConnectionStatus(RUNTIME_COPY.failed, realTest.errorCode || "UNKNOWN");
+        this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
       } else {
         this.setConnectionStatus(RUNTIME_COPY.notConnected, providerHasKey ? RUNTIME_COPY.saved : "-");
       }
@@ -1369,7 +1389,8 @@
         runtimeMode: settings.runtimeMode === "background_runtime_beta" ? "background_runtime_beta" : "local_backend",
         hasApiKey: Boolean(settings.hasApiKey),
         apiKeyPreview: settings.apiKeyPreview || "",
-        lastRealTestStatus: settings.lastRealTestStatus || null
+        lastRealTestStatus: settings.lastRealTestStatus || null,
+        lastActionFailure: settings.lastActionFailure || null
       };
       this.lastReadiness = null;
       this.lastPermissionStatus = null;
@@ -1440,7 +1461,7 @@
           return;
         }
         this.hydrate(response);
-        this.setMessage("AI settings loaded.");
+        this.setMessage("");
       } catch (error) {
         this.setMessage(error?.message || "Runtime settings request failed.");
       } finally {
@@ -1454,7 +1475,7 @@
 
     connectionFailureMessage(response = {}, fallback = "Model test failed. Check your Model ID or provider account.") {
       const code = response?.error?.code || response?.errorCode || response?.code || "";
-      const genericProviderFailure = "连接失败，请检查模型 ID、API Key 或服务额度。";
+      const genericProviderFailure = RUNTIME_COPY.failedHelp;
       const messages = {
         BACKGROUND_UNAVAILABLE: "Background runtime unavailable.",
         MISSING_RUNTIME_KEY: "Runtime Key is missing.",
@@ -1492,23 +1513,23 @@
     async saveAndConnect() {
       if (this.busy) return;
       this.setBusy(true);
-      this.setConnectionStatus(RUNTIME_COPY.connecting, "Saving settings...");
-      this.setMessage("Saving and connecting...");
+      this.setConnectionStatus(RUNTIME_COPY.connecting, RUNTIME_COPY.connecting);
+      this.setMessage("");
       let form = null;
       try {
         form = this.readForm();
         const provider = this.providerById(form.provider);
         if (!provider || provider.id === "mock" || provider.protocol !== "openai-compatible") {
-          this.setConnectionStatus(RUNTIME_COPY.failed, "Provider is experimental and may not be verified.");
-          this.setMessage("Provider is experimental and may not be verified.");
+          this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+          this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
 
         const existingKey = this.providerHasSavedKey(provider);
         const apiKey = this.readSecretForm();
         if (!apiKey && !existingKey) {
-          this.setConnectionStatus(RUNTIME_COPY.failed, "Runtime Key is missing.");
-          this.setMessage("Runtime Key is missing.");
+          this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+          this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
 
@@ -1519,8 +1540,8 @@
             return;
           }
           const message = this.connectionFailureMessage(response, this.userMessage(response));
-          this.setConnectionStatus(RUNTIME_COPY.failed, message);
-          this.setMessage(message);
+          this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+          this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
         let hydrated = response;
@@ -1529,15 +1550,15 @@
           if (!keyResponse.ok) {
             this.hydrate(response);
             const message = this.connectionFailureMessage(keyResponse, "Runtime Key is missing.");
-            this.setConnectionStatus(RUNTIME_COPY.failed, message);
-            this.setMessage(message);
+            this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+            this.setMessage(RUNTIME_COPY.failedHelp);
             return;
           }
           hydrated = keyResponse;
         }
         this.hydrate(hydrated);
 
-        this.setConnectionStatus(RUNTIME_COPY.connecting, "Checking provider permission...");
+        this.setConnectionStatus(RUNTIME_COPY.connecting, RUNTIME_COPY.connecting);
         let permissionStatus = await BackgroundRuntimeClient.getProviderPermissionStatus({ providerId: form.provider });
         this.applyPermissionStatus(permissionStatus, form.provider);
         if (!permissionStatus.ok && permissionStatus.errorCode !== "PERMISSION_NOT_CONFIGURED") {
@@ -1546,12 +1567,12 @@
             return;
           }
           const message = this.connectionFailureMessage(permissionStatus, "Provider permission was denied.");
-          this.setConnectionStatus(RUNTIME_COPY.failed, message);
-          this.setMessage(message);
+          this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+          this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
         if (this.providerHasHostPermission(provider) && !permissionStatus.permissionGranted) {
-          this.setConnectionStatus(RUNTIME_COPY.connecting, "Requesting provider permission...");
+          this.setConnectionStatus(RUNTIME_COPY.connecting, RUNTIME_COPY.connecting);
           const permissionResponse = await BackgroundRuntimeClient.requestProviderPermission({ providerId: form.provider });
           if (!permissionResponse.ok || permissionResponse.permissionGranted === false) {
             this.applyPermissionStatus(permissionResponse, form.provider);
@@ -1560,8 +1581,8 @@
               return;
             }
             const message = this.connectionFailureMessage(permissionResponse, "Provider permission was denied.");
-            this.setConnectionStatus(RUNTIME_COPY.failed, message);
-            this.setMessage(message);
+            this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+            this.setMessage(RUNTIME_COPY.failedHelp);
             return;
           }
           permissionStatus = await BackgroundRuntimeClient.getProviderPermissionStatus({ providerId: form.provider });
@@ -1572,13 +1593,13 @@
               return;
             }
             const message = this.connectionFailureMessage(permissionStatus, "Provider permission was denied.");
-            this.setConnectionStatus(RUNTIME_COPY.failed, message);
-            this.setMessage(message);
+            this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+            this.setMessage(RUNTIME_COPY.failedHelp);
             return;
           }
         }
 
-        this.setConnectionStatus(RUNTIME_COPY.connecting, "Checking readiness...");
+        this.setConnectionStatus(RUNTIME_COPY.connecting, RUNTIME_COPY.connecting);
         const readiness = await BackgroundRuntimeClient.getBackgroundChatReadiness({
           providerId: form.provider,
           model: form.model
@@ -1594,12 +1615,12 @@
             return;
           }
           const message = this.connectionFailureMessage(readiness, readiness.nextAction || "Model test failed. Check your Model ID or provider account.");
-          this.setConnectionStatus(RUNTIME_COPY.failed, message);
-          this.setMessage(message);
+          this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+          this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
 
-        this.setConnectionStatus(RUNTIME_COPY.connecting, "Running lightweight model test...");
+        this.setConnectionStatus(RUNTIME_COPY.connecting, RUNTIME_COPY.connecting);
         const testResponse = await BackgroundRuntimeClient.testProviderConnection({
           providerId: form.provider,
           model: form.model
@@ -1618,21 +1639,22 @@
             return;
           }
           const message = this.connectionFailureMessage(testResponse);
-          this.setConnectionStatus(RUNTIME_COPY.failed, message);
-          this.setMessage(message);
+          this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+          this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
 
-        this.setConnectionStatus(RUNTIME_COPY.connected, `${RUNTIME_COPY.testPassed} (${testResponse.model || form.model})`);
-        this.setMessage(`${provider.displayName} connected.`);
+        this.setStatusProviderModel(provider, testResponse.model || form.model);
+        this.setConnectionStatus(RUNTIME_COPY.connected, RUNTIME_COPY.testPassed);
+        this.setMessage("");
       } catch (error) {
         if (this.hasSuccessfulRealTest(form?.provider, form?.model)) {
           this.showRuntimeSyncing(form.provider, form.model);
           return;
         }
         const message = error?.message || "Model test failed. Check your Model ID or provider account.";
-        this.setConnectionStatus(RUNTIME_COPY.failed, message);
-        this.setMessage(message);
+        this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+        this.setMessage(RUNTIME_COPY.failedHelp);
       } finally {
         this.setBusy(false);
       }

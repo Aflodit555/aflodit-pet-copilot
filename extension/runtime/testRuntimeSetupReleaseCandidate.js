@@ -184,8 +184,9 @@ await check("DashScope model field uses model ID copy", async () => {
   const source = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
   const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
   assert.ok(source.includes(`>${UI_COPY.modelId}</`));
-  assert.match(appSource, /Use a DashScope \/ Bailian model ID, for example qwen-plus/);
-  assert.match(appSource, /The model ID is sent directly to the provider/);
+  assert.match(appSource, /\\u4f7f\\u7528\\u963f\\u91cc\\u4e91\\u767e\\u70bc API Key/);
+  assert.match(appSource, /\\u6a21\\u578b ID \\u4f1a\\u539f\\u6837\\u53d1\\u9001\\u7ed9\\u5f53\\u524d\\u670d\\u52a1\\u5546/);
+  assert.doesNotMatch(appSource, /Use a DashScope \/ Bailian model ID/);
 });
 
 await check("diagnostics default collapsed and runtime mode switch button is absent", async () => {
