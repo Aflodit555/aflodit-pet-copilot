@@ -509,6 +509,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   const ACTION_CONFIG = Object.freeze({
     [ACTION.CHAT]: Object.freeze({
       label: "Chat",
+      scope: "chat",
       refreshable: false,
       needsSelection: false,
       needsUserText: true,
@@ -520,6 +521,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     }),
     [ACTION.EXPLAIN]: Object.freeze({
       label: "Explain",
+      scope: "selection",
       refreshable: true,
       needsSelection: true,
       needsUserText: false,
@@ -528,10 +530,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       contextTitle: "选中文本",
       idle: "正在准备解释选中文本。",
       loading: "正在执行：Explain",
-      empty: "请先在网页中选中一段文本。解释和翻译都依赖 selected_text。"
+      empty: "请先选中需要解释的文本。"
     }),
     [ACTION.SUMMARY]: Object.freeze({
       label: "Summarize",
+      scope: "page",
       refreshable: true,
       needsSelection: false,
       needsUserText: false,
@@ -544,6 +547,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     }),
     [ACTION.TRANSLATE]: Object.freeze({
       label: "Translate",
+      scope: "selection",
       refreshable: true,
       needsSelection: true,
       needsUserText: false,
@@ -552,7 +556,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       contextTitle: "选中文本",
       idle: "正在准备翻译选中文本。",
       loading: "正在执行：Translate",
-      empty: "请先在网页中选中一段文本。解释和翻译都依赖 selected_text。"
+      empty: "请先选中需要翻译的文本。"
     })
   });
 
@@ -784,7 +788,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   }
 
   function setMeta(emotion, motion) {
-    dom.meta.textContent = `emotion: ${emotion} | motion: ${motion}`;
+    const diagnosticsText = `emotion: ${emotion} | motion: ${motion}`;
+    if (!dom.meta) return;
+    dom.meta.dataset.diagnostics = diagnosticsText;
+    dom.meta.textContent = "";
+    dom.meta.classList.add("hidden");
   }
 
   function setRunning(running) {
@@ -1080,7 +1088,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           </div>
           <div id="aflodit-pet-reply" class="pet-text pet-reply-text">暂无回复。</div>
 
-          <div id="aflodit-pet-meta" class="pet-meta">emotion: neutral | motion: idle</div>
+          <div id="aflodit-pet-meta" class="pet-meta hidden"></div>
 
           <div id="aflodit-pet-chat-row" class="pet-chat-row hidden">
             <input id="aflodit-pet-chat-input" class="pet-chat-input" placeholder="马上开始对话吧" />
@@ -1363,6 +1371,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     const root = document.createElement("div");
     traceLayout("DOM root created", { root });
     root.id = "aflodit-pet-root";
+    root.dataset.afloditRoot = "true";
     root.style.visibility = "hidden";
     traceLayout("DOM root inline visibility hidden", traceStyleSnapshot(root));
     root.innerHTML = renderTemplate();
@@ -1559,8 +1568,17 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       };
     },
 
+    isInsideAfloditRoot(node) {
+      if (!node) return false;
+      const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean(element?.closest?.("#aflodit-pet-root, [data-aflodit-root='true']"));
+    },
+
     getSelectedText() {
-      return window.getSelection()?.toString().trim() || "";
+      const selection = window.getSelection?.();
+      if (!selection || selection.rangeCount === 0) return "";
+      if (this.isInsideAfloditRoot(selection.anchorNode) || this.isInsideAfloditRoot(selection.focusNode)) return "";
+      return selection.toString().trim();
     },
 
     updateSelectedText() {
@@ -2714,7 +2732,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         return "";
       }
 
-      if (config.needsSelection && !state.selectedText) return normalizeUserErrorMessage("NO_SELECTED_TEXT");
+      if (config.needsSelection && !state.selectedText) return config.empty;
       if (config.needsUserText && !userText.trim()) return config.empty;
       if (action === ACTION.SUMMARY && !Extractor.getPageTextSnippet()) return config.empty;
       return "";
@@ -2725,8 +2743,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       const selectedText = state.selectedText || Extractor.getSelectedText();
       const chat = action === ACTION.CHAT ? Extractor.parseChatInput(userText) : null;
       const finalUserText = chat ? chat.userText : userText;
-      const useSelection = chat ? chat.useSelection : action !== ACTION.CHAT;
-      const usePage = chat ? chat.usePage : config.sendsPageText;
+      const useSelection = chat ? chat.useSelection : config.scope === "selection";
+      const usePage = chat ? chat.usePage : config.scope === "page";
       const hasContext = useSelection || usePage;
 
       return {
@@ -3377,12 +3395,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     showResult(result = {}) {
       const finalFace = this.resolveFinalFace(result);
       enforceScrollBoxes();
-      dom.status.textContent = "本地后端已返回结果。";
-      if (result.source === "Background Runtime" || String(result.mode || "").startsWith("background-")) {
-        dom.status.textContent = "Source: Background Runtime. Background Runtime Beta is active.";
-      } else {
-        dom.status.textContent = "Source: Local Backend.";
-      }
+      dom.status.textContent = `${actionConfig(state.action).label} 已完成。`;
       dom.reply.textContent = normalizeUserErrorMessage(null, {
         result,
         fallback: result.reply || "后端没有返回 reply。"
@@ -3403,7 +3416,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
     showError(error) {
       FaceController.stopReplyPeekLoop(true);
-      dom.status.textContent = "Source: Local Backend. Local backend request failed.";
+      dom.status.textContent = `${actionConfig(state.action).label} 请求失败。`;
       dom.reply.textContent = normalizeUserErrorMessage(error);
       delete dom.reply.dataset.streaming;
       scrollReplyToTop();
@@ -3421,26 +3434,25 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         MISSING_PROVIDER_PERMISSION: "Grant provider permission in AI Settings.",
         AUTH_FAILED: "Provider authentication failed. Check your Runtime Key.",
         RATE_LIMITED: "Provider rate limit reached. Try again later.",
-        TIMEOUT: "Background Runtime timed out.",
-        NETWORK_ERROR: "Background Runtime network request failed.",
+        TIMEOUT: "AI 请求超时，请稍后重试或切换更快的模型。",
+        NETWORK_ERROR: "网络请求失败。",
         PROVIDER_UNAVAILABLE: "Provider is unavailable. Try again later.",
         PROVIDER_BAD_REQUEST: "Provider rejected the background runtime request.",
         PROVIDER_QUOTA_EXCEEDED: "Provider quota appears to be exhausted.",
-        PROVIDER_ERROR: "Provider returned no usable background runtime result.",
-        BACKGROUND_CHAT_NOT_CONFIGURED: "Background chat is not configured for this provider.",
-        BACKGROUND_ACTION_NOT_CONFIGURED: "Background Runtime actions are not configured for this provider.",
-        INVALID_PAYLOAD: "The background runtime payload was rejected."
+        PROVIDER_ERROR: "Provider returned no usable result.",
+        BACKGROUND_CHAT_NOT_CONFIGURED: "Chat is not configured for this provider.",
+        BACKGROUND_ACTION_NOT_CONFIGURED: "This action is not configured for the selected provider.",
+        INVALID_PAYLOAD: "The request payload was rejected."
       };
-      const detail = details[code] || error.message || "Background Runtime failed.";
+      const detail = details[code] || error.message || "AI request failed.";
       const recovery = error.backgroundChatSource === "preview"
-        ? "Switch Runtime Mode to Local Backend to use the local backend."
-        : "Remove /bg or @background to use ordinary Chat.";
+        ? "Open AI settings and check the current provider configuration."
+        : "Remove the runtime override and try ordinary Chat.";
 
-      dom.status.textContent = "Source: Background Runtime. Background Runtime failed.";
+      dom.status.textContent = `${actionConfig(state.action).label} 请求失败。`;
       dom.reply.textContent = [
-        "Background Runtime failed.",
+        "AI 请求失败。",
         detail,
-        "Local Backend is still available.",
         recovery,
         error.backgroundChatSource === "preview" && error.data?.action === "chat" ? "/local can force Local Backend Chat." : ""
       ].filter(Boolean).join("\n");
@@ -3580,10 +3592,17 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           model: payload.model,
           userText: payload.userText
         }
-      }, 45000);
+      }, 60000);
     },
 
     async action(payload = {}) {
+      const actionTimeouts = {
+        chat: 60000,
+        explain: 45000,
+        translate: 45000,
+        summarize: 90000
+      };
+      const timeoutMs = actionTimeouts[payload.action] || 45000;
       return this.request({
         type: "runtime:action",
         payload: {
@@ -3594,11 +3613,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           pageText: payload.pageText,
           selectionText: payload.selectionText
         }
-      }, 45000);
+      }, timeoutMs + 5000);
     },
 
     async getPublicSettings() {
-      return this.request({ type: "settings:getPublic" });
+      return this.request({ type: "settings:getPublic" }, 5000);
     },
 
     async savePublicSettings(payload = {}) {
@@ -3611,7 +3630,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           debugEnabled: payload.debugEnabled,
           runtimeMode: payload.runtimeMode
         }
-      });
+      }, 5000);
     },
 
     async testConnectionMock(payload = {}) {
@@ -3621,7 +3640,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           providerId: payload.providerId,
           model: payload.model
         }
-      });
+      }, 5000);
     },
 
     async testProviderConnection(payload = {}) {
@@ -3631,7 +3650,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           providerId: payload.providerId,
           model: payload.model
         }
-      });
+      }, 25000);
     },
 
     async getBackgroundChatReadiness(payload = {}) {
@@ -3641,7 +3660,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           providerId: payload.providerId,
           model: payload.model
         }
-      });
+      }, 5000);
     },
 
     async getDiagnostics() {
@@ -3654,7 +3673,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         payload: {
           providerId: payload.providerId
         }
-      });
+      }, 5000);
     },
 
     async requestProviderPermission(payload = {}) {
@@ -3663,14 +3682,14 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         payload: {
           providerId: payload.providerId
         }
-      });
+      }, 15000);
     },
 
     async saveSecret(apiKey = "") {
       return this.request({
         type: "settings:saveSecret",
         payload: { apiKey, providerId: dom.runtimeProvider?.value || state.runtimePublicSettings.provider }
-      });
+      }, 5000);
     },
 
     async clearKey() {
@@ -3738,8 +3757,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
     ActionRunner.applyBackgroundChatInputHint = function applyBackgroundChatInputHint() {
       if (!dom.chatInput) return;
-      dom.chatInput.placeholder = "Chat message. Use /bg for Background Runtime or /local for Local Backend.";
-      dom.chatInput.title = "Background Runtime Beta mode can route Chat, Explain, Translate, and Summarize to Background Runtime. Use /bg or @background for Chat; use /local or @local for Local Backend Chat.";
+      dom.chatInput.placeholder = "输入消息，按 Enter 发送";
+      dom.chatInput.title = "Chat";
     };
 
     ActionRunner.parseBackgroundRuntimeRoute = function parseBackgroundRuntimeRoute(action, userText = "") {
@@ -3836,7 +3855,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         return;
       }
       if (backgroundRoute.userText.length > runtimeActionUserTextLimit) {
-        UIController.showWarning("Background Runtime accepts up to 1000 characters of typed input. Shorten the message and try again.");
+        UIController.showWarning("输入内容最多支持 1000 个字符，请缩短后重试。");
         return;
       }
       if (action === ACTION.CHAT && !backgroundRoute.userText) {
@@ -3852,8 +3871,6 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         fingerprint: `background-runtime|${payload.action}|${payload.selected_text || ""}|${payload.page_text_snippet || ""}|${payload.user_text || ""}`
       };
       UIController.showLoading(action);
-      if (dom.mode) dom.mode.textContent = "Background Runtime";
-      if (dom.status) dom.status.textContent = "Source: Background Runtime. Sending request.";
       setRunning(true);
 
       try {
@@ -3868,6 +3885,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         } else {
           console.error("[AFlodit Pet] unexpected background runtime failure", error);
         }
+        RuntimeSettingsManager?.showFailureDiagnostics?.(error.data || {});
         UIController.showBackgroundChatError(error);
       } finally {
         if (requestId === state.requestId) state.pendingRequest = null;
@@ -4110,6 +4128,25 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       return `failed - ${status.errorCode || "UNKNOWN"}`;
     },
 
+    hasSuccessfulRealTest(providerId = "", model = "") {
+      const status = state.runtimePublicSettings.lastRealTestStatus;
+      if (!status?.ok) return false;
+      if (providerId && status.providerId !== providerId) return false;
+      return !model || status.model === model;
+    },
+
+    isBackgroundUnavailableResponse(response = {}) {
+      return response?.error?.code === "BACKGROUND_UNAVAILABLE" || response?.errorCode === "BACKGROUND_UNAVAILABLE";
+    },
+
+    showRuntimeSyncing(providerId = "", model = "") {
+      this.setConnectionStatus(RUNTIME_COPY.connected, "后台正在同步状态...");
+      this.setMessage("后台正在同步状态...");
+      if (dom.runtimeReadinessRealTest) {
+        dom.runtimeReadinessRealTest.textContent = `passed - ${providerId || "provider"} / ${model || "model"}`;
+      }
+    },
+
     providerHasSavedKey(provider) {
       if (!provider) return false;
       return provider.id === state.runtimePublicSettings.provider
@@ -4328,19 +4365,20 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
     connectionFailureMessage(response = {}, fallback = "Model test failed. Check your Model ID or provider account.") {
       const code = response?.error?.code || response?.errorCode || response?.code || "";
+      const genericProviderFailure = "连接失败，请检查模型 ID、API Key 或服务额度。";
       const messages = {
         BACKGROUND_UNAVAILABLE: "Background runtime unavailable.",
         MISSING_RUNTIME_KEY: "Runtime Key is missing.",
         MISSING_PROVIDER_PERMISSION: "Provider permission was denied.",
         PERMISSION_DENIED: "Provider permission was denied.",
-        AUTH_FAILED: "Provider authentication failed. Check your Runtime Key.",
-        RATE_LIMITED: "Provider rate limit reached. Try again later.",
-        PROVIDER_QUOTA_EXCEEDED: "Provider quota appears to be exhausted.",
-        PROVIDER_BAD_REQUEST: "Model test failed. Check your Model ID or provider account.",
-        PROVIDER_UNAVAILABLE: "Provider service is currently unavailable. Try again later.",
-        NETWORK_ERROR: "Model test failed due to a network error.",
-        TIMEOUT: "Model test timed out.",
-        PROVIDER_ERROR: "Model test failed. Check your Model ID or provider account.",
+        AUTH_FAILED: genericProviderFailure,
+        RATE_LIMITED: genericProviderFailure,
+        PROVIDER_QUOTA_EXCEEDED: genericProviderFailure,
+        PROVIDER_BAD_REQUEST: genericProviderFailure,
+        PROVIDER_UNAVAILABLE: genericProviderFailure,
+        NETWORK_ERROR: genericProviderFailure,
+        TIMEOUT: genericProviderFailure,
+        PROVIDER_ERROR: genericProviderFailure,
         UNKNOWN_PROVIDER: "Provider is not available in AI Settings.",
         PROVIDER_DISABLED: "Provider is disabled.",
         REAL_TEST_NOT_CONFIGURED: "Provider is experimental and may not be verified."
@@ -4348,13 +4386,28 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       return messages[code] || response?.message || response?.error?.message || fallback;
     },
 
+    showFailureDiagnostics(response = {}) {
+      if (!dom.runtimeDiagnosticsOutput || !this.isDeveloperMode()) return;
+      const actionFailure = response.lastActionFailure || response.data?.lastActionFailure || null;
+      const diagnostic = {
+        providerId: response.providerId || response.lastRealTestStatus?.providerId || actionFailure?.providerId || "",
+        model: response.model || response.lastRealTestStatus?.model || actionFailure?.model || "",
+        errorCode: response.errorCode || response.lastRealTestStatus?.errorCode || actionFailure?.errorCode || "",
+        providerError: response.providerError || response.lastRealTestStatus?.providerError || null,
+        lastActionFailure: actionFailure
+      };
+      dom.runtimeDiagnosticsOutput.value = JSON.stringify(diagnostic, null, 2);
+      dom.runtimeDiagnosticsOutput.classList.remove("hidden");
+    },
+
     async saveAndConnect() {
       if (this.busy) return;
       this.setBusy(true);
       this.setConnectionStatus(RUNTIME_COPY.connecting, "Saving settings...");
       this.setMessage("Saving and connecting...");
+      let form = null;
       try {
-        const form = this.readForm();
+        form = this.readForm();
         const provider = this.providerById(form.provider);
         if (!provider || provider.id === "mock" || provider.protocol !== "openai-compatible") {
           this.setConnectionStatus(RUNTIME_COPY.failed, "Provider is experimental and may not be verified.");
@@ -4372,6 +4425,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
 
         const response = await BackgroundRuntimeClient.savePublicSettings(form);
         if (!response.ok) {
+          if (this.isBackgroundUnavailableResponse(response) && this.hasSuccessfulRealTest(form.provider, form.model)) {
+            this.showRuntimeSyncing(form.provider, form.model);
+            return;
+          }
           const message = this.connectionFailureMessage(response, this.userMessage(response));
           this.setConnectionStatus(RUNTIME_COPY.failed, message);
           this.setMessage(message);
@@ -4395,6 +4452,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         let permissionStatus = await BackgroundRuntimeClient.getProviderPermissionStatus({ providerId: form.provider });
         this.applyPermissionStatus(permissionStatus, form.provider);
         if (!permissionStatus.ok && permissionStatus.errorCode !== "PERMISSION_NOT_CONFIGURED") {
+          if (this.isBackgroundUnavailableResponse(permissionStatus) && this.hasSuccessfulRealTest(form.provider, form.model)) {
+            this.showRuntimeSyncing(form.provider, form.model);
+            return;
+          }
           const message = this.connectionFailureMessage(permissionStatus, "Provider permission was denied.");
           this.setConnectionStatus(RUNTIME_COPY.failed, message);
           this.setMessage(message);
@@ -4405,6 +4466,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           const permissionResponse = await BackgroundRuntimeClient.requestProviderPermission({ providerId: form.provider });
           if (!permissionResponse.ok || permissionResponse.permissionGranted === false) {
             this.applyPermissionStatus(permissionResponse, form.provider);
+            if (this.isBackgroundUnavailableResponse(permissionResponse) && this.hasSuccessfulRealTest(form.provider, form.model)) {
+              this.showRuntimeSyncing(form.provider, form.model);
+              return;
+            }
             const message = this.connectionFailureMessage(permissionResponse, "Provider permission was denied.");
             this.setConnectionStatus(RUNTIME_COPY.failed, message);
             this.setMessage(message);
@@ -4413,6 +4478,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
           permissionStatus = await BackgroundRuntimeClient.getProviderPermissionStatus({ providerId: form.provider });
           this.applyPermissionStatus(permissionStatus, form.provider);
           if (!permissionStatus.ok || !permissionStatus.permissionGranted) {
+            if (this.isBackgroundUnavailableResponse(permissionStatus) && this.hasSuccessfulRealTest(form.provider, form.model)) {
+              this.showRuntimeSyncing(form.provider, form.model);
+              return;
+            }
             const message = this.connectionFailureMessage(permissionStatus, "Provider permission was denied.");
             this.setConnectionStatus(RUNTIME_COPY.failed, message);
             this.setMessage(message);
@@ -4428,6 +4497,13 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         this.lastReadiness = readiness?.ok ? readiness : null;
         this.renderReadiness(readiness?.ok ? readiness : null);
         if (!readiness.ok || !readiness.canUseBackgroundRuntime) {
+          if (
+            this.isBackgroundUnavailableResponse(readiness)
+            && this.hasSuccessfulRealTest(form.provider, form.model)
+          ) {
+            this.showRuntimeSyncing(form.provider, form.model);
+            return;
+          }
           const message = this.connectionFailureMessage(readiness, readiness.nextAction || "Model test failed. Check your Model ID or provider account.");
           this.setConnectionStatus(RUNTIME_COPY.failed, message);
           this.setMessage(message);
@@ -4444,6 +4520,14 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         }
         this.renderSetupChecklist(this.lastReadiness);
         if (!testResponse.ok) {
+          this.showFailureDiagnostics(testResponse);
+          if (
+            this.isBackgroundUnavailableResponse(testResponse)
+            && this.hasSuccessfulRealTest(form.provider, form.model)
+          ) {
+            this.showRuntimeSyncing(form.provider, form.model);
+            return;
+          }
           const message = this.connectionFailureMessage(testResponse);
           this.setConnectionStatus(RUNTIME_COPY.failed, message);
           this.setMessage(message);
@@ -4453,6 +4537,10 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         this.setConnectionStatus(RUNTIME_COPY.connected, `${RUNTIME_COPY.testPassed} (${testResponse.model || form.model})`);
         this.setMessage(`${provider.displayName} connected.`);
       } catch (error) {
+        if (this.hasSuccessfulRealTest(form?.provider, form?.model)) {
+          this.showRuntimeSyncing(form.provider, form.model);
+          return;
+        }
         const message = error?.message || "Model test failed. Check your Model ID or provider account.";
         this.setConnectionStatus(RUNTIME_COPY.failed, message);
         this.setMessage(message);
@@ -4634,7 +4722,8 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
             state.runtimePublicSettings.lastRealTestStatus = response.lastRealTestStatus;
             this.renderSetupChecklist();
           }
-          this.setMessage(`[Real Provider Test] ${response.message || this.userMessage(response, "Real provider test failed.")}`);
+          this.showFailureDiagnostics(response);
+          this.setMessage(`[Real Provider Test] ${this.connectionFailureMessage(response, "Real provider test failed.")}`);
           return;
         }
         if (response.lastRealTestStatus) {

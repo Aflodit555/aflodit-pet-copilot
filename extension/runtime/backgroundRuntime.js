@@ -80,6 +80,7 @@ async function publicSettingsResponse(settings, secretStore) {
       debugEnabled: settings.debugEnabled,
       runtimeMode: settings.runtimeMode,
       lastRealTestStatus: settings.lastRealTestStatus || null,
+      lastActionFailure: settings.lastActionFailure || null,
       hasApiKey: Boolean(await secretStore.hasSecret(settings.saveMode, providerId)),
       apiKeyPreview: await secretStore.getMaskedPreview(settings.saveMode, providerId)
     },
@@ -95,13 +96,48 @@ function firstMissingCheck(checks = []) {
   return checks.find((check) => !check.ok) || null;
 }
 
-function safeRealTestStatus({ providerId = "", model = "", ok = false, errorCode = "" } = {}) {
-  return {
+function safeRealTestStatus({ providerId = "", model = "", ok = false, errorCode = "", providerError = null } = {}) {
+  const status = {
     providerId: String(providerId || "").trim().slice(0, 64),
     model: String(model || "").trim().slice(0, 128),
     ok: Boolean(ok),
     errorCode: ok ? "" : String(errorCode || "UNKNOWN").trim().slice(0, 64),
     checkedAt: new Date().toISOString()
+  };
+  if (!status.ok && providerError && typeof providerError === "object" && !Array.isArray(providerError)) {
+    status.providerError = {
+      providerId: String(providerError.providerId || "").trim().slice(0, 64),
+      model: String(providerError.model || "").trim().slice(0, 128),
+      endpointHost: String(providerError.endpointHost || "").trim().slice(0, 160),
+      httpStatus: Number.isFinite(Number(providerError.httpStatus)) ? Number(providerError.httpStatus) : null,
+      errorCode: String(providerError.errorCode || "").trim().slice(0, 80),
+      providerErrorCode: String(providerError.providerErrorCode || "").trim().slice(0, 120),
+      providerErrorMessage: String(providerError.providerErrorMessage || "").trim().slice(0, 500),
+      rawErrorBody: String(providerError.rawErrorBody || "").trim().slice(0, 1200)
+    };
+  }
+  return status;
+}
+
+function actionTimeoutMs(action = "chat") {
+  if (action === "summarize") return 90000;
+  if (action === "chat") return 60000;
+  return 45000;
+}
+
+function actionFailureStatus({ action = "", providerId = "", model = "", errorCode = "", providerError = null } = {}) {
+  const details = providerError && typeof providerError === "object" && !Array.isArray(providerError) ? providerError : {};
+  return {
+    action: String(details.action || action || "").trim().slice(0, 32),
+    providerId: String(details.providerId || providerId || "").trim().slice(0, 64),
+    model: String(details.model || model || "").trim().slice(0, 128),
+    timeoutMs: Number.isFinite(Number(details.timeoutMs)) ? Number(details.timeoutMs) : actionTimeoutMs(action),
+    errorType: String(details.errorType || (errorCode === "TIMEOUT" ? "timeout" : "provider_error")).trim().slice(0, 40),
+    errorCode: String(details.errorCode || errorCode || "").trim().slice(0, 80),
+    httpStatus: Number.isFinite(Number(details.httpStatus)) ? Number(details.httpStatus) : null,
+    providerErrorCode: String(details.providerErrorCode || "").trim().slice(0, 120),
+    providerErrorMessage: String(details.providerErrorMessage || "").trim().slice(0, 500),
+    failedAt: String(details.failedAt || new Date().toISOString()).trim().slice(0, 40)
   };
 }
 
@@ -267,6 +303,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
             permissionStatus: !permissionConfigured ? "not_configured" : (permissionGranted ? "granted" : "missing"),
             readinessStatus: readinessReady ? "ready" : "blocked",
             lastRealTestStatus: settings.lastRealTestStatus || null,
+            lastActionFailure: settings.lastActionFailure || null,
             requestEnabled: false,
             sourceLabelSupport: true
           }
@@ -401,7 +438,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           return failure("MISSING_RUNTIME_KEY", `Runtime key is missing. Save a Runtime Key for ${provider.displayName} before running background runtime actions.`);
         }
 
-        return runOpenAiCompatibleBackgroundAction({
+        const response = await runOpenAiCompatibleBackgroundAction({
           provider,
           model,
           action,
@@ -410,8 +447,20 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           selectionText,
           secretStore,
           saveMode: settings.saveMode,
-          logger
+          logger,
+          timeoutMs: actionTimeoutMs(action)
         });
+        if (!response.ok) {
+          const lastActionFailure = await settingsStore.saveLastActionFailure(actionFailureStatus({
+            action,
+            providerId: provider.id,
+            model,
+            errorCode: response.errorCode,
+            providerError: response.providerError
+          }));
+          return { ...response, lastActionFailure };
+        }
+        return response;
       }
 
       if (parsed.type === MESSAGE_TYPES.runtimeChat) {
@@ -485,14 +534,26 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           };
         }
 
-        return runOpenAiCompatibleBackgroundChat({
+        const response = await runOpenAiCompatibleBackgroundChat({
           provider,
           model,
           userText,
           secretStore,
           saveMode: settings.saveMode,
-          logger
+          logger,
+          timeoutMs: actionTimeoutMs("chat")
         });
+        if (!response.ok) {
+          const lastActionFailure = await settingsStore.saveLastActionFailure(actionFailureStatus({
+            action: "chat",
+            providerId: provider.id,
+            model,
+            errorCode: response.errorCode,
+            providerError: response.providerError
+          }));
+          return { ...response, lastActionFailure };
+        }
+        return response;
       }
 
       if (parsed.type === MESSAGE_TYPES.runtimeTestProviderConnection) {
@@ -596,7 +657,8 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           providerId: provider.id,
           model: response.model || parsed.payload.model || provider.defaultModel,
           ok: Boolean(response.ok),
-          errorCode: response.errorCode || ""
+          errorCode: response.errorCode || "",
+          providerError: response.providerError || null
         }));
         return {
           ...response,

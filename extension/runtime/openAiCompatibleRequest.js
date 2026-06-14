@@ -1,4 +1,6 @@
 const DEFAULT_TIMEOUT_MS = 15000;
+const MAX_PROVIDER_ERROR_BODY_CHARS = 1200;
+const SECRET_TEXT_PATTERN = /bearer\s+[a-z0-9._~+/=-]+|sk-[a-z0-9._~+/=-]+|api[_-]?key["'\s:=]+[^"',\s}]+/gi;
 
 function nowMs() {
   return Date.now();
@@ -13,12 +15,86 @@ function normalizeAction(action) {
   return ["chat", "explain", "translate", "summarize"].includes(action) ? action : "chat";
 }
 
+function timeoutMsForAction(action) {
+  const normalized = normalizeAction(action);
+  if (normalized === "summarize") return 90000;
+  if (normalized === "chat") return 60000;
+  return 45000;
+}
+
 function buildProviderUrl(provider) {
   const baseURL = String(provider?.baseURL || provider?.origin || "").replace(/\/+$/, "");
   const chatPath = String(provider?.chatPath || "").startsWith("/")
     ? provider.chatPath
     : `/${provider?.chatPath || ""}`;
   return `${baseURL}${chatPath}`;
+}
+
+function endpointHostForUrl(url = "") {
+  try {
+    return new URL(url).host;
+  } catch (_) {
+    return "";
+  }
+}
+
+function redactProviderText(value = "") {
+  return String(value || "").replace(SECRET_TEXT_PATTERN, "[redacted]");
+}
+
+function truncateProviderBody(value = "") {
+  return redactProviderText(value).slice(0, MAX_PROVIDER_ERROR_BODY_CHARS);
+}
+
+function parseProviderError(rawBody = "") {
+  const rawText = String(rawBody || "");
+  const parsed = JSON.parse(rawText);
+  const error = parsed?.error || parsed;
+  return {
+    providerErrorCode: String(error?.code || error?.type || parsed?.code || "").slice(0, 120),
+    providerErrorMessage: String(error?.message || parsed?.message || "").slice(0, 500)
+  };
+}
+
+function buildProviderErrorDetails({ provider, model, url, status = null, errorCode = "", rawBody = "", action = "", timeoutMs = null } = {}) {
+  let providerErrorCode = "";
+  let providerErrorMessage = "";
+  if (rawBody) {
+    try {
+      const parsed = parseProviderError(rawBody);
+      providerErrorCode = parsed.providerErrorCode;
+      providerErrorMessage = parsed.providerErrorMessage;
+    } catch (_) {
+      providerErrorMessage = String(rawBody || "").slice(0, 500);
+    }
+  }
+
+  return {
+    action: normalizeAction(action),
+    providerId: provider?.id || "",
+    model: normalizeModel(model, provider),
+    timeoutMs: Number.isFinite(Number(timeoutMs)) ? Number(timeoutMs) : null,
+    errorType: errorCode === "TIMEOUT" ? "timeout" : "provider_error",
+    endpointHost: endpointHostForUrl(url),
+    httpStatus: Number.isFinite(Number(status)) ? Number(status) : null,
+    errorCode: String(errorCode || "").slice(0, 80),
+    providerErrorCode,
+    providerErrorMessage: redactProviderText(providerErrorMessage),
+    rawErrorBody: truncateProviderBody(rawBody),
+    failedAt: new Date().toISOString()
+  };
+}
+
+function shouldDisableDashScopeThinking(provider, model) {
+  if (provider?.id !== "dashscope") return false;
+  return /^qwen3\.(?:5|6|7)(?:-|$)/i.test(String(model || "").trim());
+}
+
+function withProviderRequestFields(provider, body = {}) {
+  if (shouldDisableDashScopeThinking(provider, body.model)) {
+    return { ...body, enable_thinking: false };
+  }
+  return body;
 }
 
 function errorCodeForStatus(status) {
@@ -72,7 +148,7 @@ function actionText(payload = {}) {
   return userText;
 }
 
-function actionFailure({ provider, action, errorCode, message, recoveryHint }) {
+function actionFailure({ provider, action, errorCode, message, recoveryHint, providerError = null }) {
   return {
     ok: false,
     source: "Background Runtime",
@@ -82,6 +158,7 @@ function actionFailure({ provider, action, errorCode, message, recoveryHint }) {
     providerName: provider?.displayName || "",
     errorCode,
     message,
+    providerError,
     recoveryHint: recoveryHint || "Switch Runtime Mode to Local Backend to use the local backend.",
     requestEnabled: false
   };
@@ -96,7 +173,7 @@ function safeLoggerPayload(provider, mode, latencyMs, extra = {}) {
   };
 }
 
-async function providerFetch({ provider, apiKey, body, timeoutMs, logger, logMode }) {
+async function providerFetch({ provider, apiKey, body, timeoutMs, logger, logMode, action = "" }) {
   const url = buildProviderUrl(provider);
   const startedAt = nowMs();
   const controller = new AbortController();
@@ -111,18 +188,34 @@ async function providerFetch({ provider, apiKey, body, timeoutMs, logger, logMod
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(withProviderRequestFields(provider, body)),
       signal: controller.signal
     });
 
     const latencyMs = Math.max(0, nowMs() - startedAt);
     if (!response.ok) {
       const errorCode = errorCodeForStatus(response.status);
+      const rawBody = typeof response.text === "function" ? await response.text().catch(() => "") : "";
       logger?.warn?.(`${provider.displayName} ${logMode} failed.`, safeLoggerPayload(provider, logMode, latencyMs, {
         errorCode,
         statusCategory: `${Math.floor(response.status / 100)}xx`
       }));
-      return { ok: false, response, latencyMs, errorCode };
+      return {
+        ok: false,
+        response,
+        latencyMs,
+        errorCode,
+        providerError: buildProviderErrorDetails({
+          provider,
+          model: body?.model,
+          url,
+          status: response.status,
+          errorCode,
+          rawBody,
+          action,
+          timeoutMs
+        })
+      };
     }
 
     return { ok: true, response, latencyMs };
@@ -130,7 +223,22 @@ async function providerFetch({ provider, apiKey, body, timeoutMs, logger, logMod
     const latencyMs = Math.max(0, nowMs() - startedAt);
     const errorCode = isTimeoutError(error) ? "TIMEOUT" : "NETWORK_ERROR";
     logger?.warn?.(`${provider.displayName} ${logMode} error.`, safeLoggerPayload(provider, logMode, latencyMs, { errorCode }));
-    return { ok: false, response: null, latencyMs, errorCode };
+    return {
+      ok: false,
+      response: null,
+      latencyMs,
+      errorCode,
+      providerError: buildProviderErrorDetails({
+        provider,
+        model: body?.model,
+        url,
+        status: null,
+        errorCode,
+        rawBody: error?.message || "",
+        action,
+        timeoutMs
+      })
+    };
   } finally {
     clearTimeout(timer);
   }
@@ -169,6 +277,7 @@ export async function testOpenAiCompatibleConnection({
     timeoutMs,
     logger,
     logMode: "real-test",
+    action: "chat",
     body: {
       model: selectedModel,
       messages: [{ role: "user", content: "ping" }],
@@ -186,6 +295,7 @@ export async function testOpenAiCompatibleConnection({
       providerName: provider.displayName,
       errorCode: result.errorCode,
       message: messageForProviderError(provider.displayName, "real-test", result.errorCode),
+      providerError: result.providerError,
       requestEnabled: false
     };
   }
@@ -213,8 +323,9 @@ export async function runOpenAiCompatibleBackgroundChat({
   secretStore,
   saveMode = null,
   logger = null,
-  timeoutMs = DEFAULT_TIMEOUT_MS
+  timeoutMs = null
 } = {}) {
+  const chatTimeoutMs = Number.isFinite(Number(timeoutMs)) ? Number(timeoutMs) : timeoutMsForAction("chat");
   const selectedModel = normalizeModel(model, provider);
   const apiKey = await readApiKey({ provider, secretStore, saveMode });
 
@@ -233,9 +344,10 @@ export async function runOpenAiCompatibleBackgroundChat({
   const result = await providerFetch({
     provider,
     apiKey,
-    timeoutMs,
+    timeoutMs: chatTimeoutMs,
     logger,
     logMode: "background-chat",
+    action: "chat",
     body: {
       model: selectedModel,
       messages: [
@@ -256,6 +368,7 @@ export async function runOpenAiCompatibleBackgroundChat({
       providerName: provider.displayName,
       errorCode: result.errorCode,
       message: messageForProviderError(provider.displayName, "background-chat", result.errorCode),
+      providerError: result.providerError,
       requestEnabled: false
     };
   }
@@ -303,9 +416,10 @@ export async function runOpenAiCompatibleBackgroundAction({
   secretStore,
   saveMode = null,
   logger = null,
-  timeoutMs = DEFAULT_TIMEOUT_MS
+  timeoutMs = null
 } = {}) {
   const selectedAction = normalizeAction(action);
+  const actionTimeoutMs = Number.isFinite(Number(timeoutMs)) ? Number(timeoutMs) : timeoutMsForAction(selectedAction);
   const selectedModel = normalizeModel(model, provider);
   const apiKey = await readApiKey({ provider, secretStore, saveMode });
 
@@ -331,9 +445,10 @@ export async function runOpenAiCompatibleBackgroundAction({
   const result = await providerFetch({
     provider,
     apiKey,
-    timeoutMs,
+    timeoutMs: actionTimeoutMs,
     logger,
     logMode: "background-action",
+    action: selectedAction,
     body: {
       model: selectedModel,
       messages: [
@@ -351,7 +466,9 @@ export async function runOpenAiCompatibleBackgroundAction({
       provider,
       action: selectedAction,
       errorCode: result.errorCode,
-      message: messageForProviderError(provider.displayName, "background-action", result.errorCode)
+      message: messageForProviderError(provider.displayName, "background-action", result.errorCode),
+      recoveryHint: undefined,
+      providerError: result.providerError
     });
   }
 

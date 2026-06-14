@@ -282,7 +282,7 @@
           </div>
           <div id="aflodit-pet-reply" class="pet-text pet-reply-text">暂无回复。</div>
 
-          <div id="aflodit-pet-meta" class="pet-meta">emotion: neutral | motion: idle</div>
+          <div id="aflodit-pet-meta" class="pet-meta hidden"></div>
 
           <div id="aflodit-pet-chat-row" class="pet-chat-row hidden">
             <input id="aflodit-pet-chat-input" class="pet-chat-input" placeholder="马上开始对话吧" />
@@ -565,6 +565,7 @@
     const root = document.createElement("div");
     traceLayout("DOM root created", { root });
     root.id = "aflodit-pet-root";
+    root.dataset.afloditRoot = "true";
     root.style.visibility = "hidden";
     traceLayout("DOM root inline visibility hidden", traceStyleSnapshot(root));
     root.innerHTML = renderTemplate();

@@ -15,7 +15,8 @@ const DEFAULT_SETTINGS = Object.freeze({
   saveMode: "local",
   debugEnabled: false,
   runtimeMode: "background_runtime_beta",
-  lastRealTestStatus: null
+  lastRealTestStatus: null,
+  lastActionFailure: null
 });
 
 function sanitizeBoolean(value, fallback) {
@@ -26,6 +27,17 @@ function sanitizeString(value, fallback, maxLength = 120) {
   if (typeof value !== "string") return fallback;
   const trimmed = value.trim();
   return trimmed ? trimmed.slice(0, maxLength) : fallback;
+}
+
+function sanitizeOptionalString(value, maxLength = 120) {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, maxLength);
+}
+
+function sanitizeNullableNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function sanitizeSaveMode(value, fallback) {
@@ -42,12 +54,48 @@ export function sanitizeLastRealTestStatus(value = null) {
   const model = sanitizeString(value.model, "", 128);
   const checkedAt = sanitizeString(value.checkedAt, "", 40);
   if (!providerId || typeof value.ok !== "boolean" || !checkedAt) return null;
-  return {
+  const status = {
     providerId,
     model,
     ok: value.ok,
     errorCode: value.ok ? "" : sanitizeString(value.errorCode, "UNKNOWN", 64),
     checkedAt
+  };
+
+  if (!value.ok && value.providerError && typeof value.providerError === "object" && !Array.isArray(value.providerError)) {
+    status.providerError = {
+      providerId: sanitizeOptionalString(value.providerError.providerId, 64),
+      model: sanitizeOptionalString(value.providerError.model, 128),
+      endpointHost: sanitizeOptionalString(value.providerError.endpointHost, 160),
+      httpStatus: sanitizeNullableNumber(value.providerError.httpStatus),
+      errorCode: sanitizeOptionalString(value.providerError.errorCode, 80),
+      providerErrorCode: sanitizeOptionalString(value.providerError.providerErrorCode, 120),
+      providerErrorMessage: sanitizeOptionalString(value.providerError.providerErrorMessage, 500),
+      rawErrorBody: sanitizeOptionalString(value.providerError.rawErrorBody, 1200)
+    };
+  }
+
+  return status;
+}
+
+export function sanitizeLastActionFailure(value = null) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const action = sanitizeOptionalString(value.action, 32);
+  const providerId = sanitizeOptionalString(value.providerId, 64);
+  const model = sanitizeOptionalString(value.model, 128);
+  const failedAt = sanitizeOptionalString(value.failedAt, 40);
+  if (!action || !providerId || !failedAt) return null;
+  return {
+    action,
+    providerId,
+    model,
+    timeoutMs: sanitizeNullableNumber(value.timeoutMs),
+    errorType: sanitizeOptionalString(value.errorType, 40),
+    errorCode: sanitizeOptionalString(value.errorCode, 80),
+    httpStatus: sanitizeNullableNumber(value.httpStatus),
+    providerErrorCode: sanitizeOptionalString(value.providerErrorCode, 120),
+    providerErrorMessage: sanitizeOptionalString(value.providerErrorMessage, 500),
+    failedAt
   };
 }
 
@@ -65,7 +113,8 @@ export function sanitizePublicSettings(raw = {}, base = DEFAULT_SETTINGS) {
     saveMode: sanitizeSaveMode(raw.saveMode, base.saveMode),
     debugEnabled: sanitizeBoolean(raw.debugEnabled, base.debugEnabled),
     runtimeMode,
-    lastRealTestStatus: sanitizeLastRealTestStatus(raw.lastRealTestStatus ?? base.lastRealTestStatus)
+    lastRealTestStatus: sanitizeLastRealTestStatus(raw.lastRealTestStatus ?? base.lastRealTestStatus),
+    lastActionFailure: sanitizeLastActionFailure(raw.lastActionFailure ?? base.lastActionFailure)
   };
 }
 
@@ -128,7 +177,8 @@ export function createSettingsStore(chromeApi) {
         runtimeMode: input.runtimeMode ?? (input.backgroundRuntimePreviewEnabled === true || input.backgroundChatPreviewEnabled === true
           ? "background_runtime_beta"
           : current.runtimeMode),
-        lastRealTestStatus: current.lastRealTestStatus
+        lastRealTestStatus: current.lastRealTestStatus,
+        lastActionFailure: current.lastActionFailure
       }, current);
 
       await setToStorage(next);
@@ -143,6 +193,16 @@ export function createSettingsStore(chromeApi) {
       }, current);
       await setToStorage(next);
       return { ...next.lastRealTestStatus };
+    },
+
+    async saveLastActionFailure(failure = null) {
+      const current = await this.getPublicSettings();
+      const next = sanitizePublicSettings({
+        ...current,
+        lastActionFailure: sanitizeLastActionFailure(failure)
+      }, current);
+      await setToStorage(next);
+      return next.lastActionFailure ? { ...next.lastActionFailure } : null;
     }
   };
 }

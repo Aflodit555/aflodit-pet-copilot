@@ -15,7 +15,7 @@
         return "";
       }
 
-      if (config.needsSelection && !state.selectedText) return normalizeUserErrorMessage("NO_SELECTED_TEXT");
+      if (config.needsSelection && !state.selectedText) return config.empty;
       if (config.needsUserText && !userText.trim()) return config.empty;
       if (action === ACTION.SUMMARY && !Extractor.getPageTextSnippet()) return config.empty;
       return "";
@@ -26,8 +26,8 @@
       const selectedText = state.selectedText || Extractor.getSelectedText();
       const chat = action === ACTION.CHAT ? Extractor.parseChatInput(userText) : null;
       const finalUserText = chat ? chat.userText : userText;
-      const useSelection = chat ? chat.useSelection : action !== ACTION.CHAT;
-      const usePage = chat ? chat.usePage : config.sendsPageText;
+      const useSelection = chat ? chat.useSelection : config.scope === "selection";
+      const usePage = chat ? chat.usePage : config.scope === "page";
       const hasContext = useSelection || usePage;
 
       return {

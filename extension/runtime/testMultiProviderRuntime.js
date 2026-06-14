@@ -182,6 +182,141 @@ await check("Real Test supports all providers with mocked fetch", async () => {
   }
 });
 
+await check("DashScope user-entered model ID is sent unchanged and provider errors reach diagnostics safely", async () => {
+  const previousFetch = globalThis.fetch;
+  const selectedModel = "qwen3.7-plus";
+  let requestBody = null;
+  try {
+    globalThis.fetch = async (url, options) => {
+      assert.equal(url, PROVIDERS.dashscope.url);
+      requestBody = JSON.parse(options.body);
+      assert.equal(options.headers.Authorization, `Bearer ${PROVIDERS.dashscope.key}`);
+      return {
+        ok: false,
+        status: 400,
+        text: async () => JSON.stringify({
+          error: {
+            code: "InvalidParameter",
+            message: `model ${selectedModel} rejected, key ${PROVIDERS.dashscope.key}`
+          }
+        })
+      };
+    };
+
+    const runtime = createRuntime({ permissionGranted: true });
+    await runtime.handleMessage({
+      type: "settings:savePublic",
+      payload: { provider: "dashscope", model: selectedModel }
+    });
+    await saveProviderKey(runtime, "dashscope");
+
+    const response = await runtime.handleMessage({
+      type: "runtime:testProviderConnection",
+      payload: { providerId: "dashscope", model: selectedModel }
+    });
+    assert.equal(requestBody.model, selectedModel);
+    assert.equal(response.ok, false);
+    assert.equal(response.errorCode, "PROVIDER_BAD_REQUEST");
+    assert.equal(response.lastRealTestStatus.model, selectedModel);
+    assert.equal(response.lastRealTestStatus.providerError.endpointHost, "dashscope.aliyuncs.com");
+    assert.equal(response.lastRealTestStatus.providerError.httpStatus, 400);
+    assert.equal(response.lastRealTestStatus.providerError.providerErrorCode, "InvalidParameter");
+    assert.equal(response.lastRealTestStatus.providerError.rawErrorBody.includes(PROVIDERS.dashscope.key), false);
+
+    const diagnostics = await runtime.handleMessage({ type: "runtime:getDiagnostics" });
+    assert.equal(diagnostics.diagnostics.lastRealTestStatus.providerError.httpStatus, 400);
+    assert.equal(diagnostics.diagnostics.lastRealTestStatus.providerError.rawErrorBody.includes(PROVIDERS.dashscope.key), false);
+    assertNoSecretLeak(response);
+    assertNoSecretLeak(diagnostics);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+await check("DashScope qwen3 action disables thinking at request top level only for qwen3 series", async () => {
+  const previousFetch = globalThis.fetch;
+  try {
+    const bodies = [];
+    globalThis.fetch = async (url, options) => {
+      assert.equal(url, PROVIDERS.dashscope.url);
+      bodies.push(JSON.parse(options.body));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ choices: [{ message: { content: "ok" } }] })
+      };
+    };
+
+    const runtime = createRuntime({ permissionGranted: true });
+    await saveProviderKey(runtime, "dashscope");
+    await runtime.handleMessage({
+      type: "runtime:action",
+      payload: {
+        providerId: "dashscope",
+        model: "qwen3.6-plus",
+        action: "translate",
+        userText: "",
+        selectionText: "hello"
+      }
+    });
+    await runtime.handleMessage({
+      type: "runtime:action",
+      payload: {
+        providerId: "dashscope",
+        model: "qwen-plus",
+        action: "translate",
+        userText: "",
+        selectionText: "hello"
+      }
+    });
+
+    assert.equal(bodies[0].model, "qwen3.6-plus");
+    assert.equal(bodies[0].enable_thinking, false);
+    assert.equal(Object.hasOwn(bodies[1], "enable_thinking"), false);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+await check("action timeout records action diagnostics separately from real test status", async () => {
+  const previousFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => {
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      throw error;
+    };
+
+    const runtime = createRuntime({ permissionGranted: true });
+    await saveProviderKey(runtime, "dashscope");
+    const response = await runtime.handleMessage({
+      type: "runtime:action",
+      payload: {
+        providerId: "dashscope",
+        model: "qwen3.6-plus",
+        action: "translate",
+        userText: "",
+        selectionText: "hello"
+      }
+    });
+    assert.equal(response.ok, false);
+    assert.equal(response.errorCode, "TIMEOUT");
+    assert.equal(response.lastActionFailure.action, "translate");
+    assert.equal(response.lastActionFailure.timeoutMs, 45000);
+    assert.equal(response.lastActionFailure.errorType, "timeout");
+
+    const diagnostics = await runtime.handleMessage({ type: "runtime:getDiagnostics" });
+    assert.equal(diagnostics.diagnostics.lastActionFailure.action, "translate");
+    assert.equal(diagnostics.diagnostics.lastActionFailure.timeoutMs, 45000);
+    assert.equal(diagnostics.diagnostics.lastActionFailure.errorType, "timeout");
+    assert.equal(diagnostics.diagnostics.lastRealTestStatus, null);
+    assertNoSecretLeak(response);
+    assertNoSecretLeak(diagnostics);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
 await check("runtime action supports all providers with mocked fetch", async () => {
   const previousFetch = globalThis.fetch;
   try {
@@ -380,4 +515,14 @@ await check("content null rect helper prevents unsafe getBoundingClientRect patt
   assert.match(coreSource, /function safeGetRect\(element\)/);
   assert.match(appSource, /expandedRectContains\(safeGetRect\(element\), clientX, clientY, padding\)/);
   assert.doesNotMatch(appSource, /element\.getBoundingClientRect\(\), clientX, clientY, padding/);
+});
+
+await check("content selection extraction ignores AFlodit root selections", async () => {
+  const domSource = readFileSync(new URL("../content-src/02-dom.js", import.meta.url), "utf8");
+  const extractorSource = readFileSync(new URL("../content-src/03-extractor.js", import.meta.url), "utf8");
+  assert.match(domSource, /root\.dataset\.afloditRoot = "true"/);
+  assert.match(extractorSource, /isInsideAfloditRoot\(node\)/);
+  assert.match(extractorSource, /selection\.anchorNode/);
+  assert.match(extractorSource, /selection\.focusNode/);
+  assert.match(extractorSource, /#aflodit-pet-root, \[data-aflodit-root='true'\]/);
 });

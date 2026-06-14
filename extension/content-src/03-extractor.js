@@ -22,8 +22,17 @@
       };
     },
 
+    isInsideAfloditRoot(node) {
+      if (!node) return false;
+      const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean(element?.closest?.("#aflodit-pet-root, [data-aflodit-root='true']"));
+    },
+
     getSelectedText() {
-      return window.getSelection()?.toString().trim() || "";
+      const selection = window.getSelection?.();
+      if (!selection || selection.rangeCount === 0) return "";
+      if (this.isInsideAfloditRoot(selection.anchorNode) || this.isInsideAfloditRoot(selection.focusNode)) return "";
+      return selection.toString().trim();
     },
 
     updateSelectedText() {

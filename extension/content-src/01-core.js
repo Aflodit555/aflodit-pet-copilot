@@ -97,6 +97,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   const ACTION_CONFIG = Object.freeze({
     [ACTION.CHAT]: Object.freeze({
       label: "Chat",
+      scope: "chat",
       refreshable: false,
       needsSelection: false,
       needsUserText: true,
@@ -108,6 +109,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     }),
     [ACTION.EXPLAIN]: Object.freeze({
       label: "Explain",
+      scope: "selection",
       refreshable: true,
       needsSelection: true,
       needsUserText: false,
@@ -116,10 +118,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       contextTitle: "选中文本",
       idle: "正在准备解释选中文本。",
       loading: "正在执行：Explain",
-      empty: "请先在网页中选中一段文本。解释和翻译都依赖 selected_text。"
+      empty: "请先选中需要解释的文本。"
     }),
     [ACTION.SUMMARY]: Object.freeze({
       label: "Summarize",
+      scope: "page",
       refreshable: true,
       needsSelection: false,
       needsUserText: false,
@@ -132,6 +135,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
     }),
     [ACTION.TRANSLATE]: Object.freeze({
       label: "Translate",
+      scope: "selection",
       refreshable: true,
       needsSelection: true,
       needsUserText: false,
@@ -140,7 +144,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
       contextTitle: "选中文本",
       idle: "正在准备翻译选中文本。",
       loading: "正在执行：Translate",
-      empty: "请先在网页中选中一段文本。解释和翻译都依赖 selected_text。"
+      empty: "请先选中需要翻译的文本。"
     })
   });
 
@@ -372,7 +376,11 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   }
 
   function setMeta(emotion, motion) {
-    dom.meta.textContent = `emotion: ${emotion} | motion: ${motion}`;
+    const diagnosticsText = `emotion: ${emotion} | motion: ${motion}`;
+    if (!dom.meta) return;
+    dom.meta.dataset.diagnostics = diagnosticsText;
+    dom.meta.textContent = "";
+    dom.meta.classList.add("hidden");
   }
 
   function setRunning(running) {

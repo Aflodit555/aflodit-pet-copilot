@@ -272,11 +272,22 @@ await check("core non-chat actions are available for runtime mode routing", asyn
   assert.deepEqual(runtimeActions, ["explain_selection", "translate", "summarize_page"]);
 });
 
-await check("content source labels cover local and background success/failure", async () => {
+await check("content source hides runtime source labels from the main response card", async () => {
   const appSource = readFileSync(new URL("../content-src/07-app.js", import.meta.url), "utf8");
-  assert.match(appSource, /Source: Local Backend\./);
-  assert.match(appSource, /Source: Local Backend\. Local backend request failed\./);
-  assert.match(appSource, /Source: Background Runtime\. Background Runtime Beta is active\./);
-  assert.match(appSource, /Source: Background Runtime\. Background Runtime failed\./);
+  assert.doesNotMatch(appSource, /Source: Local Backend\./);
+  assert.doesNotMatch(appSource, /Source: Local Backend\. Local backend request failed\./);
+  assert.doesNotMatch(appSource, /Source: Background Runtime\. Background Runtime Beta is active\./);
+  assert.doesNotMatch(appSource, /Source: Background Runtime\. Background Runtime failed\./);
+  assert.doesNotMatch(appSource, /dom\.mode\.textContent = "Background Runtime"/);
   assert.doesNotMatch(appSource, /Source: Background Runtime\. Main AI actions still use the local backend\./);
+});
+
+await check("content payload routing uses explicit action scope", async () => {
+  const coreSource = readFileSync(new URL("../content-src/01-core.js", import.meta.url), "utf8");
+  const actionSource = readFileSync(new URL("../content-src/06-actions.js", import.meta.url), "utf8");
+  assert.match(coreSource, /scope: "page"/);
+  assert.match(coreSource, /scope: "selection"/);
+  assert.match(actionSource, /config\.scope === "selection"/);
+  assert.match(actionSource, /config\.scope === "page"/);
+  assert.doesNotMatch(actionSource, /action !== ACTION\.CHAT/);
 });
