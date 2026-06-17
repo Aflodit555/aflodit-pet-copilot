@@ -72,6 +72,11 @@
                 </select>
               </label>
               <div id="aflodit-pet-runtime-provider-hint" class="pet-settings-message pet-runtime-compact-note">&#20351;&#29992;&#24403;&#21069;&#26381;&#21153;&#21830;&#30340; API Key&#12290;</div>
+              <label id="aflodit-pet-runtime-custom-base-url-field" class="pet-settings-field hidden">
+                <span>Custom Base URL</span>
+                <input id="aflodit-pet-runtime-custom-base-url" type="text" autocomplete="off" placeholder="https://example.com/v1" />
+              </label>
+              <div id="aflodit-pet-runtime-custom-base-url-hint" class="pet-settings-message pet-runtime-compact-note hidden">&#20165;&#25903;&#25345; HTTPS OpenAI-compatible /chat/completions&#12290;&#19981;&#25903;&#25345; localhost / LAN / &#33258;&#23450;&#20041; Headers&#12290;</div>
               <label class="pet-settings-field">
                 <span>&#27169;&#22411; ID</span>
                 <input id="aflodit-pet-runtime-model" type="text" autocomplete="off" />
@@ -627,6 +632,9 @@
       runtimeSummaryBeta: root.querySelector("#aflodit-pet-runtime-summary-beta"),
       runtimeProvider: root.querySelector("#aflodit-pet-runtime-provider"),
       runtimeProviderHint: root.querySelector("#aflodit-pet-runtime-provider-hint"),
+      runtimeCustomBaseUrlField: root.querySelector("#aflodit-pet-runtime-custom-base-url-field"),
+      runtimeCustomBaseUrl: root.querySelector("#aflodit-pet-runtime-custom-base-url"),
+      runtimeCustomBaseUrlHint: root.querySelector("#aflodit-pet-runtime-custom-base-url-hint"),
       runtimeModel: root.querySelector("#aflodit-pet-runtime-model"),
       runtimeModelHint: root.querySelector("#aflodit-pet-runtime-model-hint"),
       runtimeProviderSelected: root.querySelector("#aflodit-pet-runtime-provider-selected"),

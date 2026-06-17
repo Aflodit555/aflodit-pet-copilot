@@ -1,4 +1,4 @@
-import { hasProvider } from "./providerRegistry.js";
+import { CUSTOM_OPENAI_COMPATIBLE_PROVIDER_ID, hasProvider, normalizeCustomProviderConfig } from "./providerRegistry.js";
 
 const FORBIDDEN_PUBLIC_KEYS = Object.freeze([
   "apikey",
@@ -26,7 +26,7 @@ function forbiddenPublicKeyIn(value = {}) {
 }
 
 export function validatePublicSettings(settings = {}) {
-  const allowedKeys = new Set(["provider", "model", "saveMode", "debugEnabled", "runtimeMode", "backgroundRuntimePreviewEnabled", "backgroundChatPreviewEnabled"]);
+  const allowedKeys = new Set(["provider", "model", "saveMode", "debugEnabled", "runtimeMode", "backgroundRuntimePreviewEnabled", "backgroundChatPreviewEnabled", "customProvider"]);
 
   if (settings.provider !== undefined && (typeof settings.provider !== "string" || !hasProvider(settings.provider))) {
     return {
@@ -58,6 +58,31 @@ export function validatePublicSettings(settings = {}) {
         }
       };
     }
+  }
+
+
+  if (settings.customProvider !== undefined && settings.customProvider !== null) {
+    if (typeof settings.customProvider !== "object" || Array.isArray(settings.customProvider)) {
+      return {
+        ok: false,
+        error: {
+          code: "CUSTOM_PROVIDER_INVALID",
+          message: "Custom provider settings must be an object."
+        }
+      };
+    }
+    const customGuard = normalizeCustomProviderConfig(settings.customProvider);
+    if (!customGuard.ok) return customGuard;
+  }
+
+  if (settings.provider === CUSTOM_OPENAI_COMPATIBLE_PROVIDER_ID && settings.customProvider === null) {
+    return {
+      ok: false,
+      error: {
+        code: "CUSTOM_PROVIDER_INVALID",
+        message: "Custom OpenAI-compatible provider requires a valid HTTPS Base URL."
+      }
+    };
   }
 
   if (settings.model !== undefined) {

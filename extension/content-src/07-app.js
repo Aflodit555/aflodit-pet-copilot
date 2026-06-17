@@ -710,15 +710,19 @@
     },
 
     async savePublicSettings(payload = {}) {
+      const settingsPayload = {
+        provider: payload.provider,
+        model: payload.model,
+        saveMode: payload.saveMode,
+        debugEnabled: payload.debugEnabled,
+        runtimeMode: payload.runtimeMode
+      };
+      if (payload.customProvider !== undefined) {
+        settingsPayload.customProvider = payload.customProvider;
+      }
       return this.request({
         type: "settings:savePublic",
-        payload: {
-          provider: payload.provider,
-          model: payload.model,
-          saveMode: payload.saveMode,
-          debugEnabled: payload.debugEnabled,
-          runtimeMode: payload.runtimeMode
-        }
+        payload: settingsPayload
       }, 5000);
     },
 
@@ -1072,6 +1076,11 @@
         MESSAGE_PAYLOAD_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_FORBIDDEN: "Runtime settings rejected unsafe fields.",
         SETTING_UNKNOWN: "Runtime settings rejected unsupported fields.",
+        CUSTOM_PROVIDER_INVALID: "Custom provider requires a valid HTTPS Base URL.",
+        CUSTOM_BASE_URL_INVALID: "Custom Base URL is invalid.",
+        CUSTOM_BASE_URL_HTTPS_REQUIRED: "Custom Base URL must use HTTPS.",
+        CUSTOM_BASE_URL_QUERY_FORBIDDEN: "Custom Base URL cannot include query string or hash.",
+        CUSTOM_BASE_URL_PRIVATE_NETWORK_FORBIDDEN: "Custom Base URL cannot point to localhost or a private network in this release.",
         PROVIDER_NOT_ALLOWED: "Provider is not available in AI Settings.",
         PERMISSION_NOT_CONFIGURED: "Provider permission is not configured for this release.",
         PERMISSION_DENIED: "Provider permission was not granted. Real provider requests are still disabled.",
@@ -1109,6 +1118,8 @@
           hasRequiredHostPermission: Boolean(provider.hasRequiredHostPermission),
           enabled: Boolean(provider.enabled),
           requestEnabled: Boolean(provider.requestEnabled),
+          customEndpoint: provider.customEndpoint || false,
+          customConfigured: Boolean(provider.customConfigured),
           hasApiKey: Boolean(provider.hasApiKey),
           apiKeyPreview: String(provider.apiKeyPreview || "").trim()
         }))
@@ -1121,12 +1132,32 @@
       return state.runtimeProviders.find((provider) => provider.id === providerId) || state.runtimeProviders[0];
     },
 
+    isCustomProvider(providerOrId) {
+      const id = typeof providerOrId === "string" ? providerOrId : providerOrId?.id;
+      return id === "custom_openai_compatible";
+    },
+
+    updateCustomProviderVisibility(provider = this.providerById(dom.runtimeProvider?.value || state.runtimePublicSettings.provider)) {
+      const isCustom = this.isCustomProvider(provider);
+      if (dom.runtimeCustomBaseUrlField) dom.runtimeCustomBaseUrlField.classList.toggle("hidden", !isCustom);
+      if (dom.runtimeCustomBaseUrlHint) dom.runtimeCustomBaseUrlHint.classList.toggle("hidden", !isCustom);
+    },
+
+    customProviderConfigFromForm(providerId = dom.runtimeProvider?.value || "") {
+      if (!this.isCustomProvider(providerId)) return undefined;
+      return {
+        name: "Custom OpenAI-compatible",
+        baseURL: String(dom.runtimeCustomBaseUrl?.value || "").trim()
+      };
+    },
+
     providerHasHostPermission(provider) {
       return Boolean(provider?.id !== "mock" && provider?.protocol === "openai-compatible" && provider?.hasRequiredHostPermission);
     },
 
     providerOptionLabel(provider = {}) {
       if (provider.id === "dashscope") return `${provider.displayName} (Recommended)`;
+      if (provider.id === "custom_openai_compatible") return `${provider.displayName} (Advanced)`;
       if (provider.id === "mock") return `${provider.displayName} (Developer)`;
       return `${provider.displayName} (Experimental)`;
     },
@@ -1156,13 +1187,20 @@
       if (dom.runtimeProviderProtocol) dom.runtimeProviderProtocol.textContent = provider.protocol || "unknown";
       if (dom.runtimeProviderDefaultModel) dom.runtimeProviderDefaultModel.textContent = provider.defaultModel || "";
       if (dom.runtimeProviderHint) {
-        dom.runtimeProviderHint.textContent = provider.id === "dashscope"
-          ? "\u4f7f\u7528\u963f\u91cc\u4e91\u767e\u70bc API Key\u3002\u63a8\u8350\u4ece qwen-plus \u5f00\u59cb\u3002"
-          : "\u4f7f\u7528\u5f53\u524d\u670d\u52a1\u5546\u7684 API Key\u3002";
+        if (provider.id === "dashscope") {
+          dom.runtimeProviderHint.textContent = "\u4f7f\u7528\u963f\u91cc\u4e91\u767e\u70bc API Key\u3002\u63a8\u8350\u4ece qwen-plus \u5f00\u59cb\u3002";
+        } else if (this.isCustomProvider(provider)) {
+          dom.runtimeProviderHint.textContent = "\u9ad8\u7ea7\u5165\u53e3\uff1a\u586b\u5199 HTTPS Base URL\u3001Model ID \u548c Runtime Key\u3002";
+        } else {
+          dom.runtimeProviderHint.textContent = "\u4f7f\u7528\u5f53\u524d\u670d\u52a1\u5546\u7684 API Key\u3002";
+        }
       }
       if (dom.runtimeModelHint) {
-        dom.runtimeModelHint.textContent = "\u6a21\u578b ID \u4f1a\u539f\u6837\u53d1\u9001\u7ed9\u5f53\u524d\u670d\u52a1\u5546\u3002";
+        dom.runtimeModelHint.textContent = this.isCustomProvider(provider)
+          ? "Model ID \u4f1a\u539f\u6837\u53d1\u9001\u7ed9\u81ea\u5b9a\u4e49\u670d\u52a1\u5546\u3002"
+          : "\u6a21\u578b ID \u4f1a\u539f\u6837\u53d1\u9001\u7ed9\u5f53\u524d\u670d\u52a1\u5546\u3002";
       }
+      this.updateCustomProviderVisibility(provider);
       if (dom.runtimeProviderPermissionStatus) dom.runtimeProviderPermissionStatus.textContent = "unknown";
       this.updateRuntimeKeyPlaceholder(provider);
       this.updatePermissionRequestButton(provider.id);
@@ -1387,6 +1425,7 @@
         saveMode: settings.saveMode === "session" ? "session" : "local",
         debugEnabled: Boolean(settings.debugEnabled),
         runtimeMode: settings.runtimeMode === "background_runtime_beta" ? "background_runtime_beta" : "local_backend",
+        customProvider: settings.customProvider || null,
         hasApiKey: Boolean(settings.hasApiKey),
         apiKeyPreview: settings.apiKeyPreview || "",
         lastRealTestStatus: settings.lastRealTestStatus || null,
@@ -1398,6 +1437,9 @@
 
       this.renderProviderOptions(provider);
       dom.runtimeModel.value = state.runtimePublicSettings.model;
+      if (dom.runtimeCustomBaseUrl) {
+        dom.runtimeCustomBaseUrl.value = state.runtimePublicSettings.customProvider?.baseURL || "";
+      }
       dom.runtimeApiKey.value = "";
       this.updateRuntimeKeyPlaceholder(this.providerById(provider));
       dom.runtimeSaveMode.value = state.runtimePublicSettings.saveMode;
@@ -1410,13 +1452,15 @@
     readForm() {
       const providerId = dom.runtimeProvider.value || "mock";
       const provider = this.providerById(providerId);
-      const model = String(dom.runtimeModel.value || "").trim() || provider?.defaultModel || "mock-model";
+      const typedModel = String(dom.runtimeModel.value || "").trim();
+      const model = this.isCustomProvider(provider) ? typedModel : (typedModel || provider?.defaultModel || "mock-model");
       return {
         provider: providerId,
         model,
         saveMode: dom.runtimeSaveMode.value === "session" ? "session" : "local",
         debugEnabled: Boolean(dom.runtimeDebug.checked),
-        runtimeMode: this.isDeveloperMode() ? this.readRuntimeMode() : "background_runtime_beta"
+        runtimeMode: this.isDeveloperMode() ? this.readRuntimeMode() : "background_runtime_beta",
+        customProvider: this.customProviderConfigFromForm(providerId)
       };
     },
 
@@ -1491,6 +1535,10 @@
         PROVIDER_ERROR: genericProviderFailure,
         UNKNOWN_PROVIDER: "Provider is not available in AI Settings.",
         PROVIDER_DISABLED: "Provider is disabled.",
+        CUSTOM_PROVIDER_INVALID: "Custom provider requires a valid HTTPS Base URL.",
+        CUSTOM_BASE_URL_INVALID: "Custom Base URL is invalid.",
+        CUSTOM_BASE_URL_HTTPS_REQUIRED: "Custom Base URL must use HTTPS.",
+        CUSTOM_BASE_URL_PRIVATE_NETWORK_FORBIDDEN: "Custom Base URL cannot point to localhost or a private network in this release.",
         REAL_TEST_NOT_CONFIGURED: "Provider is experimental and may not be verified."
       };
       return messages[code] || response?.message || response?.error?.message || fallback;
@@ -1523,6 +1571,19 @@
           this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
           this.setMessage(RUNTIME_COPY.failedHelp);
           return;
+        }
+        if (this.isCustomProvider(provider)) {
+          const customBaseURL = String(form.customProvider?.baseURL || "").trim();
+          if (!customBaseURL || !/^https:\/\//i.test(customBaseURL)) {
+            this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+            this.setMessage("Custom Provider requires an HTTPS Base URL, such as https://example.com/v1.");
+            return;
+          }
+          if (!String(form.model || "").trim()) {
+            this.setConnectionStatus(RUNTIME_COPY.failed, RUNTIME_COPY.failedHelp);
+            this.setMessage("Custom Provider requires a Model ID.");
+            return;
+          }
         }
 
         const existingKey = this.providerHasSavedKey(provider);
@@ -1557,6 +1618,7 @@
           hydrated = keyResponse;
         }
         this.hydrate(hydrated);
+        const activeProvider = this.providerById(form.provider);
 
         this.setConnectionStatus(RUNTIME_COPY.connecting, RUNTIME_COPY.connecting);
         let permissionStatus = await BackgroundRuntimeClient.getProviderPermissionStatus({ providerId: form.provider });
@@ -1571,7 +1633,7 @@
           this.setMessage(RUNTIME_COPY.failedHelp);
           return;
         }
-        if (this.providerHasHostPermission(provider) && !permissionStatus.permissionGranted) {
+        if (this.providerHasHostPermission(activeProvider) && !permissionStatus.permissionGranted) {
           this.setConnectionStatus(RUNTIME_COPY.connecting, RUNTIME_COPY.connecting);
           const permissionResponse = await BackgroundRuntimeClient.requestProviderPermission({ providerId: form.provider });
           if (!permissionResponse.ok || permissionResponse.permissionGranted === false) {
@@ -1644,7 +1706,7 @@
           return;
         }
 
-        this.setStatusProviderModel(provider, testResponse.model || form.model);
+        this.setStatusProviderModel(activeProvider, testResponse.model || form.model);
         this.setConnectionStatus(RUNTIME_COPY.connected, RUNTIME_COPY.testPassed);
         this.setMessage("");
       } catch (error) {

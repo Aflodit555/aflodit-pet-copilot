@@ -189,6 +189,7 @@ async function providerFetch({ provider, apiKey, body, timeoutMs, logger, logMod
         Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify(withProviderRequestFields(provider, body)),
+      redirect: "error",
       signal: controller.signal
     });
 
@@ -280,8 +281,8 @@ export async function testOpenAiCompatibleConnection({
     action: "chat",
     body: {
       model: selectedModel,
-      messages: [{ role: "user", content: "ping" }],
-      max_tokens: 1,
+      messages: [{ role: "user", content: "Reply with OK." }],
+      max_tokens: 8,
       temperature: 0,
       stream: false
     }

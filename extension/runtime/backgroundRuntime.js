@@ -66,7 +66,7 @@ function isExactHostPermission(permission = "") {
 
 async function publicSettingsResponse(settings, secretStore) {
   const providerId = settings.provider;
-  const providers = await Promise.all(listPublicProviders().map(async (provider) => ({
+  const providers = await Promise.all(listPublicProviders(settings.customProvider).map(async (provider) => ({
     ...provider,
     hasApiKey: Boolean(await secretStore.hasSecret(settings.saveMode, provider.id)),
     apiKeyPreview: await secretStore.getMaskedPreview(settings.saveMode, provider.id)
@@ -79,6 +79,7 @@ async function publicSettingsResponse(settings, secretStore) {
       saveMode: settings.saveMode,
       debugEnabled: settings.debugEnabled,
       runtimeMode: settings.runtimeMode,
+      customProvider: settings.customProvider || null,
       lastRealTestStatus: settings.lastRealTestStatus || null,
       lastActionFailure: settings.lastActionFailure || null,
       hasApiKey: Boolean(await secretStore.hasSecret(settings.saveMode, providerId)),
@@ -167,7 +168,7 @@ function providerNotRuntimeCapable(provider) {
 function runtimeCapabilityMessage(provider) {
   if (!provider) return "Provider is not registered.";
   if (!provider.enabled) return "Provider is disabled.";
-  if (!isRealRuntimeProvider(provider)) return "Select DeepSeek, Alibaba Bailian / DashScope, OpenAI, or OpenRouter.";
+  if (!isRealRuntimeProvider(provider)) return "Select a configured OpenAI-compatible provider.";
   return `${provider.displayName} is selected.`;
 }
 
@@ -186,7 +187,8 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         if (!guard.ok) return guard;
 
         const providerId = parsed.payload.providerId.trim();
-        const provider = getProvider(providerId);
+        const settings = await settingsStore.getPublicSettings();
+        const provider = getProvider(providerId, settings.customProvider);
         if (!provider) {
           return {
             ok: false,
@@ -204,7 +206,6 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           };
         }
 
-        const settings = await settingsStore.getPublicSettings();
         const selectedModel = selectedModelFor(provider, parsed.payload.model, settings);
         const providerReady = !providerNotRuntimeCapable(provider);
         const permissionConfigured = providerReady && isExactHostPermission(provider.requiredHostPermission);
@@ -276,7 +277,7 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
 
       if (parsed.type === MESSAGE_TYPES.runtimeGetDiagnostics) {
         const settings = await settingsStore.getPublicSettings();
-        const provider = getProvider(settings.provider);
+        const provider = getProvider(settings.provider, settings.customProvider);
         const permissionConfigured = Boolean(provider) && isRealRuntimeProvider(provider) && isExactHostPermission(provider.requiredHostPermission);
         const permissionGranted = permissionConfigured
           ? await containsPermission(chromeApi, provider.requiredHostPermission)
@@ -315,7 +316,8 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         if (!guard.ok) return guard;
 
         const providerId = parsed.payload.providerId.trim();
-        const provider = getProvider(providerId);
+        const settings = await settingsStore.getPublicSettings();
+        const provider = getProvider(providerId, settings.customProvider);
         if (!provider) {
           return {
             ok: false,
@@ -351,7 +353,8 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         if (!guard.ok) return guard;
 
         const providerId = parsed.payload.providerId.trim();
-        const provider = getProvider(providerId);
+        const settings = await settingsStore.getPublicSettings();
+        const provider = getProvider(providerId, settings.customProvider);
         if (!provider) {
           return {
             ok: false,
@@ -401,7 +404,8 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         const userText = parsed.payload.userText.trim();
         const pageText = typeof parsed.payload.pageText === "string" ? parsed.payload.pageText.trim() : "";
         const selectionText = typeof parsed.payload.selectionText === "string" ? parsed.payload.selectionText.trim() : "";
-        const provider = getProvider(providerId);
+        const settings = await settingsStore.getPublicSettings();
+        const provider = getProvider(providerId, settings.customProvider);
         const failure = (errorCode, message, extra = {}) => ({
           ok: false,
           source: "Background Runtime",
@@ -432,7 +436,6 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           return failure("MISSING_PROVIDER_PERMISSION", `${provider.displayName} permission is missing. Grant provider permission before running background runtime actions.`);
         }
 
-        const settings = await settingsStore.getPublicSettings();
         const hasApiKey = await secretStore.hasSecret(settings.saveMode, provider.id);
         if (!hasApiKey) {
           return failure("MISSING_RUNTIME_KEY", `Runtime key is missing. Save a Runtime Key for ${provider.displayName} before running background runtime actions.`);
@@ -470,7 +473,8 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         const providerId = parsed.payload.providerId.trim();
         const model = typeof parsed.payload.model === "string" ? parsed.payload.model.trim() : "";
         const userText = parsed.payload.userText.trim();
-        const provider = getProvider(providerId);
+        const settings = await settingsStore.getPublicSettings();
+        const provider = getProvider(providerId, settings.customProvider);
         if (!provider) {
           return {
             ok: false,
@@ -520,7 +524,6 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           };
         }
 
-        const settings = await settingsStore.getPublicSettings();
         const hasApiKey = await secretStore.hasSecret(settings.saveMode, provider.id);
         if (!hasApiKey) {
           return {
@@ -561,7 +564,8 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         if (!guard.ok) return guard;
 
         const providerId = parsed.payload.providerId.trim();
-        const provider = getProvider(providerId);
+        const settings = await settingsStore.getPublicSettings();
+        const provider = getProvider(providerId, settings.customProvider);
         if (!provider) {
           const status = await settingsStore.saveLastRealTestStatus(safeRealTestStatus({
             providerId,
@@ -631,7 +635,6 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           };
         }
 
-        const settings = await settingsStore.getPublicSettings();
         const hasApiKey = await secretStore.hasSecret(settings.saveMode, provider.id);
         if (!hasApiKey) {
           return {
@@ -666,6 +669,49 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         };
       }
 
+      if (parsed.type === MESSAGE_TYPES.settingsGetPublic) {
+        const settings = await settingsStore.getPublicSettings();
+        return publicSettingsResponse(settings, secretStore);
+      }
+
+      if (parsed.type === MESSAGE_TYPES.settingsSavePublic) {
+        const saved = await settingsStore.savePublicSettings(parsed.payload || {});
+        if (!saved.ok) return saved;
+        return publicSettingsResponse(saved.settings, secretStore);
+      }
+
+      if (parsed.type === MESSAGE_TYPES.settingsSaveSecret) {
+        const guard = validateSecretPayload(parsed.payload || {});
+        if (!guard.ok) return guard;
+
+        const settings = await settingsStore.getPublicSettings();
+        const providerId = guard.providerId || settings.provider;
+        const provider = getProvider(providerId, settings.customProvider);
+        if (!provider) {
+          return {
+            ok: false,
+            error: {
+              code: "UNKNOWN_PROVIDER",
+              message: "Runtime key provider is not registered."
+            }
+          };
+        }
+
+        const saved = await secretStore.saveSecret(guard.secret, { saveMode: settings.saveMode, providerId: provider.id });
+        if (!saved.ok) return saved;
+
+        return publicSettingsResponse({ ...settings, provider: provider.id }, secretStore);
+      }
+
+      if (parsed.type === MESSAGE_TYPES.settingsClearKey) {
+        const settings = await settingsStore.getPublicSettings();
+        const result = await secretStore.clearSecret({ providerId: settings.provider });
+        return {
+          ...await publicSettingsResponse(settings, secretStore),
+          cleared: Boolean(result.cleared)
+        };
+      }
+
       const networkGuard = assertNoArbitraryNetworkAccess(parsed.payload);
       if (!networkGuard.ok) return networkGuard;
 
@@ -688,7 +734,8 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         const providerId = typeof parsed.payload.providerId === "string"
           ? parsed.payload.providerId.trim()
           : "";
-        const provider = getProvider(providerId);
+        const settings = await settingsStore.getPublicSettings();
+        const provider = getProvider(providerId, settings.customProvider);
         if (!provider) {
           return {
             ok: false,
@@ -710,7 +757,6 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
           };
         }
 
-        const settings = await settingsStore.getPublicSettings();
         const hasApiKey = await secretStore.hasSecret(settings.saveMode, provider.id);
         if (!hasApiKey) {
           return {
@@ -736,48 +782,6 @@ export function createBackgroundRuntime({ chromeApi, version = "0.8.0" } = {}) {
         };
       }
 
-      if (parsed.type === MESSAGE_TYPES.settingsGetPublic) {
-        const settings = await settingsStore.getPublicSettings();
-        return publicSettingsResponse(settings, secretStore);
-      }
-
-      if (parsed.type === MESSAGE_TYPES.settingsSavePublic) {
-        const saved = await settingsStore.savePublicSettings(parsed.payload || {});
-        if (!saved.ok) return saved;
-        return publicSettingsResponse(saved.settings, secretStore);
-      }
-
-      if (parsed.type === MESSAGE_TYPES.settingsSaveSecret) {
-        const guard = validateSecretPayload(parsed.payload || {});
-        if (!guard.ok) return guard;
-
-        const settings = await settingsStore.getPublicSettings();
-        const providerId = guard.providerId || settings.provider;
-        const provider = getProvider(providerId);
-        if (!provider) {
-          return {
-            ok: false,
-            error: {
-              code: "UNKNOWN_PROVIDER",
-              message: "Runtime key provider is not registered."
-            }
-          };
-        }
-
-        const saved = await secretStore.saveSecret(guard.secret, { saveMode: settings.saveMode, providerId: provider.id });
-        if (!saved.ok) return saved;
-
-        return publicSettingsResponse({ ...settings, provider: provider.id }, secretStore);
-      }
-
-      if (parsed.type === MESSAGE_TYPES.settingsClearKey) {
-        const settings = await settingsStore.getPublicSettings();
-        const result = await secretStore.clearSecret({ providerId: settings.provider });
-        return {
-          ...await publicSettingsResponse(settings, secretStore),
-          cleared: Boolean(result.cleared)
-        };
-      }
 
       return {
         ok: false,

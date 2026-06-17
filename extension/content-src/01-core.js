@@ -28,7 +28,7 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
   });
 
   const CONFIG = Object.freeze({
-    version: "0.8.0",
+    version: "0.8.1",
     backendUrl: "http://127.0.0.1:3001/api/pet",
     streamUrl: "http://127.0.0.1:3001/api/pet-stream",
     settingsUrl: "http://127.0.0.1:3001/api/settings",
@@ -261,6 +261,18 @@ const GLOBAL_KEY = "__AFLODIT_PET_COPILOT__";
         hasRequiredHostPermission: true,
         enabled: true,
         requestEnabled: false
+      },
+      {
+        id: "custom_openai_compatible",
+        displayName: "Custom OpenAI-compatible",
+        protocol: "openai-compatible",
+        defaultModel: "",
+        setupHint: "Advanced: enter an HTTPS OpenAI-compatible Base URL, Model ID, and Runtime Key.",
+        hasRequiredHostPermission: false,
+        enabled: true,
+        requestEnabled: false,
+        customEndpoint: "safe_openai_compatible",
+        customConfigured: false
       }
     ],
     runtimeSetupViewMode: "user",

@@ -11,7 +11,7 @@ AFlodit Pet Copilot is a Chromium browser extension with two runtime paths: the 
 
 ## Runtime Flows
 
-Recommended v0.8.0-beta user flow:
+Recommended v0.8.1-beta user flow:
 
 ```text
 web page / selected text / user input
@@ -60,11 +60,11 @@ Provider keys stay in the backend environment for this path.
 - `settings:saveSecret`
 - `settings:clearKey`
 
-The background runtime has a provider registry and allowlist for `Mock`, `OpenAI`, `DeepSeek`, `Qwen / DashScope`, and `OpenRouter`. Provider descriptors contain provider origins inside `extension/runtime/providerRegistry.js`. The release safety field `requestEnabled` remains `false`; real requests are still gated by runtime mode, provider allowlist, saved Runtime Key, exact optional host permission, and explicit user action.
+The background runtime has a provider registry for `Mock`, `OpenAI`, `DeepSeek`, `Alibaba Bailian / DashScope`, `OpenRouter`, and a restricted `Custom OpenAI-compatible` advanced entry. Preset provider descriptors contain provider origins inside `extension/runtime/providerRegistry.js`. Custom Provider accepts only a validated HTTPS Base URL and is normalized to `/chat/completions`; it rejects localhost, private network hosts, URL credentials, query strings, hashes, custom headers, custom request bodies, and custom endpoint paths. The release safety field `requestEnabled` remains `false`; real requests are still gated by runtime mode, provider registry, saved Runtime Key, exact optional host permission, and explicit user action.
 
-AI Settings / Model & Key can save public runtime settings (`provider`, `model`, `saveMode`, `debugEnabled`, `runtimeMode`) and provider-specific Runtime Keys. In user mode it exposes one Save & Connect action for the Background Runtime Beta setup path with Alibaba Bailian / DashScope `qwen-plus` as the recommended provider/model. That explicit user action saves settings, requests exact host permission when needed, checks readiness, and runs the lightweight provider test. Developer-only tools are gated behind the setup panel's Developer Tools toggle. Background Runtime Beta supports DeepSeek, Alibaba Bailian / DashScope, OpenAI, and OpenRouter through descriptor-defined OpenAI-compatible endpoints. It does not add broad host permissions and does not change Local Backend Dev availability.
+AI Settings / Model & Key can save public runtime settings (`provider`, `model`, `saveMode`, `debugEnabled`, `runtimeMode`, and restricted `customProvider` metadata) and provider-specific Runtime Keys. In user mode it exposes one Save & Connect action for the Background Runtime Beta setup path with Alibaba Bailian / DashScope `qwen-plus` as the recommended provider/model. That explicit user action saves settings, requests exact host permission when needed, checks readiness, and runs the lightweight provider test. Developer-only tools are gated behind the setup panel's Developer Tools toggle. Background Runtime Beta supports DeepSeek, Alibaba Bailian / DashScope, OpenAI, OpenRouter, and a configured Custom OpenAI-compatible HTTPS endpoint.
 
-The content script never receives full Runtime Keys and cannot pass provider URLs, headers, raw request bodies, API keys, endpoints, base URLs, or custom provider configuration to the background runtime.
+The content script never receives full Runtime Keys and cannot pass arbitrary provider URLs, headers, raw request bodies, API keys, tokens, custom endpoint paths, or custom request configuration to the background runtime. The only content-provided custom network field allowed by `settings:savePublic` is the restricted Custom Provider Base URL, which is normalized and validated by the background runtime before storage or permission requests.
 
 ## Fallbacks And Debug
 

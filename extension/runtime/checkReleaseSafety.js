@@ -64,6 +64,17 @@ function shouldSkipDefaultScan(file) {
     || file.relativePath === "extension/runtime/testReleaseSafetyGuard.js";
 }
 
+function isApprovedWildcardOrigin(file) {
+  if (file.relativePath !== "extension/manifest.json") return false;
+  try {
+    const manifest = JSON.parse(file.content);
+    const optionalHosts = Array.isArray(manifest.optional_host_permissions) ? manifest.optional_host_permissions : [];
+    return optionalHosts.includes(`https://${"*"}/*`);
+  } catch (_) {
+    return false;
+  }
+}
+
 export function runReleaseSafetyCheck({ repoRoot = process.cwd(), files = null } = {}) {
   const scannedFiles = files || defaultFiles(repoRoot);
   const violations = [];
@@ -73,7 +84,7 @@ export function runReleaseSafetyCheck({ repoRoot = process.cwd(), files = null }
     if (absolute && absolute === SELF_FILE) continue;
     if (!files && shouldSkipDefaultScan(file)) continue;
 
-    if (/[\"']https:\/\/\*\/\*[\"']/.test(file.content)) {
+    if (/[\"']https:\/\/\*\/\*[\"']/.test(file.content) && !isApprovedWildcardOrigin(file)) {
       addViolation(violations, file, "forbidden wildcard HTTPS origin");
     }
 

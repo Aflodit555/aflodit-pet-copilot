@@ -104,9 +104,10 @@ await check("no descriptor uses wildcard host", async () => {
   }
 });
 
-await check("manifest optional_host_permissions contains exact provider hosts only", async () => {
+await check("manifest optional_host_permissions contains provider hosts and custom wildcard", async () => {
   const manifest = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
-  assert.deepEqual(manifest.optional_host_permissions.sort(), Object.values(PROVIDERS).map((item) => item.permission).sort());
+  const expected = [...Object.values(PROVIDERS).map((item) => item.permission), `https://${"*"}/*`].sort();
+  assert.deepEqual(manifest.optional_host_permissions.sort(), expected);
 });
 
 await check("permission status works for all real providers", async () => {
@@ -171,8 +172,8 @@ await check("Real Test supports all providers with mocked fetch", async () => {
       assert.equal(response.model, expected.model);
       assert.equal(response.requestEnabled, false);
       assert.equal(fetchUrl, expected.url);
-      assert.deepEqual(requestBody.messages, [{ role: "user", content: "ping" }]);
-      assert.equal(requestBody.max_tokens, 1);
+      assert.deepEqual(requestBody.messages, [{ role: "user", content: "Reply with OK." }]);
+      assert.equal(requestBody.max_tokens, 8);
       assert.equal(requestBody.temperature, 0);
       assert.equal(requestBody.stream, false);
       assertNoSecretLeak(response);
@@ -500,7 +501,7 @@ await check("public provider descriptors expose permission availability but not 
   const runtime = createRuntime({ permissionGranted: true });
   const publicSettings = await runtime.handleMessage({ type: "settings:getPublic" });
   for (const provider of publicSettings.providers) {
-    if (provider.id === "mock") {
+    if (provider.id === "mock" || provider.id === "custom_openai_compatible") {
       assert.equal(provider.hasRequiredHostPermission, false);
     } else {
       assert.equal(provider.hasRequiredHostPermission, true);

@@ -8,9 +8,10 @@ This RFC preserves historical phase notes for the Background Runtime migration. 
 - Alibaba Bailian / DashScope with model ID `qwen-plus` is the recommended verified provider/model path.
 - Normal user setup uses one explicit Save & Connect action; separate permission/readiness/real-test controls are developer-only.
 - DeepSeek, OpenAI, and OpenRouter remain experimental until manually verified for the user's account, region, and model access.
+- Custom OpenAI-compatible is an advanced fallback for HTTPS `/chat/completions` providers. It allows only a validated Base URL, Model ID, and Runtime Key.
 - Local Backend Dev remains available for development and fallback testing.
-- Content scripts still cannot pass provider URLs, headers, raw request bodies, API keys, endpoints, base URLs, or custom provider configuration to the background runtime.
-- `requestEnabled` remains `false` as a release safety field; real requests are gated by runtime mode, provider allowlist, saved Runtime Key, exact optional host permission, and explicit user action.
+- Content scripts still cannot pass arbitrary provider URLs, headers, raw request bodies, API keys, endpoint paths, tokens, or custom request configuration to the background runtime.
+- `requestEnabled` remains `false` as a release safety field; real requests are gated by runtime mode, provider registry, saved Runtime Key, exact optional host permission, and explicit user action.
 
 ## 1. Goal
 
@@ -130,9 +131,9 @@ Cons:
 
 Security implications:
 
-- The manifest must never use `https://*/*`.
-- Origins must come from the provider allowlist descriptor.
-- The background runtime still must reject content-provided URL, headers, or raw request body fields.
+- Preset provider origins must remain exact.
+- The manifest may include `https://*/*` only as an optional host permission for Custom Provider. Runtime permission requests must still be exact origin requests such as `https://api.example.com/*`.
+- The background runtime still must reject content-provided arbitrary URL, headers, custom endpoint path, or raw request body fields.
 
 User experience impact:
 
@@ -160,8 +161,8 @@ Cons:
 
 Security implications:
 
-- Optional permissions still must be provider-origin specific.
-- The extension must not request arbitrary wildcard access.
+- Optional permission requests must be provider-origin specific.
+- The extension must not request arbitrary wildcard access at runtime; Custom Provider resolves to one exact origin.
 - Permission state must be part of `requestEnabled` evaluation.
 
 User experience impact:
@@ -204,20 +205,20 @@ Fit for v0.8.x:
 
 Across all options:
 
-- Do not use `https://*/*`.
-- Do not add arbitrary custom endpoint input.
+- Do not request `https://*/*` at runtime.
+- Do not add arbitrary custom endpoint path, headers, or raw body input.
 - Do not auto-install Native Messaging.
-- Provider origins must come from allowlist descriptors only.
+- Preset provider origins must come from registry descriptors; Custom Provider must be normalized to one exact HTTPS origin.
 
 ## 5. Recommended Strategy
 
 Recommended strategy for v0.8.x:
 
 ```text
-Keep provider allowlist plus explicit provider origin policy.
-Before real requests are implemented, evaluate optional_host_permissions first.
-If optional permissions make the UX or compatibility too complex, consider static exact host_permissions.
-Do not support custom endpoints in v0.8.x.
+Keep provider registry plus explicit provider origin policy.
+Use optional_host_permissions with exact runtime origin requests.
+Allow Custom OpenAI-compatible only as a restricted HTTPS `/chat/completions` advanced entry.
+Do not support arbitrary custom endpoints, custom headers, custom request bodies, localhost, or LAN targets in v0.8.x.
 ```
 
 Rationale:

@@ -269,8 +269,8 @@ await check("fetch URL and body are fixed minimal DeepSeek request", async () =>
     assert.equal(response.ok, true);
     assert.equal(response.model, "deepseek-chat");
     assert.equal(fetchUrl, DEEPSEEK_URL);
-    assert.deepEqual(requestBody.messages, [{ role: "user", content: "ping" }]);
-    assert.equal(requestBody.max_tokens, 1);
+    assert.deepEqual(requestBody.messages, [{ role: "user", content: "Reply with OK." }]);
+    assert.equal(requestBody.max_tokens, 8);
     assert.equal(requestBody.temperature, 0);
     assert.equal(requestBody.stream, false);
   } finally {

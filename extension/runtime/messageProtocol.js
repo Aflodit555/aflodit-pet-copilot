@@ -141,6 +141,7 @@ export function validateMessage(message) {
     || type === MESSAGE_TYPES.runtimeTestProviderConnection
     || type === MESSAGE_TYPES.runtimeGetProviderPermissionStatus
     || type === MESSAGE_TYPES.runtimeRequestProviderPermission
+    || type === MESSAGE_TYPES.settingsSavePublic
   ) {
     return { ok: true, type, payload: message.payload || {} };
   }

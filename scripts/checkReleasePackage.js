@@ -57,19 +57,54 @@ function isForbiddenPath(relativePath) {
 
 function scanContent(relativePath, content) {
   const violations = [];
-  if (/[\"']https:\/\/\*\/\*[\"']/.test(content)) {
-    violations.push("forbidden wildcard HTTPS origin");
+
+  // https://*/* is allowed only inside manifest.json, and only when it is
+  // checked as optional_host_permissions by checkManifestPermissions().
+  if (relativePath !== "manifest.json" && /[\"']https:\/\/\*\/\*[\"']/.test(content)) {
+    violations.push("forbidden wildcard HTTPS origin outside manifest");
   }
+
+  if (/[\"']http:\/\/\*\/\*[\"']/.test(content)) {
+    violations.push("forbidden wildcard HTTP origin");
+  }
+
   if (/\brequestEnabled\s*[:=]\s*true\b/.test(content)) {
     violations.push("requestEnabled must not be true");
   }
+
   if (/(sk|ak|pk|rk)-(live|prod|real|secret|proj)-[A-Za-z0-9_-]{12,}/i.test(content)) {
     violations.push("obvious API key pattern");
   }
+
   if (/(api[_-]?key|secret|token)\s*[:=]\s*[\"'][A-Za-z0-9_-]{24,}[\"']/i.test(content)) {
     violations.push("hardcoded secret-like assignment");
   }
+
   return violations.map((message) => `${relativePath}: ${message}`);
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function checkManifestPermissions(packageManifest) {
+  const violations = [];
+  const hostPermissions = asArray(packageManifest.host_permissions);
+  const optionalHostPermissions = asArray(packageManifest.optional_host_permissions);
+
+  for (const pattern of hostPermissions) {
+    if (pattern === "<all_urls>" || pattern === "https://*/*" || pattern === "http://*/*") {
+      violations.push(`manifest.json: forbidden broad host permission in host_permissions: ${pattern}`);
+    }
+  }
+
+  for (const pattern of optionalHostPermissions) {
+    if (pattern === "<all_urls>" || pattern === "http://*/*") {
+      violations.push(`manifest.json: forbidden broad optional host permission: ${pattern}`);
+    }
+  }
+
+  return violations;
 }
 
 const packageStat = statSync(packageRoot, { throwIfNoEntry: false });
@@ -87,11 +122,22 @@ for (const required of requiredFiles) {
   }
 }
 
+if (files.includes("manifest.json")) {
+  try {
+    const packageManifest = JSON.parse(readFileSync(path.join(packageRoot, "manifest.json"), "utf8"));
+    violations.push(...checkManifestPermissions(packageManifest));
+  } catch (error) {
+    violations.push(`manifest.json: failed to parse packaged manifest: ${error.message}`);
+  }
+}
+
 for (const file of files) {
   if (isForbiddenPath(file)) {
     violations.push(`${file}: forbidden release package path`);
   }
+
   if (!textExtensions.has(path.extname(file))) continue;
+
   const content = readFileSync(path.join(packageRoot, file), "utf8");
   violations.push(...scanContent(file, content));
 }

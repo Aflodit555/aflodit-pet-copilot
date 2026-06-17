@@ -1,7 +1,9 @@
 import {
+  CUSTOM_OPENAI_COMPATIBLE_PROVIDER_ID,
   getDefaultModelForProvider,
   hasProvider,
   normalizeProviderId,
+  sanitizeCustomProviderConfig,
   sanitizeModelForProvider
 } from "./providerRegistry.js";
 import { validatePublicSettings } from "./permissionGuard.js";
@@ -15,6 +17,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   saveMode: "local",
   debugEnabled: false,
   runtimeMode: "background_runtime_beta",
+  customProvider: null,
   lastRealTestStatus: null,
   lastActionFailure: null
 });
@@ -46,6 +49,12 @@ function sanitizeSaveMode(value, fallback) {
 
 function sanitizeRuntimeMode(value, fallback = "local_backend") {
   return value === "background_runtime_beta" || value === "local_backend" ? value : fallback;
+}
+
+function sanitizeCustomProvider(value, fallback = null) {
+  if (value === null) return null;
+  if (value === undefined) return sanitizeCustomProviderConfig(fallback);
+  return sanitizeCustomProviderConfig(value);
 }
 
 export function sanitizeLastRealTestStatus(value = null) {
@@ -107,12 +116,18 @@ export function sanitizePublicSettings(raw = {}, base = DEFAULT_SETTINGS) {
     ? sanitizeRuntimeMode(raw.runtimeMode, base.runtimeMode)
     : (legacyPreviewEnabled === true ? "background_runtime_beta" : sanitizeRuntimeMode(base.runtimeMode));
 
+  const customProvider = sanitizeCustomProvider(raw.customProvider, base.customProvider);
+  const model = safeProvider === CUSTOM_OPENAI_COMPATIBLE_PROVIDER_ID
+    ? sanitizeOptionalString(raw.model ?? base.model, 128)
+    : sanitizeModelForProvider(safeProvider, raw.model || base.model);
+
   return {
     provider: safeProvider,
-    model: sanitizeModelForProvider(safeProvider, raw.model || base.model),
+    model,
     saveMode: sanitizeSaveMode(raw.saveMode, base.saveMode),
     debugEnabled: sanitizeBoolean(raw.debugEnabled, base.debugEnabled),
     runtimeMode,
+    customProvider,
     lastRealTestStatus: sanitizeLastRealTestStatus(raw.lastRealTestStatus ?? base.lastRealTestStatus),
     lastActionFailure: sanitizeLastActionFailure(raw.lastActionFailure ?? base.lastActionFailure)
   };
@@ -165,10 +180,25 @@ export function createSettingsStore(chromeApi) {
       const incomingModel = input.model;
       const oldDefaultModel = getDefaultModelForProvider(current.provider);
       const shouldUseDefaultModel = providerChanged
+        && nextProvider !== CUSTOM_OPENAI_COMPATIBLE_PROVIDER_ID
         && (incomingModel === undefined || !String(incomingModel).trim() || current.model === oldDefaultModel);
       const nextModel = shouldUseDefaultModel
         ? getDefaultModelForProvider(nextProvider)
         : (incomingModel ?? current.model);
+      const nextCustomProvider = input.customProvider !== undefined
+        ? sanitizeCustomProvider(input.customProvider, null)
+        : current.customProvider;
+
+      if (nextProvider === CUSTOM_OPENAI_COMPATIBLE_PROVIDER_ID && !nextCustomProvider) {
+        return {
+          ok: false,
+          error: {
+            code: "CUSTOM_PROVIDER_INVALID",
+            message: "Custom OpenAI-compatible provider requires a valid HTTPS Base URL."
+          }
+        };
+      }
+
       const next = sanitizePublicSettings({
         provider: nextProvider,
         model: nextModel,
@@ -177,6 +207,7 @@ export function createSettingsStore(chromeApi) {
         runtimeMode: input.runtimeMode ?? (input.backgroundRuntimePreviewEnabled === true || input.backgroundChatPreviewEnabled === true
           ? "background_runtime_beta"
           : current.runtimeMode),
+        customProvider: nextCustomProvider,
         lastRealTestStatus: current.lastRealTestStatus,
         lastActionFailure: current.lastActionFailure
       }, current);
